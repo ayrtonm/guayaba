@@ -2,6 +2,7 @@ use std::io;
 use crate::register::Register;
 use crate::r3000::R3000;
 use crate::memory::Memory;
+use crate::memory::Write;
 use crate::cd::CD;
 
 pub struct Interpreter {
@@ -9,6 +10,7 @@ pub struct Interpreter {
   memory: Memory,
   cd: Option<CD>,
   next_pc: Option<Register>,
+  delayed_write: Option<Write>,
 }
 
 impl Interpreter {
@@ -21,26 +23,28 @@ impl Interpreter {
       memory,
       cd,
       next_pc: None,
+      delayed_write: None,
     })
   }
-  fn step(&mut self) {
-    //println!("attempting to read opcode at address {:#x}", self.r3000.pc().get_value());
-    let op = self.memory.read_word(self.r3000.pc().get_value());
-    //println!("decoding opcode {:#x}", op);
-    println!("decoding opcode {:#x} from address {:#x}", op, self.r3000.pc().get_value());
-    match &mut self.next_pc {
-      Some(next_pc) => {
-        *self.r3000.pc() = self.next_pc.take().unwrap();
-      },
-      None => {
-        *self.r3000.pc() += 4;
-      },
-    };
-    self.next_pc = self.decode_opcode(op);
+  fn flush_write_cache(&mut self) {
+    self.delayed_write.take().map(|write| self.memory.perform_write(write));
   }
-  fn decode_opcode(&mut self, op: u32) -> Option<Register> {
+  fn step(&mut self) {
+    //get opcode from memory at program counter
+    let op = self.memory.read_word(self.r3000.pc().get_value());
+    println!("decoding opcode {:#x} from address {:#x}", op, self.r3000.pc().get_value());
+    //the instruction following each jump is always executed before updating the pc
+    *self.r3000.pc() = self.next_pc
+                           .take()
+                           .map_or_else(|| self.r3000.pc() + 4,
+                                        |next_pc| next_pc);
+    self.next_pc = self.execute_opcode(op);
+  }
+  //if program counter should incremented normally, return None
+  //otherwise return Some(new program counter)
+  fn execute_opcode(&mut self, op: u32) -> Option<Register> {
     let a = ((op & 0xfb00_0000) >> 26) as u8;
-    match a {
+    let next_pc = match a {
       0x00 => {
         //SPECIAL
         let b = (op & 0x0000_003f) as u8;
@@ -335,10 +339,12 @@ impl Interpreter {
         //invalid opcode
         panic!("ran into invalid opcode")
       }
-    }
+    };
+    self.flush_write_cache();
+    next_pc
   }
   pub fn run(&mut self) {
-    let n = 50;
+    let n = 10;
     for i in 0..n {
       self.step();
     }
