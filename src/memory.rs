@@ -9,21 +9,6 @@ use crate::common::write_word_to_array;
 
 pub const KB: usize = 1024;
 
-//this represents a delayed write operation
-pub struct Write {
-  address: u32,
-  value: u32,
-}
-
-impl Write {
-  pub fn new(address: u32, value: u32) -> Self {
-    Write {
-      address,
-      value
-    }
-  }
-}
-
 pub struct Memory {
   main_ram: [u8; 2 * KB],
   expansion_1: [u8; 8 * KB],
@@ -154,9 +139,6 @@ impl Memory {
         panic!("tried to access an unmapped section of memory at {}", phys_addr)
       },
     }
-  }
-  pub fn perform_write(&mut self, operation: Write) {
-    self.write_word(operation.address, operation.value);
   }
 }
 

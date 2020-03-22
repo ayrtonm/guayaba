@@ -1,8 +1,9 @@
 use std::io;
 use crate::register::Register;
 use crate::r3000::R3000;
+use crate::r3000::Write;
+use crate::r3000::RegisterName;
 use crate::memory::Memory;
-use crate::memory::Write;
 use crate::cd::CD;
 
 pub struct Interpreter {
@@ -27,7 +28,7 @@ impl Interpreter {
     })
   }
   fn flush_write_cache(&mut self) {
-    self.delayed_write.take().map(|write| self.memory.perform_write(write));
+    self.delayed_write.take().map(|write| self.r3000.write_register(write));
   }
   fn step(&mut self) {
     //get opcode from memory at program counter
@@ -184,7 +185,7 @@ impl Interpreter {
         //JAL
         let imm = op & 0x03ff_ffff;
         let dest = (self.r3000.pc() & 0xf000_0000) + (imm * 4);
-        *self.r3000.ra() += 8;
+        self.delayed_write = Some(Write::new(RegisterName::ra, self.r3000.ra().get_value() + 8));
         println!("jumping to {:#x}", dest.get_value());
         Some(dest)
       },

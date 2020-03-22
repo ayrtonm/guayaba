@@ -1,5 +1,38 @@
 use crate::register::Register;
 
+#[derive(Debug)]
+pub enum RegisterName {
+  at,
+  vn(usize),
+  an(usize),
+  tn0(usize),
+  sn(usize),
+  tn1(usize),
+  kn(usize),
+  gp,
+  sp,
+  fp,
+  ra,
+  pc,
+  hi,
+  lo,
+}
+
+#[derive(Debug)]
+pub struct Write {
+  register_name: RegisterName,
+  value: Register,
+}
+
+impl Write {
+  pub fn new(register_name: RegisterName, value: u32) -> Self {
+    Write {
+      register_name,
+      value: Register::new(value),
+    }
+  }
+}
+
 #[derive(Debug,Default)]
 pub struct R3000 {
   at: Register,
@@ -42,6 +75,52 @@ impl R3000 {
   }
   pub fn reset(&mut self) {
     self.pc = Register::new(0xbfc0_0000);
+  }
+  pub fn write_register(&mut self, operation: Write) {
+    match operation.register_name {
+      RegisterName::at => {
+        self.at = operation.value;
+      },
+      RegisterName::vn(idx) => {
+        self.vn[idx] = operation.value;
+      },
+      RegisterName::an(idx) => {
+        self.an[idx] = operation.value;
+      },
+      RegisterName::tn0(idx) => {
+        self.tn0[idx] = operation.value;
+      },
+      RegisterName::sn(idx) => {
+        self.sn[idx] = operation.value;
+      },
+      RegisterName::tn1(idx) => {
+        self.tn1[idx] = operation.value;
+      },
+      RegisterName::kn(idx) => {
+        self.kn[idx] = operation.value;
+      },
+      RegisterName::gp => {
+        self.gp = operation.value;
+      },
+      RegisterName::sp => {
+        self.sp = operation.value;
+      },
+      RegisterName::fp => {
+        self.fp = operation.value;
+      },
+      RegisterName::ra => {
+        self.ra = operation.value;
+      },
+      RegisterName::pc => {
+        self.pc = operation.value;
+      },
+      RegisterName::hi => {
+        self.hi = operation.value;
+      },
+      RegisterName::lo => {
+        self.lo = operation.value;
+      },
+    }
   }
   pub fn pc(&mut self) -> &mut Register {
     &mut self.pc
