@@ -73,10 +73,7 @@ impl R3000 {
       hi, lo,
     }
   }
-  pub fn reset(&mut self) {
-    self.pc = Register::new(0xbfc0_0000);
-  }
-  pub fn write_registers(&mut self, operations: &Vec<Write>) {
+  pub fn flush_write_cache(&mut self, operations: &Vec<Write>) {
     for write in operations {
       self.write_register(write);
     }

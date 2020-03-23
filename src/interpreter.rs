@@ -27,9 +27,6 @@ impl Interpreter {
       delayed_writes: Vec::new(),
     })
   }
-  fn flush_write_cache(&mut self) {
-    self.r3000.write_registers(&self.delayed_writes);
-  }
   fn step(&mut self) {
     //get opcode from memory at program counter
     let op = self.memory.read_word(self.r3000.pc().get_value());
@@ -185,7 +182,10 @@ impl Interpreter {
         //JAL
         let imm = op & 0x03ff_ffff;
         let dest = (self.r3000.pc() & 0xf000_0000) + (imm * 4);
-        new_writes.push(Write::new(RegisterName::ra, self.r3000.ra().get_value() + 8));
+        *self.r3000.ra() += 8;
+        //if this were to be a delayed operation, i.e. a cpu register is set to
+        //a function of a location in memory, I should use the following line
+        //new_writes.push(Write::new(RegisterName::ra, self.r3000.ra().get_value() + 8));
         Some(dest)
       },
       0x04 => {
@@ -340,7 +340,7 @@ impl Interpreter {
         panic!("ran into invalid opcode")
       }
     };
-    self.flush_write_cache();
+    self.r3000.flush_write_cache(&self.delayed_writes);
     self.delayed_writes = new_writes;
     next_pc
   }
@@ -359,9 +359,10 @@ impl Interpreter {
 mod tests {
   use super::*;
 
+  //this is the entry point in case we want to test some dummy instructions
+  const BIOS: u32 = 0x1fc0_0000;
   #[test]
   fn dummy_bios() {
-    const BIOS: u32 = 0x1fc0_0000;
     let mut vm = Interpreter::new(&"/home/ayrton/dev/rps/scph1001.bin".to_string(), None).unwrap();
     vm.memory.write_word(BIOS, 0x0000_0002);
     let dest: u32 = 0x0bf0_0000;
