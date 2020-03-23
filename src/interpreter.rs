@@ -11,7 +11,7 @@ pub struct Interpreter {
   memory: Memory,
   cd: Option<CD>,
   next_pc: Option<Register>,
-  delayed_write: Option<Write>,
+  delayed_writes: Vec<Write>,
 }
 
 impl Interpreter {
@@ -24,11 +24,11 @@ impl Interpreter {
       memory,
       cd,
       next_pc: None,
-      delayed_write: None,
+      delayed_writes: Vec::new(),
     })
   }
   fn flush_write_cache(&mut self) {
-    self.delayed_write.take().map(|write| self.r3000.write_register(write));
+    self.r3000.write_registers(&self.delayed_writes);
   }
   fn step(&mut self) {
     //get opcode from memory at program counter
@@ -45,6 +45,7 @@ impl Interpreter {
   //otherwise return Some(new program counter)
   fn execute_opcode(&mut self, op: u32) -> Option<Register> {
     let a = ((op & 0xfb00_0000) >> 26) as u8;
+    let mut new_writes = Vec::new();
     let next_pc = match a {
       0x00 => {
         //SPECIAL
@@ -178,15 +179,13 @@ impl Interpreter {
         //J
         let imm = op & 0x03ff_ffff;
         let dest = (self.r3000.pc() & 0xf000_0000) + (imm * 4);
-        println!("jumping to {:#x}", dest.get_value());
         Some(dest)
       },
       0x03 => {
         //JAL
         let imm = op & 0x03ff_ffff;
         let dest = (self.r3000.pc() & 0xf000_0000) + (imm * 4);
-        self.delayed_write = Some(Write::new(RegisterName::ra, self.r3000.ra().get_value() + 8));
-        println!("jumping to {:#x}", dest.get_value());
+        new_writes.push(Write::new(RegisterName::ra, self.r3000.ra().get_value() + 8));
         Some(dest)
       },
       0x04 => {
@@ -342,6 +341,7 @@ impl Interpreter {
       }
     };
     self.flush_write_cache();
+    self.delayed_writes = new_writes;
     next_pc
   }
   pub fn run(&mut self) {

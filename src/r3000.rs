@@ -21,14 +21,14 @@ pub enum RegisterName {
 #[derive(Debug)]
 pub struct Write {
   register_name: RegisterName,
-  value: Register,
+  value: u32,
 }
 
 impl Write {
   pub fn new(register_name: RegisterName, value: u32) -> Self {
     Write {
       register_name,
-      value: Register::new(value),
+      value: value,
     }
   }
 }
@@ -76,49 +76,54 @@ impl R3000 {
   pub fn reset(&mut self) {
     self.pc = Register::new(0xbfc0_0000);
   }
-  pub fn write_register(&mut self, operation: Write) {
+  pub fn write_registers(&mut self, operations: &Vec<Write>) {
+    for write in operations {
+      self.write_register(write);
+    }
+  }
+  fn write_register(&mut self, operation: &Write) {
     match operation.register_name {
       RegisterName::at => {
-        self.at = operation.value;
+        self.at = Register::new(operation.value);
       },
       RegisterName::vn(idx) => {
-        self.vn[idx] = operation.value;
+        self.vn[idx] = Register::new(operation.value);
       },
       RegisterName::an(idx) => {
-        self.an[idx] = operation.value;
+        self.an[idx] = Register::new(operation.value);
       },
       RegisterName::tn0(idx) => {
-        self.tn0[idx] = operation.value;
+        self.tn0[idx] = Register::new(operation.value);
       },
       RegisterName::sn(idx) => {
-        self.sn[idx] = operation.value;
+        self.sn[idx] = Register::new(operation.value);
       },
       RegisterName::tn1(idx) => {
-        self.tn1[idx] = operation.value;
+        self.tn1[idx] = Register::new(operation.value);
       },
       RegisterName::kn(idx) => {
-        self.kn[idx] = operation.value;
+        self.kn[idx] = Register::new(operation.value);
       },
       RegisterName::gp => {
-        self.gp = operation.value;
+        self.gp = Register::new(operation.value);
       },
       RegisterName::sp => {
-        self.sp = operation.value;
+        self.sp = Register::new(operation.value);
       },
       RegisterName::fp => {
-        self.fp = operation.value;
+        self.fp = Register::new(operation.value);
       },
       RegisterName::ra => {
-        self.ra = operation.value;
+        self.ra = Register::new(operation.value);
       },
       RegisterName::pc => {
-        self.pc = operation.value;
+        self.pc = Register::new(operation.value);
       },
       RegisterName::hi => {
-        self.hi = operation.value;
+        self.hi = Register::new(operation.value);
       },
       RegisterName::lo => {
-        self.lo = operation.value;
+        self.lo = Register::new(operation.value);
       },
     }
   }
