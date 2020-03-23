@@ -34,8 +34,7 @@ impl Interpreter {
     //the instruction following each jump is always executed before updating the pc
     *self.r3000.pc() = self.next_pc
                            .take()
-                           .map_or_else(|| self.r3000.pc() + 4,
-                                        |next_pc| next_pc);
+                           .map_or_else(|| self.r3000.pc() + 4, |next_pc| next_pc);
     self.next_pc = self.execute_opcode(op);
   }
   //if program counter should incremented normally, return None
@@ -340,7 +339,9 @@ impl Interpreter {
         panic!("ran into invalid opcode")
       }
     };
+    //after executing an opcode, complete the loads from the previous opcode
     self.r3000.flush_write_cache(&self.delayed_writes);
+    //put the loads from the current opcode next in line
     self.delayed_writes = new_writes;
     next_pc
   }
