@@ -347,12 +347,10 @@ impl Interpreter {
   }
   pub fn run(&mut self) {
     let n = 10;
-    for i in 0..n {
+    for _ in 0..n {
       self.step();
     }
-    if self.cd.is_some() {
-      self.cd.as_ref().unwrap().preview(10);
-    }
+    self.cd.as_ref().map(|cd| cd.preview(10));
   }
 }
 
