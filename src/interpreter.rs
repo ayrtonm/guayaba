@@ -1,4 +1,9 @@
 use std::io;
+use crate::common::get_rs;
+use crate::common::get_rt;
+use crate::common::get_rd;
+use crate::common::get_imm16;
+use crate::common::get_imm26;
 use crate::register::Register;
 use crate::r3000::R3000;
 use crate::r3000::Write;
@@ -74,7 +79,7 @@ impl Interpreter {
           },
           0x08 => {
             //JR
-            let rs = Register::new((op & 0x03e0_0000) >> 21);
+            let rs = Register::new(get_rs(op));
             println!("jumping to {:#x}", rs.get_value());
             Some(rs)
           },
@@ -174,13 +179,13 @@ impl Interpreter {
       },
       0x02 => {
         //J
-        let imm = op & 0x03ff_ffff;
+        let imm = get_imm26(op);
         let dest = (self.r3000.pc() & 0xf000_0000) + (imm * 4);
         Some(dest)
       },
       0x03 => {
         //JAL
-        let imm = op & 0x03ff_ffff;
+        let imm = get_imm26(op);
         let dest = (self.r3000.pc() & 0xf000_0000) + (imm * 4);
         *self.r3000.ra() += 8;
         //if this were to be a delayed operation, i.e. a cpu register is set to
@@ -318,9 +323,9 @@ impl Interpreter {
       },
       0x38 => {
         //SWC0
-        let rs = ((op & 0x03e0_0000) >> 21) as u8;
-        let rt = ((op & 0x001f_0000) >> 16) as u8;
-        let imm = (op & 0x0000_ffff) as u16;
+        let rs = get_rs(op);
+        let rt = get_rt(op);
+        let imm = get_imm16(op);
         None
       },
       0x39 => {
