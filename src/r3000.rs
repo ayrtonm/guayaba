@@ -48,97 +48,104 @@ impl Write {
 #[derive(Debug,Default)]
 struct GeneralRegisters([Register; 31]);
 
+fn name_to_idx(name: General) -> u32 {
+  let ret = match name {
+    General::at => {
+      1
+    },
+    General::vn(n) => {
+      assert!(n < 2);
+      2 + n
+    },
+    General::an(n) => {
+      assert!(n < 4);
+      4 + n
+    },
+    General::tn0(n) => {
+      assert!(n < 8);
+      8 + n
+    },
+    General::sn(n) => {
+      assert!(n < 8);
+      16 + n
+    },
+    General::tn1(n) => {
+      assert!((n < 10) && (n > 7));
+      16 + n
+    },
+    General::kn(n) => {
+      assert!(n < 2);
+      26 + n
+    },
+    General::gp => {
+      28
+    },
+    General::sp => {
+      29
+    },
+    General::fp => {
+      30
+    },
+    General::ra => {
+      31
+    },
+  };
+  ret as u32
+}
+
+pub fn idx_to_name(idx: u32) -> General {
+  let idx = idx as usize;
+  match idx {
+    1  => {
+     General::at
+    },
+    2..=3 => {
+      General::vn(idx - 2)
+    },
+    4..=7 => {
+      General::an(idx - 4)
+    },
+    8..=15 => {
+      General::tn0(idx - 8)
+    },
+    16..=23 => {
+      General::sn(idx - 16)
+    },
+    24..=25 => {
+      General::tn1(idx - 24 + 8)
+    },
+    26..=27 => {
+      General::kn(idx - 26)
+    },
+    28 => {
+     General::gp
+    },
+    29 => {
+      General::sp
+    },
+    30 => {
+      General::fp
+    },
+    31 => {
+      General::ra
+    },
+    _ => {
+      panic!("tried to get name of invalid R{} register", idx);
+    }
+  }
+}
+
 //allow indexing the general purpose register array by name
 impl Index<General> for GeneralRegisters {
   type Output = Register;
 
-  fn index(&self, idx: General) -> &Self::Output {
-    match idx {
-      General::at => {
-        &(self.0)[0]
-      },
-      General::vn(n) => {
-        assert!(n < 2);
-        &(self.0)[1 + n]
-      },
-      General::an(n) => {
-        assert!(n < 4);
-        &(self.0)[3 + n]
-      },
-      General::tn0(n) => {
-        assert!(n < 8);
-        &(self.0)[7 + n]
-      },
-      General::sn(n) => {
-        assert!(n < 8);
-        &(self.0)[15 + n]
-      },
-      General::tn1(n) => {
-        assert!((n < 10) && (n > 7));
-        &(self.0)[15 + n]
-      },
-      General::kn(n) => {
-        assert!(n < 2);
-        &(self.0)[25 + n]
-      },
-      General::gp => {
-        &(self.0)[27]
-      },
-      General::sp => {
-        &(self.0)[28]
-      },
-      General::fp => {
-        &(self.0)[29]
-      },
-      General::ra => {
-        &(self.0)[30]
-      },
-    }
+  fn index(&self, name: General) -> &Self::Output {
+    &(self.0)[name_to_idx(name) as usize - 1]
   }
 }
 impl IndexMut<General> for GeneralRegisters {
-  fn index_mut(&mut self, idx: General) -> &mut Self::Output {
-    match idx {
-      General::at => {
-        &mut (self.0)[0]
-      },
-      General::vn(n) => {
-        assert!(n < 2);
-        &mut (self.0)[1 + n]
-      },
-      General::an(n) => {
-        assert!(n < 4);
-        &mut (self.0)[3 + n]
-      },
-      General::tn0(n) => {
-        assert!(n < 8);
-        &mut (self.0)[7 + n]
-      },
-      General::sn(n) => {
-        assert!(n < 8);
-        &mut (self.0)[15 + n]
-      },
-      General::tn1(n) => {
-        assert!((n < 10) && (n > 7));
-        &mut (self.0)[15 + n]
-      },
-      General::kn(n) => {
-        assert!(n < 2);
-        &mut (self.0)[25 + n]
-      },
-      General::gp => {
-        &mut (self.0)[27]
-      },
-      General::sp => {
-        &mut (self.0)[28]
-      },
-      General::fp => {
-        &mut (self.0)[29]
-      },
-      General::ra => {
-        &mut (self.0)[30]
-      },
-    }
+  fn index_mut(&mut self, name: General) -> &mut Self::Output {
+    &mut (self.0)[name_to_idx(name) as usize - 1]
   }
 }
 
@@ -271,6 +278,9 @@ mod tests {
     for i in 1..=31 {
       *r3000.nth_reg_mut(i) = Register::new((i + 31) as u32);
     }
+    for i in 1..=31 {
+      assert_eq!(r3000.general_registers[idx_to_name(i)].get_value(), (31 + i) as u32);
+    }
     assert_eq!(r3000.general_registers[General::at].get_value(), 32);
     assert_eq!(r3000.general_registers[General::vn(0)].get_value(), 33);
     assert_eq!(r3000.general_registers[General::vn(1)].get_value(), 34);
@@ -302,5 +312,18 @@ mod tests {
     assert_eq!(r3000.general_registers[General::sp].get_value(), 60);
     assert_eq!(r3000.general_registers[General::fp].get_value(), 61);
     assert_eq!(r3000.general_registers[General::ra].get_value(), 62);
+  }
+
+  #[test]
+  fn register_name_conversion() {
+    for i in 1..=31 {
+      assert_eq!(i, name_to_idx(idx_to_name(i)));
+    }
+  }
+
+  #[test]
+  #[should_panic]
+  fn invalid_register() {
+    idx_to_name(32);
   }
 }

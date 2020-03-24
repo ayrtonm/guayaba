@@ -11,6 +11,7 @@ use crate::r3000::R3000;
 use crate::r3000::Write;
 use crate::r3000::Name;
 use crate::r3000::General;
+use crate::r3000::idx_to_name;
 use crate::memory::Memory;
 use crate::cd::CD;
 
@@ -284,7 +285,7 @@ impl Interpreter {
         let imm = get_imm16(op);
         //loading the value from memory is a delayed operation (i.e. the updated register is not visible to the next opcode)
         //this would work if the first argument to Write::new were a Name, but I need for this to work with register indices as well
-        new_writes.push(Write::new(rt, self.memory.read_word(rs + imm)));
+        new_writes.push(Write::new(Name::gpr(idx_to_name(rt)), self.memory.read_word(rs + imm)));
         None
       },
       0x25 => {
