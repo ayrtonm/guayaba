@@ -68,13 +68,13 @@ impl Interpreter {
   }
   fn step(&mut self) {
     //get opcode from memory at program counter
-    let op = self.memory.read_word(self.r3000.pc().get_value());
-    println!("decoding opcode {:#x} from address {:#x}", op, self.r3000.pc().get_value());
+    let op = self.memory.read_word(self.r3000.pc());
+    println!("decoding opcode {:#x} from address {:#x}", op.get_value(), self.r3000.pc().get_value());
     //the instruction following each jump is always executed before updating the pc
     *self.r3000.pc() = self.next_pc
                            .take()
                            .map_or_else(|| self.r3000.pc() + 4, |next_pc| next_pc);
-    self.next_pc = self.execute_opcode(op);
+    self.next_pc = self.execute_opcode(op.get_value());
   }
   //if program counter should incremented normally, return None
   //otherwise return Some(new program counter)
@@ -321,7 +321,7 @@ impl Interpreter {
         let imm = get_imm16(op);
         //loading the value from memory is a delayed operation (i.e. the updated register is not visible to the next opcode)
         //this would work if the first argument to Write::new were a Name, but I need for this to work with register indices as well
-        new_writes.push(Write::new(Name::gpr(idx_to_name(rt)), self.memory.read_word((rs + imm).get_value())));
+        new_writes.push(Write::new(Name::gpr(idx_to_name(rt)), self.memory.read_word(&(rs + imm))));
         //compute_delay_assign!(rt = self.memory.read_word(rs + imm), new_writes);
         None
       },

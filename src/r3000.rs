@@ -34,11 +34,11 @@ pub enum General {
 #[derive(Debug)]
 pub struct Write {
   register_name: Name,
-  value: u32,
+  value: Register,
 }
 
 impl Write {
-  pub fn new(register_name: Name, value: u32) -> Self {
+  pub fn new(register_name: Name, value: Register) -> Self {
     Write {
       register_name,
       value: value,
@@ -241,16 +241,16 @@ impl R3000 {
   fn do_write(&mut self, operation: Write) {
     match operation.register_name {
       Name::pc => {
-        self.pc = Register::new(operation.value);
+        self.pc = operation.value;
       },
       Name::hi => {
-        self.hi = Register::new(operation.value);
+        self.hi = operation.value;
       },
       Name::lo => {
-        self.lo = Register::new(operation.value);
+        self.lo = operation.value;
       },
       Name::gpr(name) => {
-        self.general_registers[name] = Register::new(operation.value);
+        self.general_registers[name] = operation.value;
       },
     }
   }

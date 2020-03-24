@@ -2,10 +2,11 @@ use std::io;
 use std::io::Seek;
 use std::io::SeekFrom;
 use std::io::Read;
-use std::fs;
+use std::fs::metadata;
 use std::fs::File;
 use crate::common::read_word_from_array;
 use crate::common::write_word_to_array;
+use crate::register::Register;
 
 pub const KB: usize = 1024;
 
@@ -36,8 +37,8 @@ impl Memory {
   pub fn new(bios_filename: &String) -> io::Result<Self> {
     let mut bios_contents = [0; 512 * KB];
     let mut bios_file = File::open(bios_filename)?;
-    let filesize = fs::metadata(bios_filename)?;
-    assert_eq!(filesize.len(), 512 * KB as u64, "Invalid BIOS file size");
+    let filesize = metadata(bios_filename)?.len();
+    assert_eq!(filesize, 512 * KB as u64, "Invalid BIOS file size");
     bios_file.seek(SeekFrom::Start(0))?;
     bios_file.read_exact(&mut bios_contents)?;
     let bios = Box::new(bios_contents);
@@ -76,9 +77,9 @@ impl Memory {
   const CACHE_CONTROL: u32 = 0xfffe_0000;
   const CACHE_CONTROL_END: u32 = Memory::CACHE_CONTROL + 512 - 1;
 
-  pub fn read_word(&self, address: u32) -> u32 {
-    let phys_addr = address & 0x1fff_ffff;
-    match phys_addr {
+  pub fn read_word(&self, address: &Register) -> Register {
+    let phys_addr = address.get_value() & 0x1fff_ffff;
+    Register::new(match phys_addr {
       (Memory::MAIN_RAM..=Memory::MAIN_RAM_END) => {
         read_word_from_array(&self.main_ram, phys_addr - Memory::MAIN_RAM)
       },
@@ -106,10 +107,11 @@ impl Memory {
       _ => {
         panic!("tried to access an unmapped section of memory at {}", phys_addr)
       },
-    }
+    })
   }
-  pub fn write_word(&mut self, address: u32, value: u32) {
-    let phys_addr = address & 0x1fff_ffff;
+  pub fn write_word(&mut self, address: &Register, value: &Register) {
+    let phys_addr = address.get_value() & 0x1fff_ffff;
+    let value = value.get_value();
     match phys_addr {
       (Memory::MAIN_RAM..=Memory::MAIN_RAM_END) => {
         write_word_to_array(&mut self.main_ram, phys_addr - Memory::MAIN_RAM, value);
