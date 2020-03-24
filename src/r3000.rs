@@ -166,8 +166,9 @@ impl R3000 {
   }
   //general purpose MIPS registers are referred to as R0..R31
   //this method is used to address registers R0 through R31
-  pub fn nth_reg(&self, idx: usize) -> &Register {
+  pub fn nth_reg(&self, idx: u32) -> &Register {
     assert!(idx < 32);
+    let idx = idx as usize;
     match idx {
       0 => {
         &R3000::ZERO
@@ -179,8 +180,9 @@ impl R3000 {
   }
   //this methods returns a mutable reference to R1 through R31
   //R0 is always mapped to zero so it doesn't make sense here
-  pub fn nth_reg_mut(&mut self, idx: usize) -> &mut Register {
+  pub fn nth_reg_mut(&mut self, idx: u32) -> &mut Register {
     assert!((idx < 32) && (idx > 0));
+    let idx = idx as usize;
     &mut self.general_registers.0[idx - 1]
   }
   //general purpose MIPS registers also have names we can use

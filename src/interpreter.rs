@@ -48,8 +48,9 @@ impl Interpreter {
   //if program counter should incremented normally, return None
   //otherwise return Some(new program counter)
   fn execute_opcode(&mut self, op: u32) -> Option<Register> {
-    let a = get_primary_field(op);
     let mut new_writes = Vec::new();
+    let a = get_primary_field(op);
+    println!("{:#x?}", a);
     let next_pc = match a {
       0x00 => {
         //SPECIAL
@@ -192,7 +193,7 @@ impl Interpreter {
         *self.r3000.ra() += 8;
         //if this were to be a delayed operation, i.e. a cpu register is set to
         //a function of a location in memory, I should use the following line
-        new_writes.push(Write::new(Name::gpr(General::ra), self.r3000.ra().get_value() + 8));
+        //new_writes.push(Write::new(Name::gpr(General::ra), self.r3000.ra().get_value() + 8));
         Some(dest)
       },
       0x04 => {
@@ -237,6 +238,10 @@ impl Interpreter {
       },
       0x0E => {
         //XORI
+        let rt = get_rt(op);
+        let rs = get_rs(op);
+        let imm = get_imm16(op);
+        *self.r3000.nth_reg_mut(rt) = self.r3000.nth_reg(rs) ^ imm;
         None
       },
       0x0F => {
