@@ -2,8 +2,8 @@ use std::io;
 use crate::register::Register;
 use crate::r3000::R3000;
 use crate::r3000::Write;
-use crate::r3000::RegisterName;
-use crate::r3000::GeneralRegisterName;
+use crate::r3000::Name;
+use crate::r3000::General;
 use crate::memory::Memory;
 use crate::cd::CD;
 
@@ -12,7 +12,7 @@ pub struct Interpreter {
   memory: Memory,
   cd: Option<CD>,
   next_pc: Option<Register>,
-  delayed_writes: Vec<Write>,
+  delayed_writes: Option<Vec<Write>>,
 }
 
 impl Interpreter {
@@ -25,7 +25,7 @@ impl Interpreter {
       memory,
       cd,
       next_pc: None,
-      delayed_writes: Vec::new(),
+      delayed_writes: None,
     })
   }
   fn step(&mut self) {
@@ -185,8 +185,7 @@ impl Interpreter {
         *self.r3000.ra() += 8;
         //if this were to be a delayed operation, i.e. a cpu register is set to
         //a function of a location in memory, I should use the following line
-        //new_writes.push(Write::new(RegisterName::ra, self.r3000.ra().get_value() + 8));
-        new_writes.push(Write::new(RegisterName::general(GeneralRegisterName::ra), self.r3000.ra().get_value() + 8));
+        //new_writes.push(Write::new(Name::gpr(General::ra), self.r3000.ra().get_value() + 8));
         Some(dest)
       },
       0x04 => {
@@ -342,9 +341,11 @@ impl Interpreter {
       }
     };
     //after executing an opcode, complete the loads from the previous opcode
-    self.r3000.flush_write_cache(&self.delayed_writes);
+    self.delayed_writes.take().map(|writes| self.r3000.flush_write_cache(writes));
     //put the loads from the current opcode next in line
-    self.delayed_writes = new_writes;
+    if new_writes.len() > 0 {
+      self.delayed_writes = Some(new_writes);
+    }
     next_pc
   }
   pub fn run(&mut self) {

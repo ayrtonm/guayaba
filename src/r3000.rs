@@ -4,15 +4,15 @@ use std::ops::IndexMut;
 use crate::register::Register;
 
 #[derive(Debug)]
-pub enum RegisterName {
-  general(GeneralRegisterName),
+pub enum Name {
   pc,
   hi,
   lo,
+  gpr(General),
 }
 
 #[derive(Debug)]
-pub enum GeneralRegisterName {
+pub enum General {
   at,
   vn(usize),
   an(usize),
@@ -28,12 +28,12 @@ pub enum GeneralRegisterName {
 
 #[derive(Debug)]
 pub struct Write {
-  register_name: RegisterName,
+  register_name: Name,
   value: u32,
 }
 
 impl Write {
-  pub fn new(register_name: RegisterName, value: u32) -> Self {
+  pub fn new(register_name: Name, value: u32) -> Self {
     Write {
       register_name,
       value: value,
@@ -44,81 +44,87 @@ impl Write {
 #[derive(Debug,Default)]
 struct GeneralRegisters([Register; 31]);
 
-impl Index<&GeneralRegisterName> for GeneralRegisters {
+impl Index<General> for GeneralRegisters {
   type Output = Register;
 
-  fn index(&self, idx: &GeneralRegisterName) -> &Self::Output {
+  fn index(&self, idx: General) -> &Self::Output {
     match idx {
-      GeneralRegisterName::at => {
+      General::at => {
         &(self.0)[0]
       },
-      GeneralRegisterName::vn(n) => {
+      General::vn(n) => {
         &(self.0)[1 + n]
       },
-      GeneralRegisterName::an(n) => {
-        &(self.0)[1 + n]
+      General::an(n) => {
+        &(self.0)[3 + n]
       },
-      GeneralRegisterName::tn0(n) => {
-        &(self.0)[1 + n]
+      General::tn0(n) => {
+        &(self.0)[7 + n]
       },
-      GeneralRegisterName::sn(n) => {
-        &(self.0)[1 + n]
+      General::sn(n) => {
+        &(self.0)[15 + n]
       },
-      GeneralRegisterName::tn1(n) => {
-        &(self.0)[1 + n]
+      General::tn1(n) => {
+        &(self.0)[23 + n]
       },
-      GeneralRegisterName::kn(n) => {
-        &(self.0)[1 + n]
+      General::kn(n) => {
+        &(self.0)[25 + n]
       },
-      GeneralRegisterName::gp => {
+      General::gp => {
         &(self.0)[27]
       },
-      GeneralRegisterName::sp => {
+      General::sp => {
         &(self.0)[28]
       },
-      GeneralRegisterName::fp => {
+      General::fp => {
         &(self.0)[29]
       },
-      GeneralRegisterName::ra => {
+      General::ra => {
         &(self.0)[30]
       },
     }
   }
 }
-impl IndexMut<&GeneralRegisterName> for GeneralRegisters {
-  fn index_mut(&mut self, idx: &GeneralRegisterName) -> &mut Self::Output {
+impl IndexMut<General> for GeneralRegisters {
+  fn index_mut(&mut self, idx: General) -> &mut Self::Output {
     match idx {
-      GeneralRegisterName::at => {
+      General::at => {
         &mut (self.0)[0]
       },
-      GeneralRegisterName::vn(n) => {
+      General::vn(n) => {
+        assert!(n < 2);
         &mut (self.0)[1 + n]
       },
-      GeneralRegisterName::an(n) => {
-        &mut (self.0)[1 + n]
+      General::an(n) => {
+        assert!(n < 4);
+        &mut (self.0)[3 + n]
       },
-      GeneralRegisterName::tn0(n) => {
-        &mut (self.0)[1 + n]
+      General::tn0(n) => {
+        assert!(n < 8);
+        &mut (self.0)[7 + n]
       },
-      GeneralRegisterName::sn(n) => {
-        &mut (self.0)[1 + n]
+      General::sn(n) => {
+        assert!(n < 8);
+        &mut (self.0)[15 + n]
       },
-      GeneralRegisterName::tn1(n) => {
-        &mut (self.0)[1 + n]
+      General::tn1(n) => {
+        assert!((n < 10) && (n > 7));
+        &mut (self.0)[15 + n]
       },
-      GeneralRegisterName::kn(n) => {
-        &mut (self.0)[1 + n]
+      General::kn(n) => {
+        assert!(n < 2);
+        &mut (self.0)[25 + n]
       },
-      GeneralRegisterName::gp => {
+      General::gp => {
         &mut (self.0)[27]
       },
-      GeneralRegisterName::sp => {
+      General::sp => {
         &mut (self.0)[28]
       },
-      GeneralRegisterName::fp => {
+      General::fp => {
         &mut (self.0)[29]
       },
-      GeneralRegisterName::ra => {
+      General::ra => {
         &mut (self.0)[30]
       },
     }
@@ -146,32 +152,39 @@ impl R3000 {
       lo,
     }
   }
-  pub fn flush_write_cache(&mut self, operations: &Vec<Write>) {
+  //general purpose MIPS registers are referred to as R0..R31
+  pub fn nth_reg(&mut self, idx: usize) -> &mut Register {
+    assert!((idx < 32) && (idx > 0));
+    &mut self.general_registers.0[idx - 1]
+  }
+  //general purpose MIPS registers also have names we can use
+  pub fn ra(&mut self) -> &mut Register {
+    &mut self.general_registers[General::ra]
+  }
+  //these are the special purpose MIPS registers
+  pub fn pc(&mut self) -> &mut Register {
+    &mut self.pc
+  }
+  pub fn flush_write_cache(&mut self, operations: Vec<Write>) {
     for write in operations {
       self.do_write(write);
     }
   }
-  fn do_write(&mut self, operation: &Write) {
-    match &operation.register_name {
-      RegisterName::pc => {
+  fn do_write(&mut self, operation: Write) {
+    match operation.register_name {
+      Name::pc => {
         self.pc = Register::new(operation.value);
       },
-      RegisterName::hi => {
+      Name::hi => {
         self.hi = Register::new(operation.value);
       },
-      RegisterName::lo => {
+      Name::lo => {
         self.lo = Register::new(operation.value);
       },
-      RegisterName::general(name) => {
+      Name::gpr(name) => {
         self.general_registers[name] = Register::new(operation.value);
       },
     }
-  }
-  pub fn pc(&mut self) -> &mut Register {
-    &mut self.pc
-  }
-  pub fn ra(&mut self) -> &mut Register {
-    &mut self.general_registers[&GeneralRegisterName::ra]
   }
 }
 
@@ -190,5 +203,44 @@ mod tests {
     let mut r3000 = R3000::new();
     *r3000.pc() = Register::new(2);
     assert_eq!(r3000.pc.get_value(), 2);
+  }
+
+  #[test]
+  fn general_registers() {
+    let mut r3000 = R3000::new();
+    for i in 1..=31 {
+      *r3000.nth_reg(i) = Register::new((i + 31) as u32);
+    }
+    assert_eq!(r3000.general_registers[General::at].get_value(), 32);
+    assert_eq!(r3000.general_registers[General::vn(0)].get_value(), 33);
+    assert_eq!(r3000.general_registers[General::vn(1)].get_value(), 34);
+    assert_eq!(r3000.general_registers[General::an(0)].get_value(), 35);
+    assert_eq!(r3000.general_registers[General::an(1)].get_value(), 36);
+    assert_eq!(r3000.general_registers[General::an(2)].get_value(), 37);
+    assert_eq!(r3000.general_registers[General::an(3)].get_value(), 38);
+    assert_eq!(r3000.general_registers[General::tn0(0)].get_value(), 39);
+    assert_eq!(r3000.general_registers[General::tn0(1)].get_value(), 40);
+    assert_eq!(r3000.general_registers[General::tn0(2)].get_value(), 41);
+    assert_eq!(r3000.general_registers[General::tn0(3)].get_value(), 42);
+    assert_eq!(r3000.general_registers[General::tn0(4)].get_value(), 43);
+    assert_eq!(r3000.general_registers[General::tn0(5)].get_value(), 44);
+    assert_eq!(r3000.general_registers[General::tn0(6)].get_value(), 45);
+    assert_eq!(r3000.general_registers[General::tn0(7)].get_value(), 46);
+    assert_eq!(r3000.general_registers[General::sn(0)].get_value(), 47);
+    assert_eq!(r3000.general_registers[General::sn(1)].get_value(), 48);
+    assert_eq!(r3000.general_registers[General::sn(2)].get_value(), 49);
+    assert_eq!(r3000.general_registers[General::sn(3)].get_value(), 50);
+    assert_eq!(r3000.general_registers[General::sn(4)].get_value(), 51);
+    assert_eq!(r3000.general_registers[General::sn(5)].get_value(), 52);
+    assert_eq!(r3000.general_registers[General::sn(6)].get_value(), 53);
+    assert_eq!(r3000.general_registers[General::sn(7)].get_value(), 54);
+    assert_eq!(r3000.general_registers[General::tn1(0)].get_value(), 55);
+    assert_eq!(r3000.general_registers[General::tn1(1)].get_value(), 56);
+    assert_eq!(r3000.general_registers[General::kn(0)].get_value(), 57);
+    assert_eq!(r3000.general_registers[General::kn(1)].get_value(), 58);
+    assert_eq!(r3000.general_registers[General::gp].get_value(), 59);
+    assert_eq!(r3000.general_registers[General::sp].get_value(), 60);
+    assert_eq!(r3000.general_registers[General::fp].get_value(), 61);
+    assert_eq!(r3000.general_registers[General::ra].get_value(), 62);
   }
 }
