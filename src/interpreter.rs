@@ -3,6 +3,7 @@ use crate::register::Register;
 use crate::r3000::R3000;
 use crate::r3000::Write;
 use crate::r3000::RegisterName;
+use crate::r3000::GeneralRegisterName;
 use crate::memory::Memory;
 use crate::cd::CD;
 
@@ -185,6 +186,7 @@ impl Interpreter {
         //if this were to be a delayed operation, i.e. a cpu register is set to
         //a function of a location in memory, I should use the following line
         //new_writes.push(Write::new(RegisterName::ra, self.r3000.ra().get_value() + 8));
+        new_writes.push(Write::new(RegisterName::general(GeneralRegisterName::ra), self.r3000.ra().get_value() + 8));
         Some(dest)
       },
       0x04 => {

@@ -1,7 +1,18 @@
+use std::ops::Index;
+use std::ops::IndexMut;
+
 use crate::register::Register;
 
 #[derive(Debug)]
 pub enum RegisterName {
+  general(GeneralRegisterName),
+  pc,
+  hi,
+  lo,
+}
+
+#[derive(Debug)]
+pub enum GeneralRegisterName {
   at,
   vn(usize),
   an(usize),
@@ -13,9 +24,6 @@ pub enum RegisterName {
   sp,
   fp,
   ra,
-  pc,
-  hi,
-  lo,
 }
 
 #[derive(Debug)]
@@ -34,18 +42,92 @@ impl Write {
 }
 
 #[derive(Debug,Default)]
+struct GeneralRegisters([Register; 31]);
+
+impl Index<&GeneralRegisterName> for GeneralRegisters {
+  type Output = Register;
+
+  fn index(&self, idx: &GeneralRegisterName) -> &Self::Output {
+    match idx {
+      GeneralRegisterName::at => {
+        &(self.0)[0]
+      },
+      GeneralRegisterName::vn(n) => {
+        &(self.0)[1 + n]
+      },
+      GeneralRegisterName::an(n) => {
+        &(self.0)[1 + n]
+      },
+      GeneralRegisterName::tn0(n) => {
+        &(self.0)[1 + n]
+      },
+      GeneralRegisterName::sn(n) => {
+        &(self.0)[1 + n]
+      },
+      GeneralRegisterName::tn1(n) => {
+        &(self.0)[1 + n]
+      },
+      GeneralRegisterName::kn(n) => {
+        &(self.0)[1 + n]
+      },
+      GeneralRegisterName::gp => {
+        &(self.0)[27]
+      },
+      GeneralRegisterName::sp => {
+        &(self.0)[28]
+      },
+      GeneralRegisterName::fp => {
+        &(self.0)[29]
+      },
+      GeneralRegisterName::ra => {
+        &(self.0)[30]
+      },
+    }
+  }
+}
+impl IndexMut<&GeneralRegisterName> for GeneralRegisters {
+  fn index_mut(&mut self, idx: &GeneralRegisterName) -> &mut Self::Output {
+    match idx {
+      GeneralRegisterName::at => {
+        &mut (self.0)[0]
+      },
+      GeneralRegisterName::vn(n) => {
+        &mut (self.0)[1 + n]
+      },
+      GeneralRegisterName::an(n) => {
+        &mut (self.0)[1 + n]
+      },
+      GeneralRegisterName::tn0(n) => {
+        &mut (self.0)[1 + n]
+      },
+      GeneralRegisterName::sn(n) => {
+        &mut (self.0)[1 + n]
+      },
+      GeneralRegisterName::tn1(n) => {
+        &mut (self.0)[1 + n]
+      },
+      GeneralRegisterName::kn(n) => {
+        &mut (self.0)[1 + n]
+      },
+      GeneralRegisterName::gp => {
+        &mut (self.0)[27]
+      },
+      GeneralRegisterName::sp => {
+        &mut (self.0)[28]
+      },
+      GeneralRegisterName::fp => {
+        &mut (self.0)[29]
+      },
+      GeneralRegisterName::ra => {
+        &mut (self.0)[30]
+      },
+    }
+  }
+}
+
+#[derive(Debug,Default)]
 pub struct R3000 {
-  at: Register,
-  vn: [Register; 2],
-  an: [Register; 4],
-  tn0: [Register; 8],
-  sn: [Register; 8],
-  tn1: [Register; 2],
-  kn: [Register; 2],
-  gp: Register,
-  sp: Register,
-  fp: Register,
-  ra: Register,
+  general_registers: GeneralRegisters,
   pc: Register,
   hi: Register,
   lo: Register,
@@ -53,66 +135,24 @@ pub struct R3000 {
 
 impl R3000 {
   pub fn new() -> Self {
-    let at = Default::default();
-    let vn = Default::default();
-    let an = Default::default();
-    let tn0 = Default::default();
-    let sn = Default::default();
-    let tn1 = Default::default();
-    let kn = Default::default();
-    let gp = Default::default();
-    let sp = Default::default();
-    let fp = Default::default();
-    let ra = Default::default();
+    let general_registers = Default::default();
     let pc = Register::new(0xbfc0_0000);
     let hi = Default::default();
     let lo = Default::default();
     R3000 {
-      at, vn, an, tn0, sn, tn1,
-      kn, gp, sp, fp, ra, pc,
-      hi, lo,
+      general_registers,
+      pc,
+      hi,
+      lo,
     }
   }
   pub fn flush_write_cache(&mut self, operations: &Vec<Write>) {
     for write in operations {
-      self.write_register(write);
+      self.do_write(write);
     }
   }
-  fn write_register(&mut self, operation: &Write) {
-    match operation.register_name {
-      RegisterName::at => {
-        self.at = Register::new(operation.value);
-      },
-      RegisterName::vn(idx) => {
-        self.vn[idx] = Register::new(operation.value);
-      },
-      RegisterName::an(idx) => {
-        self.an[idx] = Register::new(operation.value);
-      },
-      RegisterName::tn0(idx) => {
-        self.tn0[idx] = Register::new(operation.value);
-      },
-      RegisterName::sn(idx) => {
-        self.sn[idx] = Register::new(operation.value);
-      },
-      RegisterName::tn1(idx) => {
-        self.tn1[idx] = Register::new(operation.value);
-      },
-      RegisterName::kn(idx) => {
-        self.kn[idx] = Register::new(operation.value);
-      },
-      RegisterName::gp => {
-        self.gp = Register::new(operation.value);
-      },
-      RegisterName::sp => {
-        self.sp = Register::new(operation.value);
-      },
-      RegisterName::fp => {
-        self.fp = Register::new(operation.value);
-      },
-      RegisterName::ra => {
-        self.ra = Register::new(operation.value);
-      },
+  fn do_write(&mut self, operation: &Write) {
+    match &operation.register_name {
       RegisterName::pc => {
         self.pc = Register::new(operation.value);
       },
@@ -122,13 +162,16 @@ impl R3000 {
       RegisterName::lo => {
         self.lo = Register::new(operation.value);
       },
+      RegisterName::general(name) => {
+        self.general_registers[name] = Register::new(operation.value);
+      },
     }
   }
   pub fn pc(&mut self) -> &mut Register {
     &mut self.pc
   }
   pub fn ra(&mut self) -> &mut Register {
-    &mut self.ra
+    &mut self.general_registers[&GeneralRegisterName::ra]
   }
 }
 
