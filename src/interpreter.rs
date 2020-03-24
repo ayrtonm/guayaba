@@ -321,7 +321,7 @@ impl Interpreter {
         let imm = get_imm16(op);
         //loading the value from memory is a delayed operation (i.e. the updated register is not visible to the next opcode)
         //this would work if the first argument to Write::new were a Name, but I need for this to work with register indices as well
-        new_writes.push(Write::new(Name::gpr(idx_to_name(rt)), self.memory.read_word(&(rs + imm))));
+        new_writes.push(Write::new(Name::gpr(idx_to_name(rt)), self.memory.read_word(&(rs + imm)).lowest_byte()));
         //compute_delay_assign!(rt = self.memory.read_word(rs + imm), new_writes);
         None
       },

@@ -14,11 +14,14 @@ impl Register {
   pub fn get_value(&self) -> u32 {
     self.value
   }
-  pub fn lower_half(&self) -> u16 {
-    (self.value & 0x0000_ffff) as u16
+  pub fn lower_half(&self) -> Register {
+    Register::new(self.value & 0x0000_ffff)
   }
-  pub fn upper_half(&self) -> u16 {
-    (self.value >> 16) as u16
+  pub fn lowest_byte(&self) -> Register {
+    Register::new(self.value & 0x0000_00ff)
+  }
+  pub fn upper_half(&self) -> Register {
+    Register::new(self.value >> 16)
   }
 }
 
