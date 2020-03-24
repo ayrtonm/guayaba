@@ -15,16 +15,13 @@ use crate::r3000::idx_to_name;
 use crate::memory::Memory;
 use crate::cd::CD;
 
-//macro_rules! compute_delay_assign {
-//  ($rt:ident = $rhs:expr, $new_writes:expr) => {
-//    $new_writes.push(Write::new(Name::gpr(idx_to_name($rt)), $rhs));
-//  };
-//}
-
 macro_rules! delayed_load {
-  (rt = $rhs:expr, $new_writes:expr, $op: expr) => {
+  (rt = $rhs:ident, $self:expr, $new_writes:expr, $op: expr) => {
+    let rs = $self.r3000.nth_reg(get_rs($op));
+    let imm = get_imm16($op);
     let rt = get_rt($op);
-    $new_writes.push(Write::new(Name::gpr(idx_to_name(rt)), $rhs));
+    $new_writes.push(Write::new(Name::gpr(idx_to_name(rt)),
+                     $self.memory.read_word(&(rs + imm)).$rhs()));
   };
 }
 
@@ -307,10 +304,12 @@ impl Interpreter {
       },
       0x20 => {
         //LB
+        delayed_load!(rt = lowest_byte, self, new_writes, op);
         None
       },
       0x21 => {
         //LH
+        delayed_load!(rt = lower_half, self, new_writes, op);
         None
       },
       0x22 => {
@@ -319,22 +318,21 @@ impl Interpreter {
       },
       0x23 => {
         //LW
+        delayed_load!(rt = word, self, new_writes, op);
         None
       },
       0x24 => {
         //LBU
-        let rs = self.r3000.nth_reg(get_rs(op));
-        let imm = get_imm16(op);
         //loading the value from memory is a delayed operation (i.e. the updated
         //register is not visible to the next opcode). this would work if the
         //first argument to Write::new were a Name, but I need for this to work
         //with register indices as well
-        delayed_load!(rt = self.memory.read_word(&(rs + imm)).lowest_byte(),
-                      new_writes, op);
+        delayed_load!(rt = lowest_byte, self, new_writes, op);
         None
       },
       0x25 => {
         //LHU
+        delayed_load!(rt = lower_half, self, new_writes, op);
         None
       },
       0x26 => {
