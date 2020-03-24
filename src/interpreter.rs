@@ -21,6 +21,13 @@ use crate::cd::CD;
 //  };
 //}
 
+macro_rules! delayed_load {
+  (rt = $rhs:expr, $new_writes:expr, $op: expr) => {
+    let rt = get_rt($op);
+    $new_writes.push(Write::new(Name::gpr(idx_to_name(rt)), $rhs));
+  };
+}
+
 macro_rules! compute_then_assign {
   (rd = rs $operator:tt rt, $self:expr, $op:expr) => {
     let rs = $self.r3000.nth_reg(get_rs($op));
@@ -317,12 +324,13 @@ impl Interpreter {
       0x24 => {
         //LBU
         let rs = self.r3000.nth_reg(get_rs(op));
-        let rt = get_rt(op);
         let imm = get_imm16(op);
-        //loading the value from memory is a delayed operation (i.e. the updated register is not visible to the next opcode)
-        //this would work if the first argument to Write::new were a Name, but I need for this to work with register indices as well
-        new_writes.push(Write::new(Name::gpr(idx_to_name(rt)), self.memory.read_word(&(rs + imm)).lowest_byte()));
-        //compute_delay_assign!(rt = self.memory.read_word(rs + imm), new_writes);
+        //loading the value from memory is a delayed operation (i.e. the updated
+        //register is not visible to the next opcode). this would work if the
+        //first argument to Write::new were a Name, but I need for this to work
+        //with register indices as well
+        delayed_load!(rt = self.memory.read_word(&(rs + imm)).lowest_byte(),
+                      new_writes, op);
         None
       },
       0x25 => {
