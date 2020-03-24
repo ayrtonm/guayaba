@@ -3,6 +3,8 @@ use std::ops::IndexMut;
 
 use crate::register::Register;
 
+//different types of register names
+//these are for improved readability when doing delayed register writes
 #[derive(Debug)]
 pub enum Name {
   pc,
@@ -11,6 +13,7 @@ pub enum Name {
   gpr(General),
 }
 
+//these are names for the registers in the general purpose register array
 #[derive(Debug)]
 pub enum General {
   at,
@@ -26,6 +29,7 @@ pub enum General {
   ra,
 }
 
+//this represents a delayed write operation
 #[derive(Debug)]
 pub struct Write {
   register_name: Name,
@@ -44,6 +48,7 @@ impl Write {
 #[derive(Debug,Default)]
 struct GeneralRegisters([Register; 31]);
 
+//allow indexing the general purpose register array by name
 impl Index<General> for GeneralRegisters {
   type Output = Register;
 
@@ -146,6 +151,7 @@ pub struct R3000 {
 }
 
 impl R3000 {
+  const ZERO: Register = Register::new(0);
   pub fn new() -> Self {
     let general_registers = Default::default();
     let pc = Register::new(0xbfc0_0000);
@@ -159,11 +165,57 @@ impl R3000 {
     }
   }
   //general purpose MIPS registers are referred to as R0..R31
-  pub fn nth_reg(&mut self, idx: usize) -> &mut Register {
+  //this method is used to address registers R0 through R31
+  pub fn nth_reg(&self, idx: usize) -> &Register {
+    assert!(idx < 32);
+    match idx {
+      0 => {
+        &R3000::ZERO
+      },
+      _ => {
+        &self.general_registers.0[idx - 1]
+      },
+    }
+  }
+  //this methods returns a mutable reference to R1 through R31
+  //R0 is always mapped to zero so it doesn't make sense here
+  pub fn nth_reg_mut(&mut self, idx: usize) -> &mut Register {
     assert!((idx < 32) && (idx > 0));
     &mut self.general_registers.0[idx - 1]
   }
   //general purpose MIPS registers also have names we can use
+  //these methods are shorthands for using Name and General to address the general
+  //purpose register array
+  pub fn at(&mut self) -> &mut Register {
+    &mut self.general_registers[General::at]
+  }
+  pub fn vn(&mut self, idx: usize) -> &mut Register {
+    &mut self.general_registers[General::vn(idx)]
+  }
+  pub fn an(&mut self, idx: usize) -> &mut Register {
+    &mut self.general_registers[General::an(idx)]
+  }
+  pub fn tn0(&mut self, idx: usize) -> &mut Register {
+    &mut self.general_registers[General::tn0(idx)]
+  }
+  pub fn sn(&mut self, idx: usize) -> &mut Register {
+    &mut self.general_registers[General::sn(idx)]
+  }
+  pub fn tn1(&mut self, idx: usize) -> &mut Register {
+    &mut self.general_registers[General::tn1(idx)]
+  }
+  pub fn kn(&mut self, idx: usize) -> &mut Register {
+    &mut self.general_registers[General::kn(idx)]
+  }
+  pub fn gp(&mut self) -> &mut Register {
+    &mut self.general_registers[General::gp]
+  }
+  pub fn sp(&mut self) -> &mut Register {
+    &mut self.general_registers[General::sp]
+  }
+  pub fn fp(&mut self) -> &mut Register {
+    &mut self.general_registers[General::fp]
+  }
   pub fn ra(&mut self) -> &mut Register {
     &mut self.general_registers[General::ra]
   }
@@ -215,7 +267,7 @@ mod tests {
   fn general_registers() {
     let mut r3000 = R3000::new();
     for i in 1..=31 {
-      *r3000.nth_reg(i) = Register::new((i + 31) as u32);
+      *r3000.nth_reg_mut(i) = Register::new((i + 31) as u32);
     }
     assert_eq!(r3000.general_registers[General::at].get_value(), 32);
     assert_eq!(r3000.general_registers[General::vn(0)].get_value(), 33);

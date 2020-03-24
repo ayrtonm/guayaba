@@ -6,7 +6,7 @@ pub struct Register {
 }
 
 impl Register {
-  pub fn new(value: u32) -> Self {
+  pub const fn new(value: u32) -> Self {
     Register {
       value
     }

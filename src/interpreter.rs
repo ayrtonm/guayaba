@@ -190,7 +190,7 @@ impl Interpreter {
         *self.r3000.ra() += 8;
         //if this were to be a delayed operation, i.e. a cpu register is set to
         //a function of a location in memory, I should use the following line
-        //new_writes.push(Write::new(Name::gpr(General::ra), self.r3000.ra().get_value() + 8));
+        new_writes.push(Write::new(Name::gpr(General::ra), self.r3000.ra().get_value() + 8));
         Some(dest)
       },
       0x04 => {
