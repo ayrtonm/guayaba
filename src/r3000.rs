@@ -53,21 +53,27 @@ impl Index<General> for GeneralRegisters {
         &(self.0)[0]
       },
       General::vn(n) => {
+        assert!(n < 2);
         &(self.0)[1 + n]
       },
       General::an(n) => {
+        assert!(n < 4);
         &(self.0)[3 + n]
       },
       General::tn0(n) => {
+        assert!(n < 8);
         &(self.0)[7 + n]
       },
       General::sn(n) => {
+        assert!(n < 8);
         &(self.0)[15 + n]
       },
       General::tn1(n) => {
-        &(self.0)[23 + n]
+        assert!((n < 10) && (n > 7));
+        &(self.0)[15 + n]
       },
       General::kn(n) => {
+        assert!(n < 2);
         &(self.0)[25 + n]
       },
       General::gp => {
@@ -234,8 +240,8 @@ mod tests {
     assert_eq!(r3000.general_registers[General::sn(5)].get_value(), 52);
     assert_eq!(r3000.general_registers[General::sn(6)].get_value(), 53);
     assert_eq!(r3000.general_registers[General::sn(7)].get_value(), 54);
-    assert_eq!(r3000.general_registers[General::tn1(0)].get_value(), 55);
-    assert_eq!(r3000.general_registers[General::tn1(1)].get_value(), 56);
+    assert_eq!(r3000.general_registers[General::tn1(8)].get_value(), 55);
+    assert_eq!(r3000.general_registers[General::tn1(9)].get_value(), 56);
     assert_eq!(r3000.general_registers[General::kn(0)].get_value(), 57);
     assert_eq!(r3000.general_registers[General::kn(1)].get_value(), 58);
     assert_eq!(r3000.general_registers[General::gp].get_value(), 59);
