@@ -4,6 +4,8 @@ use crate::common::get_rt;
 use crate::common::get_rd;
 use crate::common::get_imm16;
 use crate::common::get_imm26;
+use crate::common::get_primary_field;
+use crate::common::get_secondary_field;
 use crate::register::Register;
 use crate::r3000::R3000;
 use crate::r3000::Write;
@@ -46,12 +48,12 @@ impl Interpreter {
   //if program counter should incremented normally, return None
   //otherwise return Some(new program counter)
   fn execute_opcode(&mut self, op: u32) -> Option<Register> {
-    let a = ((op & 0xfb00_0000) >> 26) as u8;
+    let a = get_primary_field(op);
     let mut new_writes = Vec::new();
     let next_pc = match a {
       0x00 => {
         //SPECIAL
-        let b = (op & 0x0000_003f) as u8;
+        let b = get_secondary_field(op);
         match b {
           0x00 => {
             //SLL
