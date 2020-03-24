@@ -15,6 +15,29 @@ use crate::r3000::idx_to_name;
 use crate::memory::Memory;
 use crate::cd::CD;
 
+//macro_rules! compute_delay_assign {
+//  ($rt:ident = $rhs:expr, $new_writes:expr) => {
+//    $new_writes.push(Write::new(Name::gpr(idx_to_name($rt)), $rhs));
+//  };
+//}
+
+macro_rules! compute_then_assign {
+  (rd = rs $operator:tt rt, $self:expr, $op:expr) => {
+    let rs = $self.r3000.nth_reg(get_rs($op));
+    let rt = $self.r3000.nth_reg(get_rt($op));
+    let result = rs $operator rt;
+    let rd = $self.r3000.nth_reg_mut(get_rd($op));
+    *rd = result;
+  };
+  (rt = rs $operator:tt imm16, $self:expr, $op:expr) => {
+    let rs = $self.r3000.nth_reg(get_rs($op));
+    let imm = get_imm16($op);
+    let result = rs $operator imm;
+    let rt = $self.r3000.nth_reg_mut(get_rt($op));
+    *rt = result;
+  };
+}
+
 pub struct Interpreter {
   r3000: R3000,
   memory: Memory,
@@ -36,6 +59,13 @@ impl Interpreter {
       delayed_writes: None,
     })
   }
+  pub fn run(&mut self) {
+    let n = 10;
+    for _ in 0..n {
+      self.step();
+    }
+    self.cd.as_ref().map(|cd| cd.preview(10));
+  }
   fn step(&mut self) {
     //get opcode from memory at program counter
     let op = self.memory.read_word(self.r3000.pc().get_value());
@@ -51,7 +81,7 @@ impl Interpreter {
   fn execute_opcode(&mut self, op: u32) -> Option<Register> {
     let mut new_writes = Vec::new();
     let a = get_primary_field(op);
-    println!("{:#x?}", a);
+    println!("primary field is {:#x?}", a);
     let next_pc = match a {
       0x00 => {
         //SPECIAL
@@ -83,9 +113,10 @@ impl Interpreter {
           },
           0x08 => {
             //JR
-            let rs = Register::new(get_rs(op));
+            let rs = self.r3000.nth_reg(get_rs(op));
             println!("jumping to {:#x}", rs.get_value());
-            Some(rs)
+            Some(rs.clone());
+            None
           },
           0x09 => {
             //JALR
@@ -137,6 +168,10 @@ impl Interpreter {
           },
           0x21 => {
             //ADDU
+            //since self.r3000 is borrowed mutably on the lhs, the rhs must be
+            //computed from the immutable references before assigning its value
+            //to the lhs
+            compute_then_assign!(rd = rs + rt, self, op);
             None
           },
           0x22 => {
@@ -145,6 +180,7 @@ impl Interpreter {
           },
           0x23 => {
             //SUBU
+            compute_then_assign!(rd = rs - rt, self, op);
             None
           },
           0x24 => {
@@ -216,6 +252,7 @@ impl Interpreter {
       },
       0x09 => {
         //ADDIU
+        compute_then_assign!(rt = rs + imm16, self, op);
         None
       },
       0x0A => {
@@ -228,18 +265,17 @@ impl Interpreter {
       },
       0x0C => {
         //ANDI
+        compute_then_assign!(rt = rs & imm16, self, op);
         None
       },
       0x0D => {
         //ORI
+        compute_then_assign!(rt = rs | imm16, self, op);
         None
       },
       0x0E => {
         //XORI
-        let rt = get_rt(op);
-        let rs = get_rs(op);
-        let imm = get_imm16(op);
-        *self.r3000.nth_reg_mut(rt) = self.r3000.nth_reg(rs) ^ imm;
+        compute_then_assign!(rt = rs ^ imm16, self, op);
         None
       },
       0x0F => {
@@ -280,12 +316,13 @@ impl Interpreter {
       },
       0x24 => {
         //LBU
-        let rs = get_rs(op);
+        let rs = self.r3000.nth_reg(get_rs(op));
         let rt = get_rt(op);
         let imm = get_imm16(op);
         //loading the value from memory is a delayed operation (i.e. the updated register is not visible to the next opcode)
         //this would work if the first argument to Write::new were a Name, but I need for this to work with register indices as well
-        new_writes.push(Write::new(Name::gpr(idx_to_name(rt)), self.memory.read_word(rs + imm)));
+        new_writes.push(Write::new(Name::gpr(idx_to_name(rt)), self.memory.read_word((rs + imm).get_value())));
+        //compute_delay_assign!(rt = self.memory.read_word(rs + imm), new_writes);
         None
       },
       0x25 => {
@@ -334,9 +371,6 @@ impl Interpreter {
       },
       0x38 => {
         //SWC0
-        let rs = get_rs(op);
-        let rt = get_rt(op);
-        let imm = get_imm16(op);
         None
       },
       0x39 => {
@@ -364,19 +398,16 @@ impl Interpreter {
     }
     next_pc
   }
-  pub fn run(&mut self) {
-    let n = 10;
-    for _ in 0..n {
-      self.step();
-    }
-    self.cd.as_ref().map(|cd| cd.preview(10));
-  }
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
 
+  #[test]
+  fn f() {
+    toy_macro!(rt = 0);
+  }
   //this is the entry point in case we want to test some dummy instructions
   const BIOS: u32 = 0x1fc0_0000;
   #[test]

@@ -1,5 +1,6 @@
 use std::io;
 use std::env;
+use interpreter::Interpreter;
 
 mod common;
 mod interpreter;
@@ -7,8 +8,6 @@ mod r3000;
 mod register;
 mod memory;
 mod cd;
-
-use interpreter::Interpreter;
 
 fn get_arg<'a>(args: &'a Vec<String>, flags: &[&str]) -> Option<&'a String> {
   args.iter()

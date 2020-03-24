@@ -1,10 +1,10 @@
 use std::ops::Index;
 use std::ops::IndexMut;
-
 use crate::register::Register;
 
 //different types of register names
 //these are for improved readability when doing delayed register writes
+#[allow(non_camel_case_types)]
 #[derive(Debug)]
 pub enum Name {
   pc,
@@ -14,6 +14,7 @@ pub enum Name {
 }
 
 //these are names for the registers in the general purpose register array
+#[allow(non_camel_case_types)]
 #[derive(Debug)]
 pub enum General {
   at,

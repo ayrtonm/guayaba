@@ -426,6 +426,108 @@ impl ops::BitXorAssign<u32> for &mut Register {
     **self = Register::new(self.value ^ rhs);
   }
 }
+//overloading - operator for Register
+impl ops::Sub<Register> for Register {
+  type Output = Register;
+  fn sub(self, rhs: Register) -> Register {
+    Register::new(self.value.wrapping_sub(rhs.value))
+  }
+}
+impl ops::Sub<Register> for u32 {
+  type Output = Register;
+  fn sub(self, rhs: Register) -> Register {
+    Register::new(self.wrapping_sub(rhs.value))
+  }
+}
+impl ops::Sub<u32> for Register {
+  type Output = Register;
+  fn sub(self, rhs: u32) -> Register {
+    Register::new(self.value.wrapping_sub(rhs))
+  }
+}
+//overloading - operator for &Register
+impl ops::Sub<&Register> for &Register {
+  type Output = Register;
+  fn sub(self, rhs: &Register) -> Register {
+    Register::new(self.value.wrapping_sub(rhs.value))
+  }
+}
+impl ops::Sub<&Register> for u32 {
+  type Output = Register;
+  fn sub(self, rhs: &Register) -> Register {
+    Register::new(self.wrapping_sub(rhs.value))
+  }
+}
+impl ops::Sub<u32> for &Register {
+  type Output = Register;
+  fn sub(self, rhs: u32) -> Register {
+    Register::new(self.value.wrapping_sub(rhs))
+  }
+}
+//overloading - operator for &mut Register
+impl ops::Sub<&mut Register> for &mut Register {
+  type Output = Register;
+  fn sub(self, rhs: &mut Register) -> Register {
+    Register::new(self.value.wrapping_sub(rhs.value))
+  }
+}
+impl ops::Sub<&mut Register> for u32 {
+  type Output = Register;
+  fn sub(self, rhs: &mut Register) -> Register {
+    Register::new(self.wrapping_sub(rhs.value))
+  }
+}
+impl ops::Sub<u32> for &mut Register {
+  type Output = Register;
+  fn sub(self, rhs: u32) -> Register {
+    Register::new(self.value.wrapping_sub(rhs))
+  }
+}
+//overloading -= operator for Register
+impl ops::SubAssign<Register> for Register {
+  fn sub_assign(&mut self, rhs: Register) {
+    *self = Register::new(self.value.wrapping_sub(rhs.value));
+  }
+}
+impl ops::SubAssign<Register> for u32 {
+  fn sub_assign(&mut self, rhs: Register) {
+    *self = self.wrapping_sub(rhs.value);
+  }
+}
+impl ops::SubAssign<u32> for Register {
+  fn sub_assign(&mut self, rhs: u32) {
+    *self = Register::new(self.value.wrapping_sub(rhs));
+  }
+}
+//overloading -= operator for &Register
+//it doesn't make sense to implement the two commented impl because the lhs is
+//an immutable reference
+//impl ops::SubAssign<&Register> for &Register {
+//}
+impl ops::SubAssign<&Register> for u32 {
+  fn sub_assign(&mut self, rhs: &Register) {
+    *self = self.wrapping_sub(rhs.value);
+  }
+}
+//impl ops::SubAssign<u32> for &Register {
+//}
+//overloading -= operator for &mut Register
+impl ops::SubAssign<&mut Register> for &mut Register {
+  fn sub_assign(&mut self, rhs: &mut Register) {
+    **self = Register::new(self.value.wrapping_sub(rhs.value));
+  }
+}
+impl ops::SubAssign<&mut Register> for u32 {
+  fn sub_assign(&mut self, rhs: &mut Register) {
+    *self = self.wrapping_sub(rhs.value);
+  }
+}
+impl ops::SubAssign<u32> for &mut Register {
+  fn sub_assign(&mut self, rhs: u32) {
+    **self = Register::new(self.value.wrapping_sub(rhs));
+  }
+}
+
 
 
 
