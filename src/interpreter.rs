@@ -191,9 +191,6 @@ impl Interpreter {
         let imm = get_imm26(op);
         let dest = (self.r3000.pc() & 0xf000_0000) + (imm * 4);
         *self.r3000.ra() += 8;
-        //if this were to be a delayed operation, i.e. a cpu register is set to
-        //a function of a location in memory, I should use the following line
-        //new_writes.push(Write::new(Name::gpr(General::ra), self.r3000.ra().get_value() + 8));
         Some(dest)
       },
       0x04 => {
@@ -282,6 +279,12 @@ impl Interpreter {
       },
       0x24 => {
         //LBU
+        let rs = get_rs(op);
+        let rt = get_rt(op);
+        let imm = get_imm16(op);
+        //loading the value from memory is a delayed operation (i.e. the updated register is not visible to the next opcode)
+        //this would work if the first argument to Write::new were a Name, but I need for this to work with register indices as well
+        new_writes.push(Write::new(rt, self.memory.read_word(rs + imm)));
         None
       },
       0x25 => {
