@@ -269,7 +269,7 @@ mod tests {
   #[test]
   fn set_register() {
     let mut r3000 = R3000::new();
-    *r3000.pc() = Register::new(2);
+    *r3000.pc() = 2;
     assert_eq!(r3000.pc, 2);
   }
 
@@ -277,42 +277,42 @@ mod tests {
   fn general_registers() {
     let mut r3000 = R3000::new();
     for i in 1..=31 {
-      *r3000.nth_reg_mut(i) = Register::new((i + 31) as u32);
+      *r3000.nth_reg_mut(i) = i + 31;
     }
     for i in 1..=31 {
       assert_eq!(r3000.general_registers[idx_to_name(i)], (31 + i) as u32);
     }
-    assert_eq!(r3000.general_registers[General::at].get_value(), 32);
-    assert_eq!(r3000.general_registers[General::vn(0)].get_value(), 33);
-    assert_eq!(r3000.general_registers[General::vn(1)].get_value(), 34);
-    assert_eq!(r3000.general_registers[General::an(0)].get_value(), 35);
-    assert_eq!(r3000.general_registers[General::an(1)].get_value(), 36);
-    assert_eq!(r3000.general_registers[General::an(2)].get_value(), 37);
-    assert_eq!(r3000.general_registers[General::an(3)].get_value(), 38);
-    assert_eq!(r3000.general_registers[General::tn0(0)].get_value(), 39);
-    assert_eq!(r3000.general_registers[General::tn0(1)].get_value(), 40);
-    assert_eq!(r3000.general_registers[General::tn0(2)].get_value(), 41);
-    assert_eq!(r3000.general_registers[General::tn0(3)].get_value(), 42);
-    assert_eq!(r3000.general_registers[General::tn0(4)].get_value(), 43);
-    assert_eq!(r3000.general_registers[General::tn0(5)].get_value(), 44);
-    assert_eq!(r3000.general_registers[General::tn0(6)].get_value(), 45);
-    assert_eq!(r3000.general_registers[General::tn0(7)].get_value(), 46);
-    assert_eq!(r3000.general_registers[General::sn(0)].get_value(), 47);
-    assert_eq!(r3000.general_registers[General::sn(1)].get_value(), 48);
-    assert_eq!(r3000.general_registers[General::sn(2)].get_value(), 49);
-    assert_eq!(r3000.general_registers[General::sn(3)].get_value(), 50);
-    assert_eq!(r3000.general_registers[General::sn(4)].get_value(), 51);
-    assert_eq!(r3000.general_registers[General::sn(5)].get_value(), 52);
-    assert_eq!(r3000.general_registers[General::sn(6)].get_value(), 53);
-    assert_eq!(r3000.general_registers[General::sn(7)].get_value(), 54);
-    assert_eq!(r3000.general_registers[General::tn1(8)].get_value(), 55);
-    assert_eq!(r3000.general_registers[General::tn1(9)].get_value(), 56);
-    assert_eq!(r3000.general_registers[General::kn(0)].get_value(), 57);
-    assert_eq!(r3000.general_registers[General::kn(1)].get_value(), 58);
-    assert_eq!(r3000.general_registers[General::gp].get_value(), 59);
-    assert_eq!(r3000.general_registers[General::sp].get_value(), 60);
-    assert_eq!(r3000.general_registers[General::fp].get_value(), 61);
-    assert_eq!(r3000.general_registers[General::ra].get_value(), 62);
+    assert_eq!(r3000.general_registers[General::at], 32);
+    assert_eq!(r3000.general_registers[General::vn(0)], 33);
+    assert_eq!(r3000.general_registers[General::vn(1)], 34);
+    assert_eq!(r3000.general_registers[General::an(0)], 35);
+    assert_eq!(r3000.general_registers[General::an(1)], 36);
+    assert_eq!(r3000.general_registers[General::an(2)], 37);
+    assert_eq!(r3000.general_registers[General::an(3)], 38);
+    assert_eq!(r3000.general_registers[General::tn0(0)], 39);
+    assert_eq!(r3000.general_registers[General::tn0(1)], 40);
+    assert_eq!(r3000.general_registers[General::tn0(2)], 41);
+    assert_eq!(r3000.general_registers[General::tn0(3)], 42);
+    assert_eq!(r3000.general_registers[General::tn0(4)], 43);
+    assert_eq!(r3000.general_registers[General::tn0(5)], 44);
+    assert_eq!(r3000.general_registers[General::tn0(6)], 45);
+    assert_eq!(r3000.general_registers[General::tn0(7)], 46);
+    assert_eq!(r3000.general_registers[General::sn(0)], 47);
+    assert_eq!(r3000.general_registers[General::sn(1)], 48);
+    assert_eq!(r3000.general_registers[General::sn(2)], 49);
+    assert_eq!(r3000.general_registers[General::sn(3)], 50);
+    assert_eq!(r3000.general_registers[General::sn(4)], 51);
+    assert_eq!(r3000.general_registers[General::sn(5)], 52);
+    assert_eq!(r3000.general_registers[General::sn(6)], 53);
+    assert_eq!(r3000.general_registers[General::sn(7)], 54);
+    assert_eq!(r3000.general_registers[General::tn1(8)], 55);
+    assert_eq!(r3000.general_registers[General::tn1(9)], 56);
+    assert_eq!(r3000.general_registers[General::kn(0)], 57);
+    assert_eq!(r3000.general_registers[General::kn(1)], 58);
+    assert_eq!(r3000.general_registers[General::gp], 59);
+    assert_eq!(r3000.general_registers[General::sp], 60);
+    assert_eq!(r3000.general_registers[General::fp], 61);
+    assert_eq!(r3000.general_registers[General::ra], 62);
   }
 
   #[test]

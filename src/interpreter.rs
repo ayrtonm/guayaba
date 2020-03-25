@@ -21,7 +21,7 @@ macro_rules! mov {
     let imm16 = get_imm16($op);
     let rt = get_rt($op);
     $new_writes.push(Write::new(Name::gpr(idx_to_name(rt)),
-                     $self.memory.read_word(rs + imm16).$method()));
+                     $self.memory.$method(rs + imm16)));
   };
   ([rs + imm16] = rt $method:ident, $self:expr, $op: expr) => {
     let rs = $self.r3000.nth_reg(get_rs($op));
@@ -56,7 +56,6 @@ macro_rules! compute {
     let rd = $self.r3000.nth_reg_mut(get_rd($instr));
     *rd = result;
   };
-  //this case uses 'and' and '1Fh' to highlight the fact that it's only matching text
   (rd = rt $method:tt (rs and 0x1F), $self:expr, $instr:expr) => {
     let rt = $self.r3000.nth_reg(get_rt($instr));
     let rs = $self.r3000.nth_reg(get_rs($instr));
@@ -114,6 +113,7 @@ impl Interpreter {
       0x00 => {
         //SPECIAL
         let b = get_secondary_field(op);
+        println!("secondary field is {:#x?}", b);
         match b {
           0x00 => {
             //SLL
@@ -336,12 +336,12 @@ impl Interpreter {
       },
       0x20 => {
         //LB
-        mov!(rt = [rs + imm16] byte_sign_extended, self, new_writes, op);
+        mov!(rt = [rs + imm16] read_byte/*_sign_extended*/, self, new_writes, op);
         None
       },
       0x21 => {
         //LH
-        mov!(rt = [rs + imm16] half_sign_extended, self, new_writes, op);
+        mov!(rt = [rs + imm16] read_half/*_sign_extended*/, self, new_writes, op);
         None
       },
       0x22 => {
@@ -350,17 +350,17 @@ impl Interpreter {
       },
       0x23 => {
         //LW
-        mov!(rt = [rs + imm16] word, self, new_writes, op);
+        mov!(rt = [rs + imm16] read_word, self, new_writes, op);
         None
       },
       0x24 => {
         //LBU
-        mov!(rt = [rs + imm16] byte, self, new_writes, op);
+        mov!(rt = [rs + imm16] read_byte, self, new_writes, op);
         None
       },
       0x25 => {
         //LHU
-        mov!(rt = [rs + imm16] half, self, new_writes, op);
+        mov!(rt = [rs + imm16] read_half, self, new_writes, op);
         None
       },
       0x26 => {
@@ -379,6 +379,10 @@ impl Interpreter {
       },
       0x2A => {
         //SWL
+        let rs = self.r3000.nth_reg(get_rs(op));
+        let rt = self.r3000.nth_reg(get_rt(op));
+        let imm16 = get_imm16(op);
+        println!("got here! rs: {:#x} rt: {:#x} imm16: {:#x}", rs, rt, imm16);
         None
       },
       0x2B => {
@@ -442,17 +446,17 @@ mod tests {
   use super::*;
 
   //this is the entry point in case we want to test some dummy instructions
-  const BIOS: Register = Register::new(0x1fc0_0000);
+  const BIOS: Register = 0x1fc0_0000;
   #[test]
   fn dummy_bios() {
     let mut vm = Interpreter::new(&"/home/ayrton/dev/rps/scph1001.bin".to_string(), None).unwrap();
-    vm.memory.write_word(&BIOS, &Register::new(0x0000_0002));
-    let dest = Register::new(0x0bf0_0000);
+    vm.memory.write_word(BIOS, 0x0000_0002);
+    let dest = 0x0bf0_0000;
     let instr = (2 << 26) | (dest & 0x03ff_ffff);
-    vm.memory.write_word(&(BIOS + 4), &Register::new(0x0000_0003));
-    vm.memory.write_word(&(BIOS + 8), &Register::new(0x0000_0004));
-    vm.memory.write_word(&(BIOS + 12), &instr);
-    vm.memory.write_word(&(BIOS + 16), &Register::new(0x0000_0006));
+    vm.memory.write_word(BIOS + 4, 0x0000_0003);
+    vm.memory.write_word(BIOS + 8, 0x0000_0004);
+    vm.memory.write_word(BIOS + 12, instr);
+    vm.memory.write_word(BIOS + 16, 0x0000_0006);
     vm.run();
   }
 }

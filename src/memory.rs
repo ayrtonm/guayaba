@@ -4,11 +4,85 @@ use std::io::SeekFrom;
 use std::io::Read;
 use std::fs::metadata;
 use std::fs::File;
-use crate::common::read_word_from_array;
-use crate::common::write_word_to_array;
+use crate::common::*;
 use crate::register::Register;
+use crate::register::Parts;
 
 pub const KB: usize = 1024;
+
+macro_rules! read_memory {
+  ($address:expr, $function:ident, $self:expr) => {
+    {
+      let phys_addr = $address & 0x1fff_ffff;
+      match phys_addr {
+        (Memory::MAIN_RAM..=Memory::MAIN_RAM_END) => {
+          $function(&$self.main_ram, phys_addr - Memory::MAIN_RAM)
+        },
+        (Memory::EXPANSION_1..=Memory::EXPANSION_1_END) => {
+          $function(&$self.expansion_1, phys_addr - Memory::EXPANSION_1)
+        },
+        (Memory::SCRATCHPAD..=Memory::SCRATCHPAD_END) => {
+          $function(&$self.scratchpad, phys_addr - Memory::SCRATCHPAD)
+        },
+        (Memory::IO_PORTS..=Memory::IO_PORTS_END) => {
+          $function(&$self.io_ports, phys_addr - Memory::IO_PORTS)
+        },
+        (Memory::EXPANSION_2..=Memory::EXPANSION_2_END) => {
+          $function(&$self.expansion_2, phys_addr - Memory::EXPANSION_2)
+        },
+        (Memory::EXPANSION_3..=Memory::EXPANSION_3_END) => {
+          $function(&$self.expansion_3, phys_addr - Memory::EXPANSION_3)
+        },
+        (Memory::BIOS..=Memory::BIOS_END) => {
+          $function(&*$self.bios, phys_addr - Memory::BIOS)
+        },
+        (Memory::CACHE_CONTROL..=Memory::CACHE_CONTROL_END) => {
+          $function(&$self.cache_control, phys_addr - Memory::CACHE_CONTROL)
+        },
+        _ => {
+          panic!("tried to access an unmapped section of memory at {}", phys_addr)
+        },
+      }
+    }
+  };
+}
+
+macro_rules! write_memory {
+  ($address:expr, $value:expr, $function:ident, $self:expr) => {
+    {
+      let phys_addr = $address & 0x1fff_ffff;
+      match phys_addr {
+        (Memory::MAIN_RAM..=Memory::MAIN_RAM_END) => {
+          $function(&mut $self.main_ram, phys_addr - Memory::MAIN_RAM, $value)
+        },
+        (Memory::EXPANSION_1..=Memory::EXPANSION_1_END) => {
+          $function(&mut $self.expansion_1, phys_addr - Memory::EXPANSION_1, $value)
+        },
+        (Memory::SCRATCHPAD..=Memory::SCRATCHPAD_END) => {
+          $function(&mut $self.scratchpad, phys_addr - Memory::SCRATCHPAD, $value)
+        },
+        (Memory::IO_PORTS..=Memory::IO_PORTS_END) => {
+          $function(&mut $self.io_ports, phys_addr - Memory::IO_PORTS, $value)
+        },
+        (Memory::EXPANSION_2..=Memory::EXPANSION_2_END) => {
+          $function(&mut $self.expansion_2, phys_addr - Memory::EXPANSION_2, $value)
+        },
+        (Memory::EXPANSION_3..=Memory::EXPANSION_3_END) => {
+          $function(&mut $self.expansion_3, phys_addr - Memory::EXPANSION_3, $value)
+        },
+        (Memory::BIOS..=Memory::BIOS_END) => {
+          $function(&mut *$self.bios, phys_addr - Memory::BIOS, $value)
+        },
+        (Memory::CACHE_CONTROL..=Memory::CACHE_CONTROL_END) => {
+          $function(&mut $self.cache_control, phys_addr - Memory::CACHE_CONTROL, $value)
+        },
+        _ => {
+          panic!("tried to access an unmapped section of memory at {}", phys_addr)
+        },
+      }
+  }
+  };
+}
 
 pub struct Memory {
   main_ram: [u8; 2 * KB],
@@ -77,75 +151,24 @@ impl Memory {
   const CACHE_CONTROL: u32 = 0xfffe_0000;
   const CACHE_CONTROL_END: u32 = Memory::CACHE_CONTROL + 512 - 1;
 
+  //FIXME: fix alignment restrictions, this will require making read_byte the fundamental read method
+  pub fn read_byte(&self, address: Register) -> Register {
+    read_memory!(address, read_byte_from_array, self)
+  }
+  pub fn read_half(&self, address: Register) -> Register {
+    read_memory!(address, read_half_from_array, self)
+  }
   pub fn read_word(&self, address: Register) -> Register {
-    let phys_addr = address & 0x1fff_ffff;
-    match phys_addr {
-      (Memory::MAIN_RAM..=Memory::MAIN_RAM_END) => {
-        read_word_from_array(&self.main_ram, phys_addr - Memory::MAIN_RAM)
-      },
-      (Memory::EXPANSION_1..=Memory::EXPANSION_1_END) => {
-        read_word_from_array(&self.expansion_1, phys_addr - Memory::EXPANSION_1)
-      },
-      (Memory::SCRATCHPAD..=Memory::SCRATCHPAD_END) => {
-        read_word_from_array(&self.scratchpad, phys_addr - Memory::SCRATCHPAD)
-      },
-      (Memory::IO_PORTS..=Memory::IO_PORTS_END) => {
-        read_word_from_array(&self.io_ports, phys_addr - Memory::IO_PORTS)
-      },
-      (Memory::EXPANSION_2..=Memory::EXPANSION_2_END) => {
-        read_word_from_array(&self.expansion_2, phys_addr - Memory::EXPANSION_2)
-      },
-      (Memory::EXPANSION_3..=Memory::EXPANSION_3_END) => {
-        read_word_from_array(&self.expansion_3, phys_addr - Memory::EXPANSION_3)
-      },
-      (Memory::BIOS..=Memory::BIOS_END) => {
-        read_word_from_array(&*self.bios, phys_addr - Memory::BIOS)
-      },
-      (Memory::CACHE_CONTROL..=Memory::CACHE_CONTROL_END) => {
-        read_word_from_array(&self.cache_control, phys_addr - Memory::CACHE_CONTROL)
-      },
-      _ => {
-        panic!("tried to access an unmapped section of memory at {}", phys_addr)
-      },
-    }
+    read_memory!(address, read_word_from_array, self)
   }
   pub fn write_byte(&mut self, address: Register, value: Register) {
-    self.write_word(address, value);
+    write_memory!(address, value, write_byte_to_array, self);
   }
   pub fn write_half(&mut self, address: Register, value: Register) {
-    self.write_word(address, value);
+    write_memory!(address, value, write_half_to_array, self);
   }
   pub fn write_word(&mut self, address: Register, value: Register) {
-    let phys_addr = address & 0x1fff_ffff;
-    match phys_addr {
-      (Memory::MAIN_RAM..=Memory::MAIN_RAM_END) => {
-        write_word_to_array(&mut self.main_ram, phys_addr - Memory::MAIN_RAM, value);
-      },
-      (Memory::EXPANSION_1..=Memory::EXPANSION_1_END) => {
-        write_word_to_array(&mut self.expansion_1, phys_addr - Memory::EXPANSION_1, value);
-      },
-      (Memory::SCRATCHPAD..=Memory::SCRATCHPAD_END) => {
-        write_word_to_array(&mut self.scratchpad, phys_addr - Memory::SCRATCHPAD, value);
-      },
-      (Memory::IO_PORTS..=Memory::IO_PORTS_END) => {
-        write_word_to_array(&mut self.io_ports, phys_addr - Memory::IO_PORTS, value);
-      },
-      (Memory::EXPANSION_2..=Memory::EXPANSION_2_END) => {
-        write_word_to_array(&mut self.expansion_2, phys_addr - Memory::EXPANSION_2, value);
-      },
-      (Memory::EXPANSION_3..=Memory::EXPANSION_3_END) => {
-        write_word_to_array(&mut self.expansion_3, phys_addr - Memory::EXPANSION_3, value);
-      },
-      (Memory::BIOS..=Memory::BIOS_END) => {
-        write_word_to_array(&mut *self.bios, phys_addr - Memory::BIOS, value);
-      },
-      (Memory::CACHE_CONTROL..=Memory::CACHE_CONTROL_END) => {
-        write_word_to_array(&mut self.cache_control, phys_addr - Memory::CACHE_CONTROL, value);
-      },
-      _ => {
-        panic!("tried to access an unmapped section of memory at {}", phys_addr)
-      },
-    }
+    write_memory!(address, value, write_word_to_array, self);
   }
 }
 
@@ -158,24 +181,23 @@ mod tests {
   fn scph1001_first_instr() {
     let bios = "/home/ayrton/dev/rps/scph1001.bin".to_string();
     let mem = Memory::new(&bios).unwrap();
-    let initial_pc = Register::new(0xbfc0_0000);
-    assert_eq!(mem.read_word(&initial_pc).get_value(), 0x3c08_0013);
+    let initial_pc = 0xbfc0_0000;
+    assert_eq!(mem.read_word(initial_pc), 0x3c08_0013);
   }
 
   #[test]
   #[should_panic]
   fn unmapped_read_panics() {
     let mem = Memory::blank();
-    let address = Register::new(Memory::BIOS_END);
-    mem.read_word(&address);
+    mem.read_word(Memory::BIOS_END);
   }
 
   #[test]
   fn memory_is_modified() {
     let mut mem = Memory::blank();
-    let address = Register::new(Memory::MAIN_RAM + 5);
-    let value = Register::new(10);
-    mem.write_word(&address, &value);
-    assert_eq!(mem.read_word(&address).get_value(), value.get_value());
+    let address = Memory::MAIN_RAM + 5;
+    let value = 10;
+    mem.write_word(address, value);
+    assert_eq!(mem.read_word(address), value);
   }
 }
