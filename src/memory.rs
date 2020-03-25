@@ -109,6 +109,12 @@ impl Memory {
       },
     })
   }
+  pub fn write_byte(&mut self, address: &Register, value: &Register) {
+    self.write_word(address, value);
+  }
+  pub fn write_half(&mut self, address: &Register, value: &Register) {
+    self.write_word(address, value);
+  }
   pub fn write_word(&mut self, address: &Register, value: &Register) {
     let phys_addr = address.get_value() & 0x1fff_ffff;
     let value = value.get_value();

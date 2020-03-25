@@ -16,7 +16,11 @@ use crate::memory::Memory;
 use crate::cd::CD;
 
 macro_rules! store {
-  ([rs + imm16] = rt $method:ident) => {
+  ([rs + imm16] = rt $method:ident, $self:expr, $op: expr) => {
+    let rs = $self.r3000.nth_reg(get_rs($op));
+    let rt = $self.r3000.nth_reg(get_rt($op));
+    let imm = get_imm16($op);
+    $self.memory.$method(&(rs + imm), &rt);
   };
 }
 
@@ -346,12 +350,12 @@ impl Interpreter {
       },
       0x28 => {
         //SB
-        store!([rs + imm16] = rt byte);
+        store!([rs + imm16] = rt write_byte, self, op);
         None
       },
       0x29 => {
         //SH
-        store!([rs + imm16] = rt half);
+        store!([rs + imm16] = rt write_half, self, op);
         None
       },
       0x2A => {
@@ -360,7 +364,7 @@ impl Interpreter {
       },
       0x2B => {
         //SW
-        store!([rs + imm16] = rt word);
+        store!([rs + imm16] = rt write_word, self, op);
         None
       },
       0x2E => {
