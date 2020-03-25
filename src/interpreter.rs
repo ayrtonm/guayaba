@@ -1,13 +1,6 @@
 use std::io;
 use std::ops::*;
-use crate::common::get_rs;
-use crate::common::get_rt;
-use crate::common::get_rd;
-use crate::common::get_imm5;
-use crate::common::get_imm16;
-use crate::common::get_imm26;
-use crate::common::get_primary_field;
-use crate::common::get_secondary_field;
+use crate::common::*;
 use crate::register::Register;
 use crate::register::Parts;
 use crate::r3000::R3000;
@@ -64,7 +57,7 @@ macro_rules! compute_then_assign {
     *rd = result;
   };
   //this case uses 'and' and '1Fh' to highlight the fact that it's only matching text
-  (rd = rt $operator:tt (rs and 1Fh), $self:expr, $instr:expr) => {
+  (rd = rt $operator:tt (rs and 0x1F), $self:expr, $instr:expr) => {
     let rt = $self.r3000.nth_reg(get_rt($instr));
     let rs = $self.r3000.nth_reg(get_rs($instr));
     let result = rt.$operator(rs & 0x1F);
@@ -134,22 +127,22 @@ impl Interpreter {
           },
           0x03 => {
             //SRA
-            //compute_then_assign!(rd = rt sra imm5, self, op);
+            compute_then_assign!(rd = rt sra imm5, self, op);
             None
           },
           0x04 => {
             //SLLV
-            compute_then_assign!(rd = rt shl (rs and 1Fh), self, op);
+            compute_then_assign!(rd = rt shl (rs and 0x1F), self, op);
             None
           },
           0x06 => {
             //SRLV
-            compute_then_assign!(rd = rt shr (rs and 1Fh), self, op);
+            compute_then_assign!(rd = rt shr (rs and 0x1F), self, op);
             None
           },
           0x07 => {
             //SRAV
-            //compute_then_assign!(rd = rt >> (rs and 1Fh), self, op);
+            compute_then_assign!(rd = rt sra (rs and 0x1F), self, op);
             None
           },
           0x08 => {
