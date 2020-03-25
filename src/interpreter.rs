@@ -304,12 +304,12 @@ impl Interpreter {
       },
       0x20 => {
         //LB
-        delayed_load!(rt = lowest_byte, self, new_writes, op);
+        delayed_load!(rt = lowest_byte_sign_extended, self, new_writes, op);
         None
       },
       0x21 => {
         //LH
-        delayed_load!(rt = lower_half, self, new_writes, op);
+        delayed_load!(rt = lower_half_sign_extended, self, new_writes, op);
         None
       },
       0x22 => {

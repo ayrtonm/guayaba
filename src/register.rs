@@ -23,6 +23,34 @@ impl Register {
   pub fn lowest_byte(&self) -> Register {
     self & 0x0000_00ff
   }
+  pub fn lower_half_sign_extended(&self) -> Register {
+    let ret = self.lower_half();
+    match ret.value >> 15 {
+      0 => {
+        ret
+      },
+      1 => {
+        ret | 0xffff_0000
+      },
+      _ => {
+        unreachable!("")
+      },
+    }
+  }
+  pub fn lowest_byte_sign_extended(&self) -> Register {
+    let ret = self.lowest_byte();
+    match ret.value >> 7 {
+      0 => {
+        ret
+      },
+      1 => {
+        ret | 0xffff_ff00
+      },
+      _ => {
+        unreachable!("")
+      },
+    }
+  }
 }
 
 //overloading + operator for Register
