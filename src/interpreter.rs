@@ -1,4 +1,5 @@
 use std::io;
+use std::ops::*;
 use crate::common::get_rs;
 use crate::common::get_rt;
 use crate::common::get_rd;
@@ -8,6 +9,7 @@ use crate::common::get_imm26;
 use crate::common::get_primary_field;
 use crate::common::get_secondary_field;
 use crate::register::Register;
+use crate::register::Parts;
 use crate::r3000::R3000;
 use crate::r3000::Write;
 use crate::r3000::Name;
@@ -23,16 +25,16 @@ use crate::cd::CD;
 macro_rules! mov {
   (rt = [rs + imm16] $method:ident, $self:expr, $new_writes:expr, $op: expr) => {
     let rs = $self.r3000.nth_reg(get_rs($op));
-    let imm = get_imm16($op);
+    let imm16 = get_imm16($op);
     let rt = get_rt($op);
     $new_writes.push(Write::new(Name::gpr(idx_to_name(rt)),
-                     $self.memory.read_word(&(rs + imm)).$method()));
+                     $self.memory.read_word(rs + imm16).$method()));
   };
   ([rs + imm16] = rt $method:ident, $self:expr, $op: expr) => {
     let rs = $self.r3000.nth_reg(get_rs($op));
     let rt = $self.r3000.nth_reg(get_rt($op));
-    let imm = get_imm16($op);
-    $self.memory.$method(&(rs + imm), &rt);
+    let imm16 = get_imm16($op);
+    $self.memory.$method(rs + imm16, *rt);
   };
 }
 
@@ -42,22 +44,22 @@ macro_rules! mov {
 macro_rules! compute_then_assign {
   (rd = rs $operator:tt rt, $self:expr, $instr:expr) => {
     let rs = $self.r3000.nth_reg(get_rs($instr));
-    let rt = $self.r3000.nth_reg(get_rt($instr));
-    let result = rs $operator rt;
+    let rt = *$self.r3000.nth_reg(get_rt($instr));
+    let result = rs.$operator(rt);
     let rd = $self.r3000.nth_reg_mut(get_rd($instr));
     *rd = result;
   };
   (rt = rs $operator:tt imm16, $self:expr, $instr:expr) => {
     let rs = $self.r3000.nth_reg(get_rs($instr));
-    let imm = get_imm16($instr);
-    let result = rs $operator imm;
+    let imm16 = get_imm16($instr);
+    let result = rs.$operator(imm16);
     let rt = $self.r3000.nth_reg_mut(get_rt($instr));
     *rt = result;
   };
   (rd = rt $operator:tt imm5, $self:expr, $instr:expr) => {
     let rt = $self.r3000.nth_reg(get_rt($instr));
-    let imm = get_imm5($instr);
-    let result = rt $operator imm;
+    let imm5 = get_imm5($instr);
+    let result = rt.$operator(imm5);
     let rd = $self.r3000.nth_reg_mut(get_rd($instr));
     *rd = result;
   };
@@ -65,7 +67,7 @@ macro_rules! compute_then_assign {
   (rd = rt $operator:tt (rs and 1Fh), $self:expr, $instr:expr) => {
     let rt = $self.r3000.nth_reg(get_rt($instr));
     let rs = $self.r3000.nth_reg(get_rs($instr));
-    let result = rt $operator (rs & 0x1F);
+    let result = rt.$operator(rs & 0x1F);
     let rd = $self.r3000.nth_reg_mut(get_rd($instr));
     *rd = result;
   };
@@ -101,13 +103,13 @@ impl Interpreter {
   }
   fn step(&mut self) {
     //get opcode from memory at program counter
-    let op = self.memory.read_word(self.r3000.pc());
-    println!("decoding opcode {:#x} from address {:#x}", op.get_value(), self.r3000.pc().get_value());
+    let op = self.memory.read_word(*self.r3000.pc());
+    println!("decoding opcode {:#x} from address {:#x}", op, self.r3000.pc());
     //the instruction following each jump is always executed before updating the pc
     *self.r3000.pc() = self.next_pc
                            .take()
-                           .map_or_else(|| self.r3000.pc() + 4, |next_pc| next_pc);
-    self.next_pc = self.execute_opcode(op.get_value());
+                           .map_or_else(|| *self.r3000.pc() + 4, |next_pc| next_pc);
+    self.next_pc = self.execute_opcode(op);
   }
   //if program counter should incremented normally, return None
   //otherwise return Some(new program counter)
@@ -122,29 +124,27 @@ impl Interpreter {
         match b {
           0x00 => {
             //SLL
-            //compute_then_assign!(rd = rt << imm5, self, op);
+            compute_then_assign!(rd = rt shl imm5, self, op);
             None
           },
           0x02 => {
             //SRL
-            //FIXME: either this or SRA is wrong
-            //compute_then_assign!(rd = rt >> imm5, self, op);
+            compute_then_assign!(rd = rt shr imm5, self, op);
             None
           },
           0x03 => {
             //SRA
-            //compute_then_assign!(rd = rt >> imm5, self, op);
+            //compute_then_assign!(rd = rt sra imm5, self, op);
             None
           },
           0x04 => {
             //SLLV
-            //compute_then_assign!(rd = rt << (rs and 1Fh), self, op);
+            compute_then_assign!(rd = rt shl (rs and 1Fh), self, op);
             None
           },
           0x06 => {
             //SRLV
-            //FIXME: either this or SRAV is wrong
-            //compute_then_assign!(rd = rt >> (rs and 1Fh), self, op);
+            compute_then_assign!(rd = rt shr (rs and 1Fh), self, op);
             None
           },
           0x07 => {
@@ -155,7 +155,7 @@ impl Interpreter {
           0x08 => {
             //JR
             let rs = self.r3000.nth_reg(get_rs(op));
-            println!("jumping to {:#x}", rs.get_value());
+            println!("jumping to {:#x}", rs);
             Some(rs.clone());
             None
           },
@@ -210,7 +210,7 @@ impl Interpreter {
           },
           0x21 => {
             //ADDU
-            compute_then_assign!(rd = rs + rt, self, op);
+            compute_then_assign!(rd = rs wrapping_add rt, self, op);
             None
           },
           0x22 => {
@@ -219,22 +219,22 @@ impl Interpreter {
           },
           0x23 => {
             //SUBU
-            compute_then_assign!(rd = rs - rt, self, op);
+            compute_then_assign!(rd = rs wrapping_sub rt, self, op);
             None
           },
           0x24 => {
             //AND
-            compute_then_assign!(rd = rs & rt, self, op);
+            compute_then_assign!(rd = rs bitand rt, self, op);
             None
           },
           0x25 => {
             //OR
-            compute_then_assign!(rd = rs | rt, self, op);
+            compute_then_assign!(rd = rs bitor rt, self, op);
             None
           },
           0x26 => {
             //XOR
-            compute_then_assign!(rd = rs ^ rt, self, op);
+            compute_then_assign!(rd = rs bitxor rt, self, op);
             None
           },
           0x27 => {
@@ -262,13 +262,13 @@ impl Interpreter {
       0x02 => {
         //J
         let imm = get_imm26(op);
-        let dest = (self.r3000.pc() & 0xf000_0000) + (imm * 4);
+        let dest = (*self.r3000.pc() & 0xf000_0000) + (imm * 4);
         Some(dest)
       },
       0x03 => {
         //JAL
         let imm = get_imm26(op);
-        let dest = (self.r3000.pc() & 0xf000_0000) + (imm * 4);
+        let dest = (*self.r3000.pc() & 0xf000_0000) + (imm * 4);
         *self.r3000.ra() += 8;
         Some(dest)
       },
@@ -294,7 +294,7 @@ impl Interpreter {
       },
       0x09 => {
         //ADDIU
-        compute_then_assign!(rt = rs + imm16, self, op);
+        compute_then_assign!(rt = rs wrapping_add imm16, self, op);
         None
       },
       0x0A => {
@@ -307,17 +307,17 @@ impl Interpreter {
       },
       0x0C => {
         //ANDI
-        compute_then_assign!(rt = rs & imm16, self, op);
+        compute_then_assign!(rt = rs bitand imm16, self, op);
         None
       },
       0x0D => {
         //ORI
-        compute_then_assign!(rt = rs | imm16, self, op);
+        compute_then_assign!(rt = rs bitor imm16, self, op);
         None
       },
       0x0E => {
         //XORI
-        compute_then_assign!(rt = rs ^ imm16, self, op);
+        compute_then_assign!(rt = rs bitxor imm16, self, op);
         None
       },
       0x0F => {

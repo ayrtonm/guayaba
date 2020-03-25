@@ -159,10 +159,10 @@ pub struct R3000 {
 }
 
 impl R3000 {
-  const ZERO: Register = Register::new(0);
+  const ZERO: Register = 0;
   pub fn new() -> Self {
     let general_registers = Default::default();
-    let pc = Register::new(0xbfc0_0000);
+    let pc = 0xbfc0_0000;
     let hi = Default::default();
     let lo = Default::default();
     R3000 {
@@ -263,14 +263,14 @@ mod tests {
   #[test]
   fn initial_values() {
     let r3000 = R3000::new();
-    assert_eq!(r3000.pc.get_value(), 0xbfc0_0000);
+    assert_eq!(r3000.pc, 0xbfc0_0000);
   }
 
   #[test]
   fn set_register() {
     let mut r3000 = R3000::new();
     *r3000.pc() = Register::new(2);
-    assert_eq!(r3000.pc.get_value(), 2);
+    assert_eq!(r3000.pc, 2);
   }
 
   #[test]
@@ -280,7 +280,7 @@ mod tests {
       *r3000.nth_reg_mut(i) = Register::new((i + 31) as u32);
     }
     for i in 1..=31 {
-      assert_eq!(r3000.general_registers[idx_to_name(i)].get_value(), (31 + i) as u32);
+      assert_eq!(r3000.general_registers[idx_to_name(i)], (31 + i) as u32);
     }
     assert_eq!(r3000.general_registers[General::at].get_value(), 32);
     assert_eq!(r3000.general_registers[General::vn(0)].get_value(), 33);

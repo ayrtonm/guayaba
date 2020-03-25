@@ -77,9 +77,9 @@ impl Memory {
   const CACHE_CONTROL: u32 = 0xfffe_0000;
   const CACHE_CONTROL_END: u32 = Memory::CACHE_CONTROL + 512 - 1;
 
-  pub fn read_word(&self, address: &Register) -> Register {
-    let phys_addr = address.get_value() & 0x1fff_ffff;
-    Register::new(match phys_addr {
+  pub fn read_word(&self, address: Register) -> Register {
+    let phys_addr = address & 0x1fff_ffff;
+    match phys_addr {
       (Memory::MAIN_RAM..=Memory::MAIN_RAM_END) => {
         read_word_from_array(&self.main_ram, phys_addr - Memory::MAIN_RAM)
       },
@@ -107,17 +107,16 @@ impl Memory {
       _ => {
         panic!("tried to access an unmapped section of memory at {}", phys_addr)
       },
-    })
+    }
   }
-  pub fn write_byte(&mut self, address: &Register, value: &Register) {
+  pub fn write_byte(&mut self, address: Register, value: Register) {
     self.write_word(address, value);
   }
-  pub fn write_half(&mut self, address: &Register, value: &Register) {
+  pub fn write_half(&mut self, address: Register, value: Register) {
     self.write_word(address, value);
   }
-  pub fn write_word(&mut self, address: &Register, value: &Register) {
-    let phys_addr = address.get_value() & 0x1fff_ffff;
-    let value = value.get_value();
+  pub fn write_word(&mut self, address: Register, value: Register) {
+    let phys_addr = address & 0x1fff_ffff;
     match phys_addr {
       (Memory::MAIN_RAM..=Memory::MAIN_RAM_END) => {
         write_word_to_array(&mut self.main_ram, phys_addr - Memory::MAIN_RAM, value);
