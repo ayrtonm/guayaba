@@ -1,5 +1,3 @@
-use std::ops::Index;
-use std::ops::IndexMut;
 use crate::register::Register;
 
 //different types of register names
@@ -10,24 +8,7 @@ pub enum Name {
   pc,
   hi,
   lo,
-  gpr(General),
-}
-
-//these are names for the registers in the general purpose register array
-#[allow(non_camel_case_types)]
-#[derive(Debug)]
-pub enum General {
-  at,
-  vn(usize),
-  an(usize),
-  tn0(usize),
-  sn(usize),
-  tn1(usize),
-  kn(usize),
-  gp,
-  sp,
-  fp,
-  ra,
+  rn(u32),
 }
 
 //this represents a delayed write operation
@@ -47,112 +28,8 @@ impl Write {
 }
 
 #[derive(Debug,Default)]
-struct GeneralRegisters([Register; 31]);
-
-fn name_to_idx(name: General) -> u32 {
-  let ret = match name {
-    General::at => {
-      1
-    },
-    General::vn(n) => {
-      assert!(n < 2);
-      2 + n
-    },
-    General::an(n) => {
-      assert!(n < 4);
-      4 + n
-    },
-    General::tn0(n) => {
-      assert!(n < 8);
-      8 + n
-    },
-    General::sn(n) => {
-      assert!(n < 8);
-      16 + n
-    },
-    General::tn1(n) => {
-      assert!((n < 10) && (n > 7));
-      16 + n
-    },
-    General::kn(n) => {
-      assert!(n < 2);
-      26 + n
-    },
-    General::gp => {
-      28
-    },
-    General::sp => {
-      29
-    },
-    General::fp => {
-      30
-    },
-    General::ra => {
-      31
-    },
-  };
-  ret as u32
-}
-
-pub fn idx_to_name(idx: u32) -> General {
-  let idx = idx as usize;
-  match idx {
-    1  => {
-     General::at
-    },
-    2..=3 => {
-      General::vn(idx - 2)
-    },
-    4..=7 => {
-      General::an(idx - 4)
-    },
-    8..=15 => {
-      General::tn0(idx - 8)
-    },
-    16..=23 => {
-      General::sn(idx - 16)
-    },
-    24..=25 => {
-      General::tn1(idx - 24 + 8)
-    },
-    26..=27 => {
-      General::kn(idx - 26)
-    },
-    28 => {
-     General::gp
-    },
-    29 => {
-      General::sp
-    },
-    30 => {
-      General::fp
-    },
-    31 => {
-      General::ra
-    },
-    _ => {
-      panic!("tried to get name of invalid R{} register", idx);
-    }
-  }
-}
-
-//allow indexing the general purpose register array by name
-impl Index<General> for GeneralRegisters {
-  type Output = Register;
-
-  fn index(&self, name: General) -> &Self::Output {
-    &(self.0)[name_to_idx(name) as usize - 1]
-  }
-}
-impl IndexMut<General> for GeneralRegisters {
-  fn index_mut(&mut self, name: General) -> &mut Self::Output {
-    &mut (self.0)[name_to_idx(name) as usize - 1]
-  }
-}
-
-#[derive(Debug,Default)]
 pub struct R3000 {
-  general_registers: GeneralRegisters,
+  general_registers: [Register; 31],
   pc: Register,
   hi: Register,
   lo: Register,
@@ -182,7 +59,7 @@ impl R3000 {
         &R3000::ZERO
       },
       _ => {
-        &self.general_registers.0[idx - 1]
+        &self.general_registers[idx - 1]
       },
     }
   }
@@ -191,46 +68,20 @@ impl R3000 {
   pub fn nth_reg_mut(&mut self, idx: u32) -> &mut Register {
     assert!((idx < 32) && (idx > 0));
     let idx = idx as usize;
-    &mut self.general_registers.0[idx - 1]
+    &mut self.general_registers[idx - 1]
   }
   //general purpose MIPS registers also have names we can use
-  //these methods are shorthands for using Name and General to address the general
-  //purpose register array
-  pub fn at(&mut self) -> &mut Register {
-    &mut self.general_registers[General::at]
+  pub fn ra(&self) -> &Register {
+    self.nth_reg(31)
   }
-  pub fn vn(&mut self, idx: usize) -> &mut Register {
-    &mut self.general_registers[General::vn(idx)]
-  }
-  pub fn an(&mut self, idx: usize) -> &mut Register {
-    &mut self.general_registers[General::an(idx)]
-  }
-  pub fn tn0(&mut self, idx: usize) -> &mut Register {
-    &mut self.general_registers[General::tn0(idx)]
-  }
-  pub fn sn(&mut self, idx: usize) -> &mut Register {
-    &mut self.general_registers[General::sn(idx)]
-  }
-  pub fn tn1(&mut self, idx: usize) -> &mut Register {
-    &mut self.general_registers[General::tn1(idx)]
-  }
-  pub fn kn(&mut self, idx: usize) -> &mut Register {
-    &mut self.general_registers[General::kn(idx)]
-  }
-  pub fn gp(&mut self) -> &mut Register {
-    &mut self.general_registers[General::gp]
-  }
-  pub fn sp(&mut self) -> &mut Register {
-    &mut self.general_registers[General::sp]
-  }
-  pub fn fp(&mut self) -> &mut Register {
-    &mut self.general_registers[General::fp]
-  }
-  pub fn ra(&mut self) -> &mut Register {
-    &mut self.general_registers[General::ra]
+  pub fn ra_mut(&mut self) -> &mut Register {
+    self.nth_reg_mut(31)
   }
   //these are the special purpose MIPS registers
-  pub fn pc(&mut self) -> &mut Register {
+  pub fn pc(&self) -> &Register {
+    &self.pc
+  }
+  pub fn pc_mut(&mut self) -> &mut Register {
     &mut self.pc
   }
   pub fn flush_write_cache(&mut self, operations: Vec<Write>) {
@@ -249,8 +100,9 @@ impl R3000 {
       Name::lo => {
         self.lo = operation.value;
       },
-      Name::gpr(name) => {
-        self.general_registers[name] = operation.value;
+      Name::rn(name) => {
+        let idx = name as usize;
+        self.general_registers[idx - 1] = operation.value;
       },
     }
   }
@@ -269,7 +121,7 @@ mod tests {
   #[test]
   fn set_register() {
     let mut r3000 = R3000::new();
-    *r3000.pc() = 2;
+    *r3000.pc_mut() = 2;
     assert_eq!(r3000.pc, 2);
   }
 
@@ -280,51 +132,7 @@ mod tests {
       *r3000.nth_reg_mut(i) = i + 31;
     }
     for i in 1..=31 {
-      assert_eq!(r3000.general_registers[idx_to_name(i)], (31 + i) as u32);
+      assert_eq!(*r3000.nth_reg(i), (31 + i) as u32);
     }
-    assert_eq!(r3000.general_registers[General::at], 32);
-    assert_eq!(r3000.general_registers[General::vn(0)], 33);
-    assert_eq!(r3000.general_registers[General::vn(1)], 34);
-    assert_eq!(r3000.general_registers[General::an(0)], 35);
-    assert_eq!(r3000.general_registers[General::an(1)], 36);
-    assert_eq!(r3000.general_registers[General::an(2)], 37);
-    assert_eq!(r3000.general_registers[General::an(3)], 38);
-    assert_eq!(r3000.general_registers[General::tn0(0)], 39);
-    assert_eq!(r3000.general_registers[General::tn0(1)], 40);
-    assert_eq!(r3000.general_registers[General::tn0(2)], 41);
-    assert_eq!(r3000.general_registers[General::tn0(3)], 42);
-    assert_eq!(r3000.general_registers[General::tn0(4)], 43);
-    assert_eq!(r3000.general_registers[General::tn0(5)], 44);
-    assert_eq!(r3000.general_registers[General::tn0(6)], 45);
-    assert_eq!(r3000.general_registers[General::tn0(7)], 46);
-    assert_eq!(r3000.general_registers[General::sn(0)], 47);
-    assert_eq!(r3000.general_registers[General::sn(1)], 48);
-    assert_eq!(r3000.general_registers[General::sn(2)], 49);
-    assert_eq!(r3000.general_registers[General::sn(3)], 50);
-    assert_eq!(r3000.general_registers[General::sn(4)], 51);
-    assert_eq!(r3000.general_registers[General::sn(5)], 52);
-    assert_eq!(r3000.general_registers[General::sn(6)], 53);
-    assert_eq!(r3000.general_registers[General::sn(7)], 54);
-    assert_eq!(r3000.general_registers[General::tn1(8)], 55);
-    assert_eq!(r3000.general_registers[General::tn1(9)], 56);
-    assert_eq!(r3000.general_registers[General::kn(0)], 57);
-    assert_eq!(r3000.general_registers[General::kn(1)], 58);
-    assert_eq!(r3000.general_registers[General::gp], 59);
-    assert_eq!(r3000.general_registers[General::sp], 60);
-    assert_eq!(r3000.general_registers[General::fp], 61);
-    assert_eq!(r3000.general_registers[General::ra], 62);
-  }
-
-  #[test]
-  fn register_name_conversion() {
-    for i in 1..=31 {
-      assert_eq!(i, name_to_idx(idx_to_name(i)));
-    }
-  }
-
-  #[test]
-  #[should_panic]
-  fn invalid_register() {
-    idx_to_name(32);
   }
 }

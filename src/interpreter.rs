@@ -6,8 +6,6 @@ use crate::register::Parts;
 use crate::r3000::R3000;
 use crate::r3000::Write;
 use crate::r3000::Name;
-use crate::r3000::General;
-use crate::r3000::idx_to_name;
 use crate::memory::Memory;
 use crate::cd::CD;
 
@@ -20,7 +18,7 @@ macro_rules! mov {
     let rs = $self.r3000.nth_reg(get_rs($op));
     let imm16 = get_imm16($op);
     let rt = get_rt($op);
-    $new_writes.push(Write::new(Name::gpr(idx_to_name(rt)),
+    $new_writes.push(Write::new(Name::rn(rt),
                      $self.memory.$method(rs + imm16)));
   };
   ([rs + imm16] = rt $method:ident, $self:expr, $op: expr) => {
@@ -87,7 +85,7 @@ impl Interpreter {
     })
   }
   pub fn run(&mut self) {
-    let n = 10;
+    let n = 4;
     for _ in 0..n {
       self.step();
     }
@@ -98,7 +96,7 @@ impl Interpreter {
     let op = self.memory.read_word(*self.r3000.pc());
     println!("decoding opcode {:#x} from address {:#x}", op, self.r3000.pc());
     //the instruction following each jump is always executed before updating the pc
-    *self.r3000.pc() = self.next_pc
+    *self.r3000.pc_mut() = self.next_pc
                            .take()
                            .map_or_else(|| *self.r3000.pc() + 4, |next_pc| next_pc);
     self.next_pc = self.execute_opcode(op);
@@ -263,7 +261,7 @@ impl Interpreter {
         //JAL
         let imm = get_imm26(op);
         let dest = (*self.r3000.pc() & 0xf000_0000) + (imm * 4);
-        *self.r3000.ra() += 8;
+        *self.r3000.ra_mut() += 8;
         Some(dest)
       },
       0x04 => {
@@ -336,12 +334,12 @@ impl Interpreter {
       },
       0x20 => {
         //LB
-        mov!(rt = [rs + imm16] read_byte/*_sign_extended*/, self, new_writes, op);
+        mov!(rt = [rs + imm16] read_byte_sign_extended, self, new_writes, op);
         None
       },
       0x21 => {
         //LH
-        mov!(rt = [rs + imm16] read_half/*_sign_extended*/, self, new_writes, op);
+        mov!(rt = [rs + imm16] read_half_sign_extended, self, new_writes, op);
         None
       },
       0x22 => {
@@ -382,7 +380,6 @@ impl Interpreter {
         let rs = self.r3000.nth_reg(get_rs(op));
         let rt = self.r3000.nth_reg(get_rt(op));
         let imm16 = get_imm16(op);
-        println!("got here! rs: {:#x} rt: {:#x} imm16: {:#x}", rs, rt, imm16);
         None
       },
       0x2B => {
@@ -447,7 +444,7 @@ mod tests {
 
   //this is the entry point in case we want to test some dummy instructions
   const BIOS: Register = 0x1fc0_0000;
-  #[test]
+  //#[test]
   fn dummy_bios() {
     let mut vm = Interpreter::new(&"/home/ayrton/dev/rps/scph1001.bin".to_string(), None).unwrap();
     vm.memory.write_word(BIOS, 0x0000_0002);

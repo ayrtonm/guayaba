@@ -152,6 +152,12 @@ impl Memory {
   const CACHE_CONTROL_END: u32 = Memory::CACHE_CONTROL + 512 - 1;
 
   //FIXME: fix alignment restrictions, this will require making read_byte the fundamental read method
+  pub fn read_byte_sign_extended(&self, address: Register) -> Register {
+    read_memory!(address, read_byte_from_array, self).byte_sign_extended()
+  }
+  pub fn read_half_sign_extended(&self, address: Register) -> Register {
+    read_memory!(address, read_half_from_array, self).half_sign_extended()
+  }
   pub fn read_byte(&self, address: Register) -> Register {
     read_memory!(address, read_byte_from_array, self)
   }
