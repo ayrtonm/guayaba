@@ -9,6 +9,10 @@ pub trait Parts {
   fn half_sign_extended(&self) -> Register;
   fn byte_sign_extended(&self) -> Register;
   fn sra(&self, rhs: Register) -> Register;
+  fn and(&self, rhs: Register) -> Register;
+  fn or(&self, rhs: Register) -> Register;
+  fn xor(&self, rhs: Register) -> Register;
+  fn nor(&self, rhs: Register) -> Register;
 }
 impl Parts for Register{
   fn word(&self) -> Register {
@@ -60,5 +64,17 @@ impl Parts for Register{
         unreachable!("")
       },
     }
+  }
+  fn and(&self, rhs: Register) -> Register {
+    self.bitand(rhs)
+  }
+  fn or(&self, rhs: Register) -> Register {
+    self.bitor(rhs)
+  }
+  fn xor(&self, rhs: Register) -> Register {
+    self.bitxor(rhs)
+  }
+  fn nor(&self, rhs: Register) -> Register {
+    self.bitor(rhs).not()
   }
 }

@@ -34,33 +34,33 @@ macro_rules! mov {
 //since self.r3000 is borrowed mutably on the lhs, the rhs must be
 //computed from the immutable references before assigning its value
 //to the lhs
-macro_rules! compute_then_assign {
-  (rd = rs $operator:tt rt, $self:expr, $instr:expr) => {
+macro_rules! compute {
+  (rd = rs $method:ident rt, $self:expr, $instr:expr) => {
     let rs = $self.r3000.nth_reg(get_rs($instr));
     let rt = *$self.r3000.nth_reg(get_rt($instr));
-    let result = rs.$operator(rt);
+    let result = rs.$method(rt);
     let rd = $self.r3000.nth_reg_mut(get_rd($instr));
     *rd = result;
   };
-  (rt = rs $operator:tt imm16, $self:expr, $instr:expr) => {
+  (rt = rs $method:tt imm16, $self:expr, $instr:expr) => {
     let rs = $self.r3000.nth_reg(get_rs($instr));
     let imm16 = get_imm16($instr);
-    let result = rs.$operator(imm16);
+    let result = rs.$method(imm16);
     let rt = $self.r3000.nth_reg_mut(get_rt($instr));
     *rt = result;
   };
-  (rd = rt $operator:tt imm5, $self:expr, $instr:expr) => {
+  (rd = rt $method:tt imm5, $self:expr, $instr:expr) => {
     let rt = $self.r3000.nth_reg(get_rt($instr));
     let imm5 = get_imm5($instr);
-    let result = rt.$operator(imm5);
+    let result = rt.$method(imm5);
     let rd = $self.r3000.nth_reg_mut(get_rd($instr));
     *rd = result;
   };
   //this case uses 'and' and '1Fh' to highlight the fact that it's only matching text
-  (rd = rt $operator:tt (rs and 0x1F), $self:expr, $instr:expr) => {
+  (rd = rt $method:tt (rs and 0x1F), $self:expr, $instr:expr) => {
     let rt = $self.r3000.nth_reg(get_rt($instr));
     let rs = $self.r3000.nth_reg(get_rs($instr));
-    let result = rt.$operator(rs & 0x1F);
+    let result = rt.$method(rs & 0x1F);
     let rd = $self.r3000.nth_reg_mut(get_rd($instr));
     *rd = result;
   };
@@ -117,32 +117,32 @@ impl Interpreter {
         match b {
           0x00 => {
             //SLL
-            compute_then_assign!(rd = rt shl imm5, self, op);
+            compute!(rd = rt shl imm5, self, op);
             None
           },
           0x02 => {
             //SRL
-            compute_then_assign!(rd = rt shr imm5, self, op);
+            compute!(rd = rt shr imm5, self, op);
             None
           },
           0x03 => {
             //SRA
-            compute_then_assign!(rd = rt sra imm5, self, op);
+            compute!(rd = rt sra imm5, self, op);
             None
           },
           0x04 => {
             //SLLV
-            compute_then_assign!(rd = rt shl (rs and 0x1F), self, op);
+            compute!(rd = rt shl (rs and 0x1F), self, op);
             None
           },
           0x06 => {
             //SRLV
-            compute_then_assign!(rd = rt shr (rs and 0x1F), self, op);
+            compute!(rd = rt shr (rs and 0x1F), self, op);
             None
           },
           0x07 => {
             //SRAV
-            compute_then_assign!(rd = rt sra (rs and 0x1F), self, op);
+            compute!(rd = rt sra (rs and 0x1F), self, op);
             None
           },
           0x08 => {
@@ -186,7 +186,7 @@ impl Interpreter {
           },
           0x19 => {
             //MULTU
-            //compute_delay_assign!(hi:lo = rs * rt, self, op);
+            //compute!(hi:lo = rs * rt, self, op);
             None
           },
           0x1A => {
@@ -203,7 +203,7 @@ impl Interpreter {
           },
           0x21 => {
             //ADDU
-            compute_then_assign!(rd = rs wrapping_add rt, self, op);
+            compute!(rd = rs wrapping_add rt, self, op);
             None
           },
           0x22 => {
@@ -212,26 +212,27 @@ impl Interpreter {
           },
           0x23 => {
             //SUBU
-            compute_then_assign!(rd = rs wrapping_sub rt, self, op);
+            compute!(rd = rs wrapping_sub rt, self, op);
             None
           },
           0x24 => {
             //AND
-            compute_then_assign!(rd = rs bitand rt, self, op);
+            compute!(rd = rs and rt, self, op);
             None
           },
           0x25 => {
             //OR
-            compute_then_assign!(rd = rs bitor rt, self, op);
+            compute!(rd = rs or rt, self, op);
             None
           },
           0x26 => {
             //XOR
-            compute_then_assign!(rd = rs bitxor rt, self, op);
+            compute!(rd = rs xor rt, self, op);
             None
           },
           0x27 => {
             //NOR
+            compute!(rd = rs nor rt, self, op);
             None
           },
           0x2A => {
@@ -287,7 +288,7 @@ impl Interpreter {
       },
       0x09 => {
         //ADDIU
-        compute_then_assign!(rt = rs wrapping_add imm16, self, op);
+        compute!(rt = rs wrapping_add imm16, self, op);
         None
       },
       0x0A => {
@@ -300,17 +301,17 @@ impl Interpreter {
       },
       0x0C => {
         //ANDI
-        compute_then_assign!(rt = rs bitand imm16, self, op);
+        compute!(rt = rs and imm16, self, op);
         None
       },
       0x0D => {
         //ORI
-        compute_then_assign!(rt = rs bitor imm16, self, op);
+        compute!(rt = rs or imm16, self, op);
         None
       },
       0x0E => {
         //XORI
-        compute_then_assign!(rt = rs bitxor imm16, self, op);
+        compute!(rt = rs xor imm16, self, op);
         None
       },
       0x0F => {
