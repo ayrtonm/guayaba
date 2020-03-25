@@ -153,20 +153,24 @@ mod tests {
   fn scph1001_first_instr() {
     let bios = "/home/ayrton/dev/rps/scph1001.bin".to_string();
     let mem = Memory::new(&bios).unwrap();
-    assert_eq!(mem.read_word(0xbfc0_0000), 0x3c08_0013);
+    let initial_pc = Register::new(0xbfc0_0000);
+    assert_eq!(mem.read_word(&initial_pc).get_value(), 0x3c08_0013);
   }
 
   #[test]
   #[should_panic]
   fn unmapped_read_panics() {
     let mem = Memory::blank();
-    mem.read_word(Memory::BIOS_END);
+    let address = Register::new(Memory::BIOS_END);
+    mem.read_word(&address);
   }
 
   #[test]
   fn memory_is_modified() {
     let mut mem = Memory::blank();
-    mem.write_word(Memory::MAIN_RAM + 5, 10);
-    assert_eq!(mem.read_word(Memory::MAIN_RAM + 5), 10);
+    let address = Register::new(Memory::MAIN_RAM + 5);
+    let value = Register::new(10);
+    mem.write_word(&address, &value);
+    assert_eq!(mem.read_word(&address).get_value(), value.get_value());
   }
 }

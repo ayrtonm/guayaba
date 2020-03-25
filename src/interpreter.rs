@@ -15,8 +15,12 @@ use crate::r3000::idx_to_name;
 use crate::memory::Memory;
 use crate::cd::CD;
 
+//loading a value from memory is a delayed operation (i.e. the updated register
+//is not visible to the next opcode). Note that the rs + imm16 in parentheses is
+//symbolic and only used to improve readability. This macro should be able to
+//handle all loads in the MIPS instructions set so there's no point to generalizing it
 macro_rules! delayed_load {
-  (rt = $rhs:ident, $self:expr, $new_writes:expr, $op: expr) => {
+  (rt = $rhs:ident(rs + imm16), $self:expr, $new_writes:expr, $op: expr) => {
     let rs = $self.r3000.nth_reg(get_rs($op));
     let imm = get_imm16($op);
     let rt = get_rt($op);
@@ -25,6 +29,9 @@ macro_rules! delayed_load {
   };
 }
 
+//since self.r3000 is borrowed mutably on the lhs, the rhs must be
+//computed from the immutable references before assigning its value
+//to the lhs
 macro_rules! compute_then_assign {
   (rd = rs $operator:tt rt, $self:expr, $op:expr) => {
     let rs = $self.r3000.nth_reg(get_rs($op));
@@ -172,9 +179,6 @@ impl Interpreter {
           },
           0x21 => {
             //ADDU
-            //since self.r3000 is borrowed mutably on the lhs, the rhs must be
-            //computed from the immutable references before assigning its value
-            //to the lhs
             compute_then_assign!(rd = rs + rt, self, op);
             None
           },
@@ -304,12 +308,12 @@ impl Interpreter {
       },
       0x20 => {
         //LB
-        delayed_load!(rt = lowest_byte_sign_extended, self, new_writes, op);
+        delayed_load!(rt = lowest_byte_sign_extended(rs + imm16), self, new_writes, op);
         None
       },
       0x21 => {
         //LH
-        delayed_load!(rt = lower_half_sign_extended, self, new_writes, op);
+        delayed_load!(rt = lower_half_sign_extended(rs + imm16), self, new_writes, op);
         None
       },
       0x22 => {
@@ -318,21 +322,17 @@ impl Interpreter {
       },
       0x23 => {
         //LW
-        delayed_load!(rt = word, self, new_writes, op);
+        delayed_load!(rt = word(rs + imm16), self, new_writes, op);
         None
       },
       0x24 => {
         //LBU
-        //loading the value from memory is a delayed operation (i.e. the updated
-        //register is not visible to the next opcode). this would work if the
-        //first argument to Write::new were a Name, but I need for this to work
-        //with register indices as well
-        delayed_load!(rt = lowest_byte, self, new_writes, op);
+        delayed_load!(rt = lowest_byte(rs + imm16), self, new_writes, op);
         None
       },
       0x25 => {
         //LHU
-        delayed_load!(rt = lower_half, self, new_writes, op);
+        delayed_load!(rt = lower_half(rs + imm16), self, new_writes, op);
         None
       },
       0x26 => {
@@ -410,22 +410,18 @@ impl Interpreter {
 mod tests {
   use super::*;
 
-  #[test]
-  fn f() {
-    toy_macro!(rt = 0);
-  }
   //this is the entry point in case we want to test some dummy instructions
-  const BIOS: u32 = 0x1fc0_0000;
+  const BIOS: Register = Register::new(0x1fc0_0000);
   #[test]
   fn dummy_bios() {
     let mut vm = Interpreter::new(&"/home/ayrton/dev/rps/scph1001.bin".to_string(), None).unwrap();
-    vm.memory.write_word(BIOS, 0x0000_0002);
-    let dest: u32 = 0x0bf0_0000;
-    let instr: u32 = (2 << 26) | (dest & 0x03ff_ffff);
-    vm.memory.write_word(BIOS + 4, 0x0000_0003);
-    vm.memory.write_word(BIOS + 8, 0x0000_0004);
-    vm.memory.write_word(BIOS + 12, instr);
-    vm.memory.write_word(BIOS + 16, 0x0000_0006);
+    vm.memory.write_word(&BIOS, &Register::new(0x0000_0002));
+    let dest = Register::new(0x0bf0_0000);
+    let instr = (2 << 26) | (dest & 0x03ff_ffff);
+    vm.memory.write_word(&(BIOS + 4), &Register::new(0x0000_0003));
+    vm.memory.write_word(&(BIOS + 8), &Register::new(0x0000_0004));
+    vm.memory.write_word(&(BIOS + 12), &instr);
+    vm.memory.write_word(&(BIOS + 16), &Register::new(0x0000_0006));
     vm.run();
   }
 }
