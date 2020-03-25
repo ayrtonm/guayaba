@@ -17,14 +17,14 @@ impl Register {
   pub fn word(self) -> Register {
     self
   }
-  pub fn lower_half(&self) -> Register {
+  pub fn half(&self) -> Register {
     self & 0x0000_ffff
   }
-  pub fn lowest_byte(&self) -> Register {
+  pub fn byte(&self) -> Register {
     self & 0x0000_00ff
   }
-  pub fn lower_half_sign_extended(&self) -> Register {
-    let ret = self.lower_half();
+  pub fn half_sign_extended(&self) -> Register {
+    let ret = self.half();
     match ret.value >> 15 {
       0 => {
         ret
@@ -37,8 +37,8 @@ impl Register {
       },
     }
   }
-  pub fn lowest_byte_sign_extended(&self) -> Register {
-    let ret = self.lowest_byte();
+  pub fn byte_sign_extended(&self) -> Register {
+    let ret = self.byte();
     match ret.value >> 7 {
       0 => {
         ret

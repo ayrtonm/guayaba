@@ -15,17 +15,22 @@ use crate::r3000::idx_to_name;
 use crate::memory::Memory;
 use crate::cd::CD;
 
+macro_rules! store {
+  ([rs + imm16] = rt $method:ident) => {
+  };
+}
+
 //loading a value from memory is a delayed operation (i.e. the updated register
 //is not visible to the next opcode). Note that the rs + imm16 in parentheses is
 //symbolic and only used to improve readability. This macro should be able to
 //handle all loads in the MIPS instructions set so there's no point to generalizing it
 macro_rules! delayed_load {
-  (rt = $rhs:ident(rs + imm16), $self:expr, $new_writes:expr, $op: expr) => {
+  (rt = [rs + imm16] $method:ident, $self:expr, $new_writes:expr, $op: expr) => {
     let rs = $self.r3000.nth_reg(get_rs($op));
     let imm = get_imm16($op);
     let rt = get_rt($op);
     $new_writes.push(Write::new(Name::gpr(idx_to_name(rt)),
-                     $self.memory.read_word(&(rs + imm)).$rhs()));
+                     $self.memory.read_word(&(rs + imm)).$method()));
   };
 }
 
@@ -308,12 +313,12 @@ impl Interpreter {
       },
       0x20 => {
         //LB
-        delayed_load!(rt = lowest_byte_sign_extended(rs + imm16), self, new_writes, op);
+        delayed_load!(rt = [rs + imm16] byte_sign_extended, self, new_writes, op);
         None
       },
       0x21 => {
         //LH
-        delayed_load!(rt = lower_half_sign_extended(rs + imm16), self, new_writes, op);
+        delayed_load!(rt = [rs + imm16] half_sign_extended, self, new_writes, op);
         None
       },
       0x22 => {
@@ -322,17 +327,17 @@ impl Interpreter {
       },
       0x23 => {
         //LW
-        delayed_load!(rt = word(rs + imm16), self, new_writes, op);
+        delayed_load!(rt = [rs + imm16] word, self, new_writes, op);
         None
       },
       0x24 => {
         //LBU
-        delayed_load!(rt = lowest_byte(rs + imm16), self, new_writes, op);
+        delayed_load!(rt = [rs + imm16] byte, self, new_writes, op);
         None
       },
       0x25 => {
         //LHU
-        delayed_load!(rt = lower_half(rs + imm16), self, new_writes, op);
+        delayed_load!(rt = [rs + imm16] half, self, new_writes, op);
         None
       },
       0x26 => {
@@ -341,10 +346,12 @@ impl Interpreter {
       },
       0x28 => {
         //SB
+        store!([rs + imm16] = rt byte);
         None
       },
       0x29 => {
         //SH
+        store!([rs + imm16] = rt half);
         None
       },
       0x2A => {
@@ -353,6 +360,7 @@ impl Interpreter {
       },
       0x2B => {
         //SW
+        store!([rs + imm16] = rt word);
         None
       },
       0x2E => {
