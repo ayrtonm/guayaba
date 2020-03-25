@@ -23,8 +23,11 @@ pub fn get_rt(op: u32) -> u32 {
 pub fn get_rd(op: u32) -> u32 {
   (op & 0x0000_f800) >> 11
 }
+pub fn get_imm5(op: u32) -> u32 {
+  (op & 0x0000_07c0) >> 6
+}
 pub fn get_imm16(op: u32) -> u32 {
-  (op & 0x0000_ffff)
+  op & 0x0000_ffff
 }
 pub fn get_imm26(op: u32) -> u32 {
   op & 0x03ff_ffff

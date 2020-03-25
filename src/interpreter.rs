@@ -2,6 +2,7 @@ use std::io;
 use crate::common::get_rs;
 use crate::common::get_rt;
 use crate::common::get_rd;
+use crate::common::get_imm5;
 use crate::common::get_imm16;
 use crate::common::get_imm26;
 use crate::common::get_primary_field;
@@ -42,19 +43,26 @@ macro_rules! delayed_load {
 //computed from the immutable references before assigning its value
 //to the lhs
 macro_rules! compute_then_assign {
-  (rd = rs $operator:tt rt, $self:expr, $op:expr) => {
-    let rs = $self.r3000.nth_reg(get_rs($op));
-    let rt = $self.r3000.nth_reg(get_rt($op));
+  (rd = rs $operator:tt rt, $self:expr, $instr:expr) => {
+    let rs = $self.r3000.nth_reg(get_rs($instr));
+    let rt = $self.r3000.nth_reg(get_rt($instr));
     let result = rs $operator rt;
-    let rd = $self.r3000.nth_reg_mut(get_rd($op));
+    let rd = $self.r3000.nth_reg_mut(get_rd($instr));
     *rd = result;
   };
-  (rt = rs $operator:tt imm16, $self:expr, $op:expr) => {
-    let rs = $self.r3000.nth_reg(get_rs($op));
-    let imm = get_imm16($op);
+  (rt = rs $operator:tt imm16, $self:expr, $instr:expr) => {
+    let rs = $self.r3000.nth_reg(get_rs($instr));
+    let imm = get_imm16($instr);
     let result = rs $operator imm;
-    let rt = $self.r3000.nth_reg_mut(get_rt($op));
+    let rt = $self.r3000.nth_reg_mut(get_rt($instr));
     *rt = result;
+  };
+  (rd = rt $operator:tt imm5, $self:expr, $instr:expr) => {
+    let rt = $self.r3000.nth_reg(get_rt($instr));
+    let imm = get_imm5($instr);
+    let result = rt $operator imm;
+    let rd = $self.r3000.nth_reg_mut(get_rd($instr));
+    *rd = result;
   };
 }
 
@@ -109,18 +117,23 @@ impl Interpreter {
         match b {
           0x00 => {
             //SLL
+            //compute_then_assign!(rd = rt << imm5, self, op);
             None
           },
           0x02 => {
             //SRL
+            //FIXME: either this or SRA is wrong
+            //compute_then_assign!(rd = rt >> imm5, self, op);
             None
           },
           0x03 => {
             //SRA
+            //compute_then_assign!(rd = rt >> imm5, self, op);
             None
           },
           0x04 => {
             //SLLV
+            //compute_then_assign!(rd = rt << (rs & 0x1f), self, op);
             None
           },
           0x06 => {
@@ -172,6 +185,7 @@ impl Interpreter {
           },
           0x19 => {
             //MULTU
+            //compute_delay_assign!(hi:lo = rs * rt, self, op);
             None
           },
           0x1A => {
@@ -202,14 +216,17 @@ impl Interpreter {
           },
           0x24 => {
             //AND
+            compute_then_assign!(rd = rs & rt, self, op);
             None
           },
           0x25 => {
             //OR
+            compute_then_assign!(rd = rs | rt, self, op);
             None
           },
           0x26 => {
             //XOR
+            compute_then_assign!(rd = rs ^ rt, self, op);
             None
           },
           0x27 => {
