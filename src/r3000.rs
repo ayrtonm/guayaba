@@ -146,14 +146,17 @@ mod tests {
   }
 
   #[test]
-  fn test_flush_cache() {
+  fn flush_cache() {
     let mut cache = Vec::new();
     cache.push(DelayedWrite::new(Name::rn(1), 4, 10));
-    cache.push(DelayedWrite::new(Name::rn(2), 5, 1));
     cache.push(DelayedWrite::new(Name::rn(3), 6, 0));
-    println!("{:#?}", cache);
+    cache.push(DelayedWrite::new(Name::rn(2), 5, 1));
     let mut r3000 = R3000::new();
     r3000.flush_write_cache(&mut cache);
-    println!("{:#?}", cache);
+    assert_eq!(cache.len(), 2);
+    assert_eq!(cache[0].cycles, 9);
+    assert_eq!(cache[0].value, 4);
+    assert_eq!(cache[1].cycles, 0);
+    assert_eq!(cache[1].value, 5);
   }
 }
