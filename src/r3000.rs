@@ -13,17 +13,22 @@ pub enum Name {
 
 //this represents a delayed write operation
 #[derive(Debug)]
-pub struct Write {
+pub struct DelayedWrite {
   register_name: Name,
   value: Register,
+  cycles: u32,
 }
 
-impl Write {
-  pub fn new(register_name: Name, value: Register) -> Self {
-    Write {
+impl DelayedWrite {
+  pub fn new(register_name: Name, value: Register, cycles: u32) -> Self {
+    DelayedWrite {
       register_name,
-      value: value,
+      value,
+      cycles,
     }
+  }
+  pub fn decrease_cycles(&mut self) {
+    self.cycles -= 1;
   }
 }
 
@@ -84,12 +89,15 @@ impl R3000 {
   pub fn pc_mut(&mut self) -> &mut Register {
     &mut self.pc
   }
-  pub fn flush_write_cache(&mut self, operations: Vec<Write>) {
-    for write in operations {
-      self.do_write(write);
-    }
+  pub fn flush_write_cache(&mut self, operations: &mut Vec<DelayedWrite>) {
+    operations.iter()
+              .filter(|write| write.cycles == 0)
+              .for_each(|write| self.do_write(write));
+    operations.retain(|write| write.cycles != 0);
+    operations.iter_mut()
+              .for_each(|write| write.decrease_cycles());
   }
-  fn do_write(&mut self, operation: Write) {
+  fn do_write(&mut self, operation: &DelayedWrite) {
     match operation.register_name {
       Name::pc => {
         self.pc = operation.value;
@@ -100,8 +108,9 @@ impl R3000 {
       Name::lo => {
         self.lo = operation.value;
       },
-      Name::rn(name) => {
-        let idx = name as usize;
+      Name::rn(idx) => {
+        assert!((idx < 32) && (idx > 0));
+        let idx = idx as usize;
         self.general_registers[idx - 1] = operation.value;
       },
     }
@@ -134,5 +143,17 @@ mod tests {
     for i in 1..=31 {
       assert_eq!(*r3000.nth_reg(i), (31 + i) as u32);
     }
+  }
+
+  #[test]
+  fn test_flush_cache() {
+    let mut cache = Vec::new();
+    cache.push(DelayedWrite::new(Name::rn(1), 4, 10));
+    cache.push(DelayedWrite::new(Name::rn(2), 5, 1));
+    cache.push(DelayedWrite::new(Name::rn(3), 6, 0));
+    println!("{:#?}", cache);
+    let mut r3000 = R3000::new();
+    r3000.flush_write_cache(&mut cache);
+    println!("{:#?}", cache);
   }
 }

@@ -5,7 +5,7 @@ use crate::common::*;
 use crate::register::Register;
 use crate::register::Parts;
 use crate::r3000::R3000;
-use crate::r3000::Write;
+use crate::r3000::DelayedWrite;
 use crate::r3000::Name;
 use crate::memory::Memory;
 use crate::cd::CD;
@@ -15,7 +15,8 @@ pub struct Interpreter {
   memory: Memory,
   cd: Option<CD>,
   next_pc: Option<Register>,
-  delayed_writes: Option<Vec<Write>>,
+  //these are register writes due to memory loads which happen after one cycle
+  delayed_writes: Vec<DelayedWrite>,
 }
 
 impl Interpreter {
@@ -23,12 +24,13 @@ impl Interpreter {
     let r3000 = R3000::new();
     let memory = Memory::new(bios_filename)?;
     let cd = infile.and_then(|f| CD::new(f).ok());
+    let delayed_writes = Vec::new();
     Ok(Interpreter {
       r3000,
       memory,
       cd,
       next_pc: None,
-      delayed_writes: None,
+      delayed_writes,
     })
   }
   pub fn run(&mut self) {
@@ -51,7 +53,6 @@ impl Interpreter {
   //if program counter should incremented normally, return None
   //otherwise return Some(new program counter)
   fn execute_opcode(&mut self, op: u32) -> Option<Register> {
-    let mut new_writes = Vec::new();
     //loading a value from memory is a delayed operation (i.e. the updated register
     //is not visible to the next opcode). Note that the rs + imm16 in parentheses is
     //symbolic and only used to improve readability. This macro should be able to
@@ -63,8 +64,8 @@ impl Interpreter {
           let rs = self.r3000.nth_reg(get_rs(op));
           let imm16 = get_imm16(op);
           let rt = get_rt(op);
-          new_writes.push(Write::new(Name::rn(rt),
-                           self.memory.$method(rs + imm16)));
+          self.delayed_writes.push(DelayedWrite::new(Name::rn(rt),
+                                   self.memory.$method(rs + imm16), 1));
           None
         }
       };
@@ -147,9 +148,13 @@ impl Interpreter {
         }
       };
     }
+    //after executing an opcode, complete the loads from the previous opcode
+    self.r3000.flush_write_cache(&mut self.delayed_writes);
     let a = get_primary_field(op);
     println!("primary field is {:#x?}", a);
-    let next_pc = match a {
+    //this match statement optionally returns the next program counter
+    //if the return value is None, then we increment pc as normal
+    match a {
       0x00 => {
         //SPECIAL
         let b = get_secondary_field(op);
@@ -445,14 +450,7 @@ impl Interpreter {
         //invalid opcode
         panic!("ran into invalid opcode")
       }
-    };
-    //after executing an opcode, complete the loads from the previous opcode
-    self.delayed_writes.take().map(|writes| self.r3000.flush_write_cache(writes));
-    //put the loads from the current opcode next in line
-    if new_writes.len() > 0 {
-      self.delayed_writes = Some(new_writes);
     }
-    next_pc
   }
 }
 

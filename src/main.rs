@@ -22,8 +22,7 @@ fn check_flag(args: &Vec<String>, flags: &[&str]) -> bool {
 }
 
 fn print_help() {
-  println!("rps [OPTION...] -b BIOS -i INFILE");
-  println!("Rust Playstation Emulator");
+  println!("rspsx [OPTION...] -b BIOS -i INFILE");
   println!("");
   println!("  -h, --help");
   println!("  -i, --input INFILE");
@@ -47,8 +46,7 @@ fn main() -> io::Result<()> {
   } else {
     match bios {
       Some(bios_filename) => {
-        let mut vm = Interpreter::new(bios_filename, infile)?;
-        vm.run();
+        Interpreter::new(bios_filename, infile)?.run();
       },
       None => {
         print_help();
