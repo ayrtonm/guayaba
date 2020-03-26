@@ -13,6 +13,8 @@ pub trait Parts {
   fn or(&self, rhs: Register) -> Register;
   fn xor(&self, rhs: Register) -> Register;
   fn nor(&self, rhs: Register) -> Register;
+  fn compare(&self, rhs: Register) -> Register;
+  fn signed_compare(&self, rhs: Register) -> Register;
 }
 impl Parts for Register{
   fn word(&self) -> Register {
@@ -76,5 +78,20 @@ impl Parts for Register{
   }
   fn nor(&self, rhs: Register) -> Register {
     self.bitor(rhs).not()
+  }
+  fn compare(&self, rhs: Register) -> Register {
+    if *self < rhs {
+      1
+    } else {
+      0
+    }
+  }
+  //FIXME: fix signed comparison
+  fn signed_compare(&self, rhs: Register) -> Register {
+    if *self < rhs {
+      1
+    } else {
+      0
+    }
   }
 }

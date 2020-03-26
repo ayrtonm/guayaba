@@ -151,29 +151,34 @@ impl Memory {
   const CACHE_CONTROL: u32 = 0xfffe_0000;
   const CACHE_CONTROL_END: u32 = Memory::CACHE_CONTROL + 512 - 1;
 
-  //FIXME: fix alignment restrictions, this will require making read_byte the fundamental read method
+  //FIXME: fix alignment restrictions, what happens when read is misaligned?
   pub fn read_byte_sign_extended(&self, address: Register) -> Register {
     read_memory!(address, read_byte_from_array, self).byte_sign_extended()
   }
   pub fn read_half_sign_extended(&self, address: Register) -> Register {
+    assert_eq!(address & 0x0000_0001, 0);
     read_memory!(address, read_half_from_array, self).half_sign_extended()
   }
   pub fn read_byte(&self, address: Register) -> Register {
     read_memory!(address, read_byte_from_array, self)
   }
   pub fn read_half(&self, address: Register) -> Register {
+    assert_eq!(address & 0x0000_0001, 0);
     read_memory!(address, read_half_from_array, self)
   }
   pub fn read_word(&self, address: Register) -> Register {
+    assert_eq!(address & 0x0000_0003, 0);
     read_memory!(address, read_word_from_array, self)
   }
   pub fn write_byte(&mut self, address: Register, value: Register) {
     write_memory!(address, value, write_byte_to_array, self);
   }
   pub fn write_half(&mut self, address: Register, value: Register) {
+    assert_eq!(address & 0x0000_0001, 0);
     write_memory!(address, value, write_half_to_array, self);
   }
   pub fn write_word(&mut self, address: Register, value: Register) {
+    assert_eq!(address & 0x0000_0003, 0);
     write_memory!(address, value, write_word_to_array, self);
   }
 }

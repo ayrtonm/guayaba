@@ -1,5 +1,6 @@
 use std::io;
-use std::ops::*;
+use std::ops::Shl;
+use std::ops::Shr;
 use crate::common::*;
 use crate::register::Register;
 use crate::register::Parts;
@@ -14,6 +15,7 @@ use crate::cd::CD;
 //symbolic and only used to improve readability. This macro should be able to
 //handle all loads in the MIPS instructions set so there's no point to generalizing it
 macro_rules! mov {
+  //delayed aligned reads
   (rt = [rs + imm16] $method:ident, $self:expr, $new_writes:expr, $op: expr) => {
     let rs = $self.r3000.nth_reg(get_rs($op));
     let imm16 = get_imm16($op);
@@ -21,6 +23,7 @@ macro_rules! mov {
     $new_writes.push(Write::new(Name::rn(rt),
                      $self.memory.$method(rs + imm16)));
   };
+  //aligned writes
   ([rs + imm16] = rt $method:ident, $self:expr, $op: expr) => {
     let rs = $self.r3000.nth_reg(get_rs($op));
     let rt = $self.r3000.nth_reg(get_rt($op));
@@ -33,6 +36,7 @@ macro_rules! mov {
 //computed from the immutable references before assigning its value
 //to the lhs
 macro_rules! compute {
+  //ALU instructions with two general purpose registers
   (rd = rs $method:ident rt, $self:expr, $instr:expr) => {
     let rs = $self.r3000.nth_reg(get_rs($instr));
     let rt = *$self.r3000.nth_reg(get_rt($instr));
@@ -40,6 +44,15 @@ macro_rules! compute {
     let rd = $self.r3000.nth_reg_mut(get_rd($instr));
     *rd = result;
   };
+  //ALU instructions with two general purpose registers that trap overflow
+  (rd = rs $method:ident rt trap, $self:expr, $instr:expr) => {
+    let rs = $self.r3000.nth_reg(get_rs($instr));
+    let rt = *$self.r3000.nth_reg(get_rt($instr));
+    let result = rs.$method(rt);
+    let rd = $self.r3000.nth_reg_mut(get_rd($instr));
+    *rd = result;
+  };
+  //ALU instructions with a register and immediate 16-bit data
   (rt = rs $method:tt imm16, $self:expr, $instr:expr) => {
     let rs = $self.r3000.nth_reg(get_rs($instr));
     let imm16 = get_imm16($instr);
@@ -47,6 +60,7 @@ macro_rules! compute {
     let rt = $self.r3000.nth_reg_mut(get_rt($instr));
     *rt = result;
   };
+  //shifts a register based on immediate 5 bits
   (rd = rt $method:tt imm5, $self:expr, $instr:expr) => {
     let rt = $self.r3000.nth_reg(get_rt($instr));
     let imm5 = get_imm5($instr);
@@ -54,6 +68,7 @@ macro_rules! compute {
     let rd = $self.r3000.nth_reg_mut(get_rd($instr));
     *rd = result;
   };
+  //shifts a register based on the lowest 5 bits of another register
   (rd = rt $method:tt (rs and 0x1F), $self:expr, $instr:expr) => {
     let rt = $self.r3000.nth_reg(get_rt($instr));
     let rs = $self.r3000.nth_reg(get_rs($instr));
@@ -197,6 +212,7 @@ impl Interpreter {
           },
           0x20 => {
             //ADD
+            compute!(rd = rs wrapping_add rt trap, self, op);
             None
           },
           0x21 => {
@@ -235,10 +251,12 @@ impl Interpreter {
           },
           0x2A => {
             //SLT
+            compute!(rd = rs signed_compare rt, self, op);
             None
           },
           0x2B => {
             //SLTU
+            compute!(rd = rs compare rt, self, op);
             None
           },
           _ => {
@@ -291,10 +309,12 @@ impl Interpreter {
       },
       0x0A => {
         //SLTI
+        compute!(rt = rs signed_compare imm16, self, op);
         None
       },
       0x0B => {
         //SLTIU
+        compute!(rt = rs compare imm16, self, op);
         None
       },
       0x0C => {
