@@ -51,7 +51,7 @@ pub fn get_imm26(op: u32) -> u32 {
   op & 0x03ff_ffff
 }
 pub fn get_primary_field(op: u32) -> u32 {
-  (op & 0xfb00_0000) >> 26
+  (op & 0xfc00_0000) >> 26
 }
 pub fn get_secondary_field(op: u32) -> u32 {
   op & 0x0000_003f
