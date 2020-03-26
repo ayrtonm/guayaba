@@ -10,74 +10,6 @@ use crate::r3000::Name;
 use crate::memory::Memory;
 use crate::cd::CD;
 
-//loading a value from memory is a delayed operation (i.e. the updated register
-//is not visible to the next opcode). Note that the rs + imm16 in parentheses is
-//symbolic and only used to improve readability. This macro should be able to
-//handle all loads in the MIPS instructions set so there's no point to generalizing it
-macro_rules! mov {
-  //delayed aligned reads
-  (rt = [rs + imm16] $method:ident, $self:expr, $new_writes:expr, $op: expr) => {
-    let rs = $self.r3000.nth_reg(get_rs($op));
-    let imm16 = get_imm16($op);
-    let rt = get_rt($op);
-    $new_writes.push(Write::new(Name::rn(rt),
-                     $self.memory.$method(rs + imm16)));
-  };
-  //aligned writes
-  ([rs + imm16] = rt $method:ident, $self:expr, $op: expr) => {
-    let rs = $self.r3000.nth_reg(get_rs($op));
-    let rt = $self.r3000.nth_reg(get_rt($op));
-    let imm16 = get_imm16($op);
-    $self.memory.$method(rs + imm16, *rt);
-  };
-}
-
-//since self.r3000 is borrowed mutably on the lhs, the rhs must be
-//computed from the immutable references before assigning its value
-//to the lhs
-macro_rules! compute {
-  //ALU instructions with two general purpose registers
-  (rd = rs $method:ident rt, $self:expr, $instr:expr) => {
-    let rs = $self.r3000.nth_reg(get_rs($instr));
-    let rt = *$self.r3000.nth_reg(get_rt($instr));
-    let result = rs.$method(rt);
-    let rd = $self.r3000.nth_reg_mut(get_rd($instr));
-    *rd = result;
-  };
-  //ALU instructions with two general purpose registers that trap overflow
-  (rd = rs $method:ident rt trap, $self:expr, $instr:expr) => {
-    let rs = $self.r3000.nth_reg(get_rs($instr));
-    let rt = *$self.r3000.nth_reg(get_rt($instr));
-    let result = rs.$method(rt);
-    let rd = $self.r3000.nth_reg_mut(get_rd($instr));
-    *rd = result;
-  };
-  //ALU instructions with a register and immediate 16-bit data
-  (rt = rs $method:tt imm16, $self:expr, $instr:expr) => {
-    let rs = $self.r3000.nth_reg(get_rs($instr));
-    let imm16 = get_imm16($instr);
-    let result = rs.$method(imm16);
-    let rt = $self.r3000.nth_reg_mut(get_rt($instr));
-    *rt = result;
-  };
-  //shifts a register based on immediate 5 bits
-  (rd = rt $method:tt imm5, $self:expr, $instr:expr) => {
-    let rt = $self.r3000.nth_reg(get_rt($instr));
-    let imm5 = get_imm5($instr);
-    let result = rt.$method(imm5);
-    let rd = $self.r3000.nth_reg_mut(get_rd($instr));
-    *rd = result;
-  };
-  //shifts a register based on the lowest 5 bits of another register
-  (rd = rt $method:tt (rs and 0x1F), $self:expr, $instr:expr) => {
-    let rt = $self.r3000.nth_reg(get_rt($instr));
-    let rs = $self.r3000.nth_reg(get_rs($instr));
-    let result = rt.$method(rs & 0x1F);
-    let rd = $self.r3000.nth_reg_mut(get_rd($instr));
-    *rd = result;
-  };
-}
-
 pub struct Interpreter {
   r3000: R3000,
   memory: Memory,
@@ -120,6 +52,93 @@ impl Interpreter {
   //otherwise return Some(new program counter)
   fn execute_opcode(&mut self, op: u32) -> Option<Register> {
     let mut new_writes = Vec::new();
+    //loading a value from memory is a delayed operation (i.e. the updated register
+    //is not visible to the next opcode). Note that the rs + imm16 in parentheses is
+    //symbolic and only used to improve readability. This macro should be able to
+    //handle all loads in the MIPS instructions set so there's no point to generalizing it
+    macro_rules! mov {
+      //delayed aligned reads
+      (rt = [rs + imm16] $method:ident) => {
+        {
+          let rs = self.r3000.nth_reg(get_rs(op));
+          let imm16 = get_imm16(op);
+          let rt = get_rt(op);
+          new_writes.push(Write::new(Name::rn(rt),
+                           self.memory.$method(rs + imm16)));
+          None
+        }
+      };
+      //aligned writes
+      ([rs + imm16] = rt $method:ident) => {
+        {
+          let rs = self.r3000.nth_reg(get_rs(op));
+          let rt = self.r3000.nth_reg(get_rt(op));
+          let imm16 = get_imm16(op);
+          self.memory.$method(rs + imm16, *rt);
+          None
+        }
+      };
+    }
+    //since self.r3000 is borrowed mutably on the lhs, the rhs must be
+    //computed from the immutable references before assigning its value
+    //to the lhs
+    macro_rules! compute {
+      //ALU instructions with two general purpose registers
+      (rd = rs $method:ident rt) => {
+        {
+          let rs = self.r3000.nth_reg(get_rs(op));
+          let rt = *self.r3000.nth_reg(get_rt(op));
+          let result = rs.$method(rt);
+          let rd = self.r3000.nth_reg_mut(get_rd(op));
+          *rd = result;
+          None
+        }
+      };
+      //ALU instructions with two general purpose registers that trap overflow
+      (rd = rs $method:ident rt trap) => {
+        {
+          let rs = self.r3000.nth_reg(get_rs(op));
+          let rt = *self.r3000.nth_reg(get_rt(op));
+          let result = rs.$method(rt);
+          let rd = self.r3000.nth_reg_mut(get_rd(op));
+          *rd = result;
+          None
+        }
+      };
+      //ALU instructions with a register and immediate 16-bit data
+      (rt = rs $method:tt imm16) => {
+        {
+          let rs = self.r3000.nth_reg(get_rs(op));
+          let imm16 = get_imm16(op);
+          let result = rs.$method(imm16);
+          let rt = self.r3000.nth_reg_mut(get_rt(op));
+          *rt = result;
+          None
+        }
+      };
+      //shifts a register based on immediate 5 bits
+      (rd = rt $method:tt imm5) => {
+        {
+          let rt = self.r3000.nth_reg(get_rt(op));
+          let imm5 = get_imm5(op);
+          let result = rt.$method(imm5);
+          let rd = self.r3000.nth_reg_mut(get_rd(op));
+          *rd = result;
+          None
+        }
+      };
+      //shifts a register based on the lowest 5 bits of another register
+      (rd = rt $method:tt (rs and 0x1F)) => {
+        {
+          let rt = self.r3000.nth_reg(get_rt(op));
+          let rs = self.r3000.nth_reg(get_rs(op));
+          let result = rt.$method(rs & 0x1F);
+          let rd = self.r3000.nth_reg_mut(get_rd(op));
+          *rd = result;
+          None
+        }
+      };
+    }
     let a = get_primary_field(op);
     println!("primary field is {:#x?}", a);
     let next_pc = match a {
@@ -130,33 +149,27 @@ impl Interpreter {
         match b {
           0x00 => {
             //SLL
-            compute!(rd = rt shl imm5, self, op);
-            None
+            compute!(rd = rt shl imm5)
           },
           0x02 => {
             //SRL
-            compute!(rd = rt shr imm5, self, op);
-            None
+            compute!(rd = rt shr imm5)
           },
           0x03 => {
             //SRA
-            compute!(rd = rt sra imm5, self, op);
-            None
+            compute!(rd = rt sra imm5)
           },
           0x04 => {
             //SLLV
-            compute!(rd = rt shl (rs and 0x1F), self, op);
-            None
+            compute!(rd = rt shl (rs and 0x1F))
           },
           0x06 => {
             //SRLV
-            compute!(rd = rt shr (rs and 0x1F), self, op);
-            None
+            compute!(rd = rt shr (rs and 0x1F))
           },
           0x07 => {
             //SRAV
-            compute!(rd = rt sra (rs and 0x1F), self, op);
-            None
+            compute!(rd = rt sra (rs and 0x1F))
           },
           0x08 => {
             //JR
@@ -199,7 +212,7 @@ impl Interpreter {
           },
           0x19 => {
             //MULTU
-            //compute!(hi:lo = rs * rt, self, op);
+            //compute!(hi:lo = rs * rt);
             None
           },
           0x1A => {
@@ -212,13 +225,11 @@ impl Interpreter {
           },
           0x20 => {
             //ADD
-            compute!(rd = rs wrapping_add rt trap, self, op);
-            None
+            compute!(rd = rs wrapping_add rt trap)
           },
           0x21 => {
             //ADDU
-            compute!(rd = rs wrapping_add rt, self, op);
-            None
+            compute!(rd = rs wrapping_add rt)
           },
           0x22 => {
             //SUB
@@ -226,38 +237,31 @@ impl Interpreter {
           },
           0x23 => {
             //SUBU
-            compute!(rd = rs wrapping_sub rt, self, op);
-            None
+            compute!(rd = rs wrapping_sub rt)
           },
           0x24 => {
             //AND
-            compute!(rd = rs and rt, self, op);
-            None
+            compute!(rd = rs and rt)
           },
           0x25 => {
             //OR
-            compute!(rd = rs or rt, self, op);
-            None
+            compute!(rd = rs or rt)
           },
           0x26 => {
             //XOR
-            compute!(rd = rs xor rt, self, op);
-            None
+            compute!(rd = rs xor rt)
           },
           0x27 => {
             //NOR
-            compute!(rd = rs nor rt, self, op);
-            None
+            compute!(rd = rs nor rt)
           },
           0x2A => {
             //SLT
-            compute!(rd = rs signed_compare rt, self, op);
-            None
+            compute!(rd = rs signed_compare rt)
           },
           0x2B => {
             //SLTU
-            compute!(rd = rs compare rt, self, op);
-            None
+            compute!(rd = rs compare rt)
           },
           _ => {
             //invalid opcode
@@ -304,33 +308,27 @@ impl Interpreter {
       },
       0x09 => {
         //ADDIU
-        compute!(rt = rs wrapping_add imm16, self, op);
-        None
+        compute!(rt = rs wrapping_add imm16)
       },
       0x0A => {
         //SLTI
-        compute!(rt = rs signed_compare imm16, self, op);
-        None
+        compute!(rt = rs signed_compare imm16)
       },
       0x0B => {
         //SLTIU
-        compute!(rt = rs compare imm16, self, op);
-        None
+        compute!(rt = rs compare imm16)
       },
       0x0C => {
         //ANDI
-        compute!(rt = rs and imm16, self, op);
-        None
+        compute!(rt = rs and imm16)
       },
       0x0D => {
         //ORI
-        compute!(rt = rs or imm16, self, op);
-        None
+        compute!(rt = rs or imm16)
       },
       0x0E => {
         //XORI
-        compute!(rt = rs xor imm16, self, op);
-        None
+        compute!(rt = rs xor imm16)
       },
       0x0F => {
         //LUI
@@ -354,13 +352,11 @@ impl Interpreter {
       },
       0x20 => {
         //LB
-        mov!(rt = [rs + imm16] read_byte_sign_extended, self, new_writes, op);
-        None
+        mov!(rt = [rs + imm16] read_byte_sign_extended)
       },
       0x21 => {
         //LH
-        mov!(rt = [rs + imm16] read_half_sign_extended, self, new_writes, op);
-        None
+        mov!(rt = [rs + imm16] read_half_sign_extended)
       },
       0x22 => {
         //LWL
@@ -368,18 +364,15 @@ impl Interpreter {
       },
       0x23 => {
         //LW
-        mov!(rt = [rs + imm16] read_word, self, new_writes, op);
-        None
+        mov!(rt = [rs + imm16] read_word)
       },
       0x24 => {
         //LBU
-        mov!(rt = [rs + imm16] read_byte, self, new_writes, op);
-        None
+        mov!(rt = [rs + imm16] read_byte)
       },
       0x25 => {
         //LHU
-        mov!(rt = [rs + imm16] read_half, self, new_writes, op);
-        None
+        mov!(rt = [rs + imm16] read_half)
       },
       0x26 => {
         //LWR
@@ -387,13 +380,11 @@ impl Interpreter {
       },
       0x28 => {
         //SB
-        mov!([rs + imm16] = rt write_byte, self, op);
-        None
+        mov!([rs + imm16] = rt write_byte)
       },
       0x29 => {
         //SH
-        mov!([rs + imm16] = rt write_half, self, op);
-        None
+        mov!([rs + imm16] = rt write_half)
       },
       0x2A => {
         //SWL
@@ -404,8 +395,7 @@ impl Interpreter {
       },
       0x2B => {
         //SW
-        mov!([rs + imm16] = rt write_word, self, op);
-        None
+        mov!([rs + imm16] = rt write_word)
       },
       0x2E => {
         //SWR
