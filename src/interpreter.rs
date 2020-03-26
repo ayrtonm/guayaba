@@ -138,6 +138,14 @@ impl Interpreter {
           None
         }
       };
+      (rt = imm16 shl 16) => {
+        {
+          let rt = self.r3000.nth_reg_mut(get_rt(op));
+          let imm16 = get_imm16(op);
+          *rt = imm16 << 16;
+          None
+        }
+      };
     }
     let a = get_primary_field(op);
     println!("primary field is {:#x?}", a);
@@ -332,7 +340,7 @@ impl Interpreter {
       },
       0x0F => {
         //LUI
-        None
+        compute!(rt = imm16 shl 16)
       },
       0x10 => {
         //COP0
