@@ -34,10 +34,12 @@ impl Interpreter {
     })
   }
   pub fn run(&mut self) {
+    println!("{:#x?}", self.r3000);
     let n = 4;
     for _ in 0..n {
       self.step();
     }
+    println!("{:#x?}", self.r3000);
     self.cd.as_ref().map(|cd| cd.preview(10));
   }
   fn step(&mut self) {
@@ -148,6 +150,21 @@ impl Interpreter {
         }
       };
     }
+    macro_rules! jump {
+      (imm26) => {
+        {
+          let imm = get_imm26(op);
+          let dest = (*self.r3000.pc() & 0xf000_0000) + (imm * 4);
+          Some(dest)
+        }
+      };
+      (rs) => {
+        {
+          let rs = self.r3000.nth_reg(get_rs(op));
+          Some(*rs)
+        }
+      };
+    }
     //after executing an opcode, complete the loads from the previous opcode
     self.r3000.flush_write_cache(&mut self.delayed_writes);
     let a = get_primary_field(op);
@@ -186,14 +203,12 @@ impl Interpreter {
           },
           0x08 => {
             //JR
-            let rs = self.r3000.nth_reg(get_rs(op));
-            println!("jumping to {:#x}", rs);
-            Some(rs.clone());
-            None
+            jump!(rs)
           },
           0x09 => {
             //JALR
-            None
+            *self.r3000.nth_reg_mut(get_rd(op)) += 8;
+            jump!(rs)
           },
           0x0C => {
             //SYSCALL
@@ -288,16 +303,12 @@ impl Interpreter {
       },
       0x02 => {
         //J
-        let imm = get_imm26(op);
-        let dest = (*self.r3000.pc() & 0xf000_0000) + (imm * 4);
-        Some(dest)
+        jump!(imm26)
       },
       0x03 => {
         //JAL
-        let imm = get_imm26(op);
-        let dest = (*self.r3000.pc() & 0xf000_0000) + (imm * 4);
-        *self.r3000.ra_mut() += 8;
-        Some(dest)
+        *self.r3000.ra_mut() += self.r3000.pc() + 4;
+        jump!(imm26)
       },
       0x04 => {
         //BEQ
