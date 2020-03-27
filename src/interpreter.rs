@@ -45,8 +45,8 @@ impl Interpreter {
   fn step(&mut self) {
     //get opcode from memory at program counter
     let op = self.memory.read_word(*self.r3000.pc());
-    println!("decoding opcode {:#x} from address {:#x}", op, self.r3000.pc());
     //the instruction following each jump is always executed before updating the pc
+    //increment the program counter
     *self.r3000.pc_mut() = self.next_pc
                            .take()
                            .map_or_else(|| *self.r3000.pc() + 4, |next_pc| next_pc);
@@ -90,8 +90,8 @@ impl Interpreter {
       (rd = rs $method:ident rt) => {
         {
           let rs = self.r3000.nth_reg(get_rs(op));
-          let rt = *self.r3000.nth_reg(get_rt(op));
-          let result = rs.$method(rt);
+          let rt = self.r3000.nth_reg(get_rt(op));
+          let result = rs.$method(*rt);
           let rd = self.r3000.nth_reg_mut(get_rd(op));
           *rd = result;
           None
@@ -101,8 +101,8 @@ impl Interpreter {
       (rd = rs $method:ident rt trap) => {
         {
           let rs = self.r3000.nth_reg(get_rs(op));
-          let rt = *self.r3000.nth_reg(get_rt(op));
-          let result = rs.$method(rt);
+          let rt = self.r3000.nth_reg(get_rt(op));
+          let result = rs.$method(*rt);
           let rd = self.r3000.nth_reg_mut(get_rd(op));
           *rd = result;
           None
@@ -164,6 +164,76 @@ impl Interpreter {
           Some(*rs)
         }
       };
+      (rs $cmp:tt rt) => {
+        {
+          let rt = self.r3000.nth_reg(get_rt(op));
+          let rs = self.r3000.nth_reg(get_rs(op));
+          if *rs $cmp *rt {
+            let imm16 = get_imm16(op);
+            let pc = self.r3000.pc();
+            let dest = pc + (imm16 * 4);
+            Some(dest)
+          } else {
+            None
+          }
+        }
+      };
+      (rs $cmp:tt 0) => {
+        {
+          let rs = self.r3000.nth_reg(get_rs(op));
+          if (*rs as i32) $cmp 0 {
+            let imm16 = get_imm16(op);
+            let pc = self.r3000.pc();
+            let dest = pc + (imm16 * 4);
+            Some(dest)
+          } else {
+            None
+          }
+        }
+      };
+    }
+    macro_rules! call {
+      (imm26) => {
+        {
+          *self.r3000.ra_mut() = self.r3000.pc() + 4;
+          jump!(imm26)
+        }
+      };
+      (rs) => {
+        {
+          *self.r3000.nth_reg_mut(get_rd(op)) = self.r3000.pc() + 4;
+          jump!(rs)
+        }
+      };
+      (rs $cmp:tt rt) => {
+        {
+          let rt = self.r3000.nth_reg(get_rt(op));
+          let rs = self.r3000.nth_reg(get_rs(op));
+          if *rs $cmp *rt {
+            *self.r3000.ra_mut() = self.r3000.pc() + 4;
+            let imm16 = get_imm16(op);
+            let pc = self.r3000.pc();
+            let dest = pc + (imm16 * 4);
+            Some(dest)
+          } else {
+            None
+          }
+        }
+      };
+      (rs $cmp:tt 0) => {
+        {
+          let rs = self.r3000.nth_reg(get_rs(op));
+          if (*rs as i32) $cmp 0 {
+            *self.r3000.ra_mut() = self.r3000.pc() + 4;
+            let imm16 = get_imm16(op);
+            let pc = self.r3000.pc();
+            let dest = pc + (imm16 * 4);
+            Some(dest)
+          } else {
+            None
+          }
+        }
+      };
     }
     //after executing an opcode, complete the loads from the previous opcode
     self.r3000.flush_write_cache(&mut self.delayed_writes);
@@ -207,8 +277,7 @@ impl Interpreter {
           },
           0x09 => {
             //JALR
-            *self.r3000.nth_reg_mut(get_rd(op)) += 8;
-            jump!(rs)
+            call!(rs)
           },
           0x0C => {
             //SYSCALL
@@ -299,7 +368,29 @@ impl Interpreter {
       },
       0x01 => {
         //BcondZ
-        None
+        let c = get_rt(op);
+        match c {
+          0x00 => {
+            //BLTZ
+            jump!(rs < 0)
+          },
+          0x01 => {
+            //BGEZ
+            jump!(rs >= 0)
+          },
+          0x80 => {
+            //BLTZAL
+            call!(rs < 0)
+          },
+          0x81 => {
+            //BGEZAL
+            call!(rs >= 0)
+          },
+          _ => {
+            //invalid opcode
+            panic!("ran into invalid opcode")
+          },
+        }
       },
       0x02 => {
         //J
@@ -307,24 +398,23 @@ impl Interpreter {
       },
       0x03 => {
         //JAL
-        *self.r3000.ra_mut() += self.r3000.pc() + 4;
-        jump!(imm26)
+        call!(imm26)
       },
       0x04 => {
         //BEQ
-        None
+        jump!(rs == rt)
       },
       0x05 => {
         //BNE
-        None
+        jump!(rs != rt)
       },
       0x06 => {
         //BLEZ
-        None
+        jump!(rs <= 0)
       },
       0x07 => {
         //BGTZ
-        None
+        jump!(rs > 0)
       },
       0x08 => {
         //ADDI
