@@ -27,6 +27,7 @@ fn print_help() {
   println!("  -h, --help");
   println!("  -i, --input INFILE");
   println!("  -b, --bios BIOS");
+  println!("  -t, --test steps");
   println!("");
 }
 
@@ -36,17 +37,19 @@ fn main() -> io::Result<()> {
   let bios_flags = ["-b", "--bios"];
   let infile_flags = ["-i", "--input"];
   let help_flags = ["-h", "--help"];
+  let test_flags = ["-t", "--test"];
 
   let bios = get_arg(&args, &bios_flags);
   let infile = get_arg(&args, &infile_flags);
   let help = check_flag(&args, &help_flags);
+  let test = get_arg(&args, &test_flags).map(|test| test.parse::<u32>().unwrap());
 
   if help {
     print_help();
   } else {
     match bios {
       Some(bios_filename) => {
-        Interpreter::new(bios_filename, infile)?.run();
+        Interpreter::new(bios_filename, infile)?.run(test);
       },
       None => {
         print_help();

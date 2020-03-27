@@ -33,12 +33,13 @@ impl Interpreter {
       delayed_writes,
     })
   }
-  pub fn run(&mut self) {
+  pub fn run(&mut self, n: Option<u32>) {
     println!("{:#x?}", self.r3000);
-    let n = 4;
-    for _ in 0..n {
-      self.step();
-    }
+    n.map(|n| {
+      for _ in 0..n {
+        self.step();
+      }
+    });
     println!("{:#x?}", self.r3000);
     self.cd.as_ref().map(|cd| cd.preview(10));
   }
