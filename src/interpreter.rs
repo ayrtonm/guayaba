@@ -67,7 +67,7 @@ impl Interpreter {
           let rs = self.r3000.nth_reg(get_rs(op));
           let imm16 = get_imm16(op);
           let rt = get_rt(op);
-          self.delayed_writes.push(DelayedWrite::new(Name::rn(rt),
+          self.delayed_writes.push(DelayedWrite::new(Name::Rn(rt),
                                    self.memory.$method(rs + imm16), 1));
           None
         }
@@ -506,9 +506,6 @@ impl Interpreter {
       },
       0x2A => {
         //SWL
-        let rs = self.r3000.nth_reg(get_rs(op));
-        let rt = self.r3000.nth_reg(get_rt(op));
-        let imm16 = get_imm16(op);
         None
       },
       0x2B => {
@@ -563,11 +560,12 @@ impl Interpreter {
 mod tests {
   use super::*;
 
-  //this is the entry point in case we want to test some dummy instructions
-  const BIOS: Register = 0x1fc0_0000;
-  //#[test]
+  #[test]
   fn dummy_bios() {
-    let mut vm = Interpreter::new(&"/home/ayrton/dev/rps/scph1001.bin".to_string(), None).unwrap();
+    //this is the entry point in case we want to test some dummy instructions
+    const BIOS: Register = 0x1fc0_0000;
+    let mut vm = Interpreter::new(&"/home/ayrton/dev/rspsx/scph1001.bin".to_string(),
+                                  None).unwrap();
     vm.memory.write_word(BIOS, 0x0000_0002);
     let dest = 0x0bf0_0000;
     let instr = (2 << 26) | (dest & 0x03ff_ffff);
@@ -575,6 +573,6 @@ mod tests {
     vm.memory.write_word(BIOS + 8, 0x0000_0004);
     vm.memory.write_word(BIOS + 12, instr);
     vm.memory.write_word(BIOS + 16, 0x0000_0006);
-    vm.run();
+    vm.run(None);
   }
 }

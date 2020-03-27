@@ -96,18 +96,6 @@ pub struct Memory {
 }
 
 impl Memory {
-  pub fn blank() -> Memory {
-    Memory {
-      main_ram: [0; 2 * KB],
-      expansion_1: [0; 8 * KB],
-      scratchpad: [0; KB],
-      io_ports: [0; 8 * KB],
-      expansion_2: [0; 8 * KB],
-      expansion_3: [0; 2 * KB],
-      bios: Box::new([0; 512 * KB]),
-      cache_control: [0; 512],
-    }
-  }
   pub fn new(bios_filename: &String) -> io::Result<Self> {
     let mut bios_contents = [0; 512 * KB];
     let mut bios_file = File::open(bios_filename)?;
@@ -127,29 +115,29 @@ impl Memory {
       cache_control: [0; 512],
     })
   }
-  const MAIN_RAM: u32 = 0;
-  const MAIN_RAM_END: u32 = Memory::MAIN_RAM + (2 * KB as u32) - 1;
+  const MAIN_RAM: Register = 0;
+  const MAIN_RAM_END: Register = Memory::MAIN_RAM + (2 * KB as Register) - 1;
 
-  const EXPANSION_1: u32 = 0x1f00_0000;
-  const EXPANSION_1_END: u32 = Memory::EXPANSION_1 + (8 * KB as u32) - 1;
+  const EXPANSION_1: Register = 0x1f00_0000;
+  const EXPANSION_1_END: Register = Memory::EXPANSION_1 + (8 * KB as Register) - 1;
 
-  const SCRATCHPAD: u32 = 0x1f80_0000;
-  const SCRATCHPAD_END: u32 = Memory::SCRATCHPAD + (KB as u32) - 1;
+  const SCRATCHPAD: Register = 0x1f80_0000;
+  const SCRATCHPAD_END: Register = Memory::SCRATCHPAD + (KB as Register) - 1;
 
-  const IO_PORTS: u32 = 0x1f80_1000;
-  const IO_PORTS_END: u32 = Memory::IO_PORTS + (8 * KB as u32) - 1;
+  const IO_PORTS: Register = 0x1f80_1000;
+  const IO_PORTS_END: Register = Memory::IO_PORTS + (8 * KB as Register) - 1;
  
-  const EXPANSION_2: u32 = 0x1f80_2000;
-  const EXPANSION_2_END: u32 = Memory::EXPANSION_2 + (8 * KB as u32) - 1;
+  const EXPANSION_2: Register = 0x1f80_2000;
+  const EXPANSION_2_END: Register = Memory::EXPANSION_2 + (8 * KB as Register) - 1;
 
-  const EXPANSION_3: u32 = 0x1fa0_0000;
-  const EXPANSION_3_END: u32 = Memory::EXPANSION_3 + (2 * KB as u32) - 1;
+  const EXPANSION_3: Register = 0x1fa0_0000;
+  const EXPANSION_3_END: Register = Memory::EXPANSION_3 + (2 * KB as Register) - 1;
 
-  const BIOS: u32 = 0x1fc0_0000;
-  const BIOS_END: u32 = Memory::BIOS + (512 * KB as u32) - 1;
+  const BIOS: Register = 0x1fc0_0000;
+  const BIOS_END: Register = Memory::BIOS + (512 * KB as Register) - 1;
 
-  const CACHE_CONTROL: u32 = 0xfffe_0000;
-  const CACHE_CONTROL_END: u32 = Memory::CACHE_CONTROL + 512 - 1;
+  const CACHE_CONTROL: Register = 0xfffe_0000;
+  const CACHE_CONTROL_END: Register = Memory::CACHE_CONTROL + 512 - 1;
 
   //FIXME: fix alignment restrictions, what happens when read is misaligned?
   pub fn read_byte_sign_extended(&self, address: Register) -> Register {
@@ -187,6 +175,20 @@ impl Memory {
 mod tests {
   use super::*;
 
+  impl Memory {
+    pub fn blank() -> Memory {
+      Memory {
+        main_ram: [0; 2 * KB],
+        expansion_1: [0; 8 * KB],
+        scratchpad: [0; KB],
+        io_ports: [0; 8 * KB],
+        expansion_2: [0; 8 * KB],
+        expansion_3: [0; 2 * KB],
+        bios: Box::new([0; 512 * KB]),
+        cache_control: [0; 512],
+      }
+    }
+  }
   #[test]
   //check first instruction in this BIOS file
   fn scph1001_first_instr() {
