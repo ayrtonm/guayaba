@@ -78,6 +78,7 @@ impl Interpreter {
           let rs = self.r3000.nth_reg(get_rs(op));
           let rt = self.r3000.nth_reg(get_rt(op));
           let imm16 = get_imm16(op);
+          println!("moving {:#x} to {:#x} with pc at {:#x}", *rt, rs + imm16, self.r3000.pc());
           self.memory.$method(rs + imm16, *rt);
           None
         }
@@ -94,7 +95,7 @@ impl Interpreter {
           let rt = self.r3000.nth_reg(get_rt(op));
           let result = rs.$method(*rt);
           let rd = self.r3000.nth_reg_mut(get_rd(op));
-          *rd = result;
+          rd.map(|rd| *rd = result);
           None
         }
       };
@@ -105,7 +106,7 @@ impl Interpreter {
           let rt = self.r3000.nth_reg(get_rt(op));
           let result = rs.$method(*rt);
           let rd = self.r3000.nth_reg_mut(get_rd(op));
-          *rd = result;
+          rd.map(|rd| *rd = result);
           None
         }
       };
@@ -116,7 +117,7 @@ impl Interpreter {
           let imm16 = get_imm16(op);
           let result = rs.$method(imm16);
           let rt = self.r3000.nth_reg_mut(get_rt(op));
-          *rt = result;
+          rt.map(|rt| *rt = result);
           None
         }
       };
@@ -127,7 +128,7 @@ impl Interpreter {
           let imm5 = get_imm5(op);
           let result = rt.$method(imm5);
           let rd = self.r3000.nth_reg_mut(get_rd(op));
-          *rd = result;
+          rd.map(|rd| *rd = result);
           None
         }
       };
@@ -138,7 +139,7 @@ impl Interpreter {
           let rs = self.r3000.nth_reg(get_rs(op));
           let result = rt.$method(rs & 0x1F);
           let rd = self.r3000.nth_reg_mut(get_rd(op));
-          *rd = result;
+          rd.map(|rd| *rd = result);
           None
         }
       };
@@ -146,7 +147,7 @@ impl Interpreter {
         {
           let rt = self.r3000.nth_reg_mut(get_rt(op));
           let imm16 = get_imm16(op);
-          *rt = imm16 << 16;
+          rt.map(|rt| *rt = imm16 << 16);
           None
         }
       };
@@ -202,7 +203,9 @@ impl Interpreter {
       };
       (rs) => {
         {
-          *self.r3000.nth_reg_mut(get_rd(op)) = self.r3000.pc() + 4;
+          let result = self.r3000.pc() + 4;
+          let rd = self.r3000.nth_reg_mut(get_rd(op));
+          rd.map(|rd| *rd = result);
           jump!(rs)
         }
       };
