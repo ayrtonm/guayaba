@@ -83,6 +83,42 @@ impl Interpreter {
           None
         }
       };
+      (lo = rs) => {
+        {
+          let rs = self.r3000.nth_reg(get_rs(op));
+          let result = *rs;
+          let lo = self.r3000.lo_mut();
+          *lo = result;
+          None
+        }
+      };
+      (hi = rs) => {
+        {
+          let rs = self.r3000.nth_reg(get_rs(op));
+          let result = *rs;
+          let hi = self.r3000.hi_mut();
+          *hi = result;
+          None
+        }
+      };
+      (rd = lo) => {
+        {
+          let lo = self.r3000.lo();
+          let result = *lo;
+          let rd = self.r3000.nth_reg_mut(get_rd(op));
+          rd.map(|rd| *rd = result);
+          None
+        }
+      };
+      (rd = hi) => {
+        {
+          let hi = self.r3000.hi();
+          let result = *hi;
+          let rd = self.r3000.nth_reg_mut(get_rd(op));
+          rd.map(|rd| *rd = result);
+          None
+        }
+      };
     }
     //since self.r3000 is borrowed mutably on the lhs, the rhs must be
     //computed from the immutable references before assigning its value
@@ -148,6 +184,47 @@ impl Interpreter {
           let rt = self.r3000.nth_reg_mut(get_rt(op));
           let imm16 = get_imm16(op);
           rt.map(|rt| *rt = imm16 << 16);
+          None
+        }
+      };
+      (hi:lo = rs * rt) => {
+        {
+          let rs = *self.r3000.nth_reg(get_rs(op));
+          let rt = *self.r3000.nth_reg(get_rt(op));
+          let result = (rs as u64) * (rt as u64);
+          let hi_res = (result >> 32) as u32;
+          let lo_res = (result & 0x0000_0000_ffff_ffff) as u32;
+          let delay = match rs {
+            0x0000_0000..=0x0000_07ff => {
+              6
+            },
+            0x0000_0800..=0x000f_ffff => {
+              9
+            },
+            0x0010_0000..=0xffff_ffff => {
+              13
+            },
+          };
+          self.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, delay));
+          self.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, delay));
+          None
+        }
+      };
+      (hi:lo = rs / rt) => {
+        {
+          let rs = *self.r3000.nth_reg(get_rs(op));
+          let rt = *self.r3000.nth_reg(get_rt(op));
+          let lo_res = match rt {
+            0 => {
+              0xffff_ffff
+            },
+            _ => {
+              rs / rt
+            },
+          };
+          let hi_res = rs % rt;
+          self.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, 36));
+          self.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, 36));
           None
         }
       };
@@ -293,19 +370,19 @@ impl Interpreter {
           },
           0x10 => {
             //MFHI
-            None
+            mov!(rd = hi)
           },
           0x11 => {
             //MTHI
-            None
+            mov!(hi = rs)
           },
           0x12 => {
             //MFLO
-            None
+            mov!(rd = lo)
           },
           0x13 => {
             //MTLO
-            None
+            mov!(lo = rs)
           },
           0x18 => {
             //MULT
@@ -313,8 +390,7 @@ impl Interpreter {
           },
           0x19 => {
             //MULTU
-            //compute!(hi:lo = rs * rt);
-            None
+            compute!(hi:lo = rs * rt)
           },
           0x1A => {
             //DIV
@@ -322,7 +398,7 @@ impl Interpreter {
           },
           0x1B => {
             //DIVU
-            None
+            compute!(hi:lo = rs / rt)
           },
           0x20 => {
             //ADD

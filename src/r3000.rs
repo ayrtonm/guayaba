@@ -95,6 +95,18 @@ impl R3000 {
   pub fn pc_mut(&mut self) -> &mut Register {
     &mut self.pc
   }
+  pub fn lo(&self) -> &Register {
+    &self.lo
+  }
+  pub fn lo_mut(&mut self) -> &mut Register {
+    &mut self.lo
+  }
+  pub fn hi(&self) -> &Register {
+    &self.hi
+  }
+  pub fn hi_mut(&mut self) -> &mut Register {
+    &mut self.hi
+  }
   pub fn flush_write_cache(&mut self, operations: &mut Vec<DelayedWrite>) {
     operations.iter()
               .filter(|write| write.cycles == 0)
