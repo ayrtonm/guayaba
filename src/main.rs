@@ -5,6 +5,7 @@ use interpreter::Interpreter;
 mod common;
 mod interpreter;
 mod r3000;
+mod cop0;
 mod register;
 mod memory;
 mod cd;

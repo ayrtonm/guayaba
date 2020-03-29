@@ -47,6 +47,9 @@ pub fn get_imm5(op: u32) -> u32 {
 pub fn get_imm16(op: u32) -> u32 {
   op & 0x0000_ffff
 }
+pub fn get_imm25(op: u32) -> u32 {
+  op & 0x01ff_ffff
+}
 pub fn get_imm26(op: u32) -> u32 {
   op & 0x03ff_ffff
 }

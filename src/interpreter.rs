@@ -7,11 +7,13 @@ use crate::register::Parts;
 use crate::r3000::R3000;
 use crate::r3000::DelayedWrite;
 use crate::r3000::Name;
+use crate::cop0::Cop0;
 use crate::memory::Memory;
 use crate::cd::CD;
 
 pub struct Interpreter {
   r3000: R3000,
+  cop0: Cop0,
   memory: Memory,
   cd: Option<CD>,
   next_pc: Option<Register>,
@@ -22,11 +24,13 @@ pub struct Interpreter {
 impl Interpreter {
   pub fn new(bios_filename: &String, infile: Option<&String>) -> io::Result<Self> {
     let r3000 = R3000::new();
+    let cop0 = Cop0::new();
     let memory = Memory::new(bios_filename)?;
     let cd = infile.and_then(|f| CD::new(f).ok());
     let delayed_writes = Vec::new();
     Ok(Interpreter {
       r3000,
+      cop0,
       memory,
       cd,
       next_pc: None,
@@ -68,6 +72,20 @@ impl Interpreter {
   //if program counter should incremented normally, return None
   //otherwise return Some(new program counter)
   fn execute_opcode(&mut self, op: u32) -> Option<Register> {
+    let logging = true;
+    macro_rules! log {
+      ($e:tt) => {
+        {
+          print!("reached unimplemented opcode: ");
+          println!($e);
+          if logging {
+            unreachable!("reached unimplemented opcode {:#x?}", self.r3000);
+          } else {
+            None
+          }
+        }
+      };
+    }
     //loading a value from memory is a delayed operation (i.e. the updated register
     //is not visible to the next opcode). Note that the rs + imm16 in parentheses is
     //symbolic and only used to improve readability. This macro should be able to
@@ -243,6 +261,30 @@ impl Interpreter {
           None
         }
       };
+      (hi:lo = rs * rt signed) => {
+        {
+          let rs = self.r3000.nth_reg(get_rs(op)) as i32;
+          let rt = self.r3000.nth_reg(get_rt(op)) as i32;
+          let result = (rs as i64) * (rt as i64);
+          let hi_res = (result >> 32) as u32;
+          let lo_res = (result & 0x0000_0000_ffff_ffff) as u32;
+          let delay = match rs as u32 {
+            0x0000_0000..=0x0000_07ff | 0xffff_f800..=0xffff_ffff => {
+              6
+            },
+            0x0000_0800..=0x000f_ffff | 0xfff0_0000..=0xffff_f801 => {
+              9
+            },
+            0x0010_0000..=0x7fff_ffff | 0x8000_0000..=0xfff0_0001 => {
+              13
+            },
+          };
+          self.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, delay));
+          self.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, delay));
+          println!("op11");
+          None
+        }
+      };
       (hi:lo = rs / rt) => {
         {
           let rs = self.r3000.nth_reg(get_rs(op));
@@ -256,6 +298,42 @@ impl Interpreter {
             },
           };
           let hi_res = rs % rt;
+          self.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, 36));
+          self.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, 36));
+          println!("op12");
+          None
+        }
+      };
+      (hi:lo = rs / rt signed) => {
+        {
+          let rs = self.r3000.nth_reg(get_rs(op)) as i32;
+          let rt = self.r3000.nth_reg(get_rt(op)) as i32;
+          let lo_res = match rt {
+            0 => {
+              match rs {
+                0x0000_0000..=0x7fff_ffff => {
+                  -1
+                },
+                -0x8000_0000..=-1 => {
+                  1
+                },
+              }
+            },
+            -1 => {
+              match rs {
+                -0x8000_0000..=-1 => {
+                  1
+                },
+                _ => {
+                  rs / rt
+                },
+              }
+            }
+            _ => {
+              rs / rt
+            },
+          } as u32;
+          let hi_res = (rs % rt) as u32;
           self.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, 36));
           self.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, 36));
           println!("op12");
@@ -400,11 +478,11 @@ impl Interpreter {
           },
           0x0C => {
             //SYSCALL
-            todo!("implement syscall");
+            log!("syscall")
           },
           0x0D => {
             //BREAK
-            todo!("implement break");
+            log!("break")
           },
           0x10 => {
             //MFHI
@@ -424,7 +502,7 @@ impl Interpreter {
           },
           0x18 => {
             //MULT
-            todo!("implement mult");
+            compute!(hi:lo = rs * rt signed)
           },
           0x19 => {
             //MULTU
@@ -432,7 +510,7 @@ impl Interpreter {
           },
           0x1A => {
             //DIV
-            todo!("implement div");
+            compute!(hi:lo = rs / rt signed)
           },
           0x1B => {
             //DIVU
@@ -448,7 +526,7 @@ impl Interpreter {
           },
           0x22 => {
             //SUB
-            todo!("implement sub");
+            log!("sub")
           },
           0x23 => {
             //SUBU
@@ -567,19 +645,68 @@ impl Interpreter {
       },
       0x10 => {
         //COP0
-        todo!("implement cop0");
+        match get_rs(op) {
+          0x00 => {
+            //MFC0
+            let rt = get_rt(op);
+            let rd = self.cop0.nth_reg(get_rd(op));
+            self.delayed_writes.push(DelayedWrite::new(Name::Rn(rt), rd, 1));
+            None
+          },
+          0x02 => {
+            //CFC0
+            log!("CFC0")
+          },
+          0x04 => {
+            //MTC0
+            let rt = self.r3000.nth_reg(get_rt(op));
+            let rd = self.cop0.nth_reg_mut(get_rd(op));
+            *rd = rt;
+            None
+          },
+          0x06 => {
+            //CTC0
+            log!("CTC0")
+          },
+          0x08 => {
+            match get_rt(op) {
+              0x00 => {
+                //BCnF
+                log!("BCnF")
+              },
+              0x01 => {
+                //BCnT
+                log!("BCnT")
+              },
+              _ => {
+                unreachable!("ran into invalid opcode")
+              },
+            }
+          },
+          0x10..=0x1F => {
+            //COP0 imm25
+            match get_imm25(op) {
+              _ => {
+                log!("COP0 imm25")
+              },
+            }
+          },
+          _ => {
+            unreachable!("ran into invalid opcode")
+          },
+        }
       },
       0x11 => {
         //COP1
-        todo!("implement cop1");
+        unreachable!("COP1 is not implemented on the PSX")
       },
       0x12 => {
         //COP2
-        todo!("implement cop2");
+        log!("cop2")
       },
       0x13 => {
         //COP3
-        todo!("implement cop3");
+        unreachable!("COP3 is not implemented on the PSX")
       },
       0x20 => {
         //LB
@@ -591,7 +718,7 @@ impl Interpreter {
       },
       0x22 => {
         //LWL
-        todo!("implement lwl");
+        log!("lwl")
       },
       0x23 => {
         //LW
@@ -607,7 +734,7 @@ impl Interpreter {
       },
       0x26 => {
         //LWR
-        todo!("implement lwr");
+        log!("lwr")
       },
       0x28 => {
         //SB
@@ -619,7 +746,7 @@ impl Interpreter {
       },
       0x2A => {
         //SWL
-        todo!("implement swl");
+        log!("swl")
       },
       0x2B => {
         //SW
@@ -627,39 +754,39 @@ impl Interpreter {
       },
       0x2E => {
         //SWR
-        todo!("implement swr");
+        log!("swr")
       },
       0x30 => {
         //LWC0
-        todo!("implement lwc0");
+        unreachable!("LWC0 is not implemented on the PSX")
       },
       0x31 => {
         //LWC1
-        todo!("implement lwc1");
+        unreachable!("LWC1 is not implemented on the PSX")
       },
       0x32 => {
         //LWC2
-        todo!("implement lwc2");
+        log!("lwc2")
       },
       0x33 => {
         //LWC3
-        todo!("implement lwc3");
+        unreachable!("LWC3 is not implemented on the PSX")
       },
       0x38 => {
         //SWC0
-        todo!("implement swc0");
+        unreachable!("SWC0 is not implemented on the PSX")
       },
       0x39 => {
         //SWC1
-        todo!("implement swc1");
+        unreachable!("SWC1 is not implemented on the PSX")
       },
       0x3A => {
         //SWC2
-        todo!("implement swc2");
+        log!("swc2")
       },
       0x3B => {
         //SWC3
-        todo!("implement swc3");
+        unreachable!("SWC3 is not implemented on the PSX")
       },
       _ => {
         //invalid opcode
