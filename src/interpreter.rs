@@ -37,14 +37,18 @@ impl Interpreter {
     n.map(
       |n| {
         println!("started in test mode");
-        for _ in 0..n {
+        for i in 1..=n {
+          println!("{} ----------------------", i);
           self.step();
         }
     }).or_else(
       || {
         println!("started in free-running mode");
+        let mut i = 1;
         loop {
+          println!("{} ----------------------", i);
           self.step();
+          i += 1;
         }
       });
     self.cd.as_ref().map(|cd| cd.preview(10));
@@ -52,8 +56,8 @@ impl Interpreter {
   fn step(&mut self) {
     //get opcode from memory at program counter
     let op = self.memory.read_word(self.r3000.pc());
-    println!("----------------------");
-    println!("read opcode from {:#x}", self.r3000.pc());
+    println!("read opcode {:#x} from [{:#x}]", op, self.r3000.pc());
+    print!("  ");
     //the instruction following each jump is always executed before updating the pc
     //increment the program counter
     *self.r3000.pc_mut() = self.next_pc
@@ -78,7 +82,7 @@ impl Interpreter {
           let rt = get_rt(op);
           let result = self.memory.$method(rs + imm16);
           self.delayed_writes.push(DelayedWrite::new(Name::Rn(rt), result, 1));
-          println!("R{} = [{:#x} + {:#x}] = [{:#x}] = {:#x}", rt, rs, imm16, rs + imm16, result);
+          println!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x}", rt, rs, imm16, rs + imm16, result);
           None
         }
       };
@@ -89,7 +93,7 @@ impl Interpreter {
           let rt = self.r3000.nth_reg(get_rt(op));
           let imm16 = get_imm16(op).half_sign_extended();
           self.memory.$method(rs + imm16, rt);
-          println!("[{:#x} + {:#x}] = [{:#x}] = R{} = {:#x}", rs, imm16, rs + imm16, get_rt(op), rt);
+          println!("[{:#x} + {:#x}] = [{:#x}] \n  = R{} \n  = {:#x}", rs, imm16, rs + imm16, get_rt(op), rt);
           None
         }
       };
@@ -141,7 +145,7 @@ impl Interpreter {
           let rt = self.r3000.nth_reg(get_rt(op));
           let rd = self.r3000.nth_reg_mut(get_rd(op));
           rd.map(|rd| *rd = rs.$method(rt));
-          println!("R{} = R{} {} {:#x} = {:#x} {} {:#x} = {:#x}",
+          println!("R{} = R{} {} {:#x} \n  = {:#x} {} {:#x} \n  = {:#x}",
                     get_rd(op), get_rs(op), stringify!($method), get_rt(op),
                     rs, stringify!($method), rt, self.r3000.nth_reg(get_rd(op)));
           None
@@ -176,7 +180,7 @@ impl Interpreter {
           let imm16 = get_imm16(op).half_sign_extended();
           let rt = self.r3000.nth_reg_mut(get_rt(op));
           rt.map(|rt| *rt = rs.$method(imm16));
-          println!("R{} = R{} {} {:#x} = {:#x} {} {:#x} = {:#x}",
+          println!("R{} = R{} {} {:#x} \n  = {:#x} {} {:#x} \n  = {:#x}",
                     get_rt(op), get_rs(op), stringify!($method), imm16,
                     rs, stringify!($method), imm16, self.r3000.nth_reg(get_rt(op)));
           None
@@ -189,7 +193,7 @@ impl Interpreter {
           let imm5 = get_imm5(op);
           let rd = self.r3000.nth_reg_mut(get_rd(op));
           rd.map(|rd| *rd = rt.$method(imm5));
-          println!("R{} = R{} {} {:#x} = {:#x} {} {:#x} = {:#x}",
+          println!("R{} = R{} {} {:#x} \n  = {:#x} {} {:#x} \n  = {:#x}",
                     get_rd(op), get_rt(op), stringify!($method), imm5,
                     rt, stringify!($method), imm5, self.r3000.nth_reg(get_rd(op)));
           None
@@ -211,7 +215,7 @@ impl Interpreter {
           let rt = self.r3000.nth_reg_mut(get_rt(op));
           let imm16 = get_imm16(op);
           rt.map(|rt| *rt = imm16 << 16);
-          println!("R{} = {:#x} << 16 = {:#x}", get_rt(op), imm16, self.r3000.nth_reg(get_rt(op)));
+          println!("R{} = {:#x} << 16 \n  = {:#x}", get_rt(op), imm16, self.r3000.nth_reg(get_rt(op)));
           None
         }
       };
