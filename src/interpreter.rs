@@ -34,11 +34,19 @@ impl Interpreter {
     })
   }
   pub fn run(&mut self, n: Option<u32>) {
-    n.map(|n| {
-      for _ in 0..n {
-        self.step();
-      }
-    });
+    n.map(
+      |n| {
+        println!("started in test mode");
+        for _ in 0..n {
+          self.step();
+        }
+    }).or_else(
+      || {
+        println!("started in free-running mode");
+        loop {
+          self.step();
+        }
+      });
     self.cd.as_ref().map(|cd| cd.preview(10));
   }
   fn step(&mut self) {

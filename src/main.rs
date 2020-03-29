@@ -21,28 +21,34 @@ fn check_flag(args: &Vec<String>, flags: &[&str]) -> bool {
       .any(|s| flags.iter().any(|t| *t == *s))
 }
 
+const HELP_FLAGS: [&str;2] = ["-h", "--help"];
+const BIOS_FLAGS: [&str;2] = ["-b", "--bios"];
+const INFILE_FLAGS: [&str;2] = ["-i", "--input"];
+const TEST_FLAGS: [&str;2] = ["-t", "--test"];
+const ALL_FLAGS: [([&str;2],Option<&str>);4] = [(HELP_FLAGS, None),
+                                                (BIOS_FLAGS, Some("BIOS")),
+                                                (INFILE_FLAGS, Some("INFILE")),
+                                                (TEST_FLAGS, Some("n"))];
+
 fn print_help() {
   println!("rspsx [OPTION...] -b BIOS -i INFILE");
   println!("");
-  println!("  -h, --help");
-  println!("  -i, --input INFILE");
-  println!("  -b, --bios BIOS");
-  println!("  -t, --test steps");
+  for flags in &ALL_FLAGS {
+    for f in &flags.0 {
+      print!("  {}", f.to_string());
+    }
+    flags.1.map(|example| print!(" {}", example.to_string()));
+    println!("");
+  }
   println!("");
 }
 
 fn main() -> io::Result<()> {
   let args: Vec<String> = env::args().collect();
-
-  let bios_flags = ["-b", "--bios"];
-  let infile_flags = ["-i", "--input"];
-  let help_flags = ["-h", "--help"];
-  let test_flags = ["-t", "--test"];
-
-  let bios = get_arg(&args, &bios_flags);
-  let infile = get_arg(&args, &infile_flags);
-  let help = check_flag(&args, &help_flags);
-  let test = get_arg(&args, &test_flags).map(|test| test.parse::<u32>().unwrap());
+  let bios = get_arg(&args, &BIOS_FLAGS);
+  let infile = get_arg(&args, &INFILE_FLAGS);
+  let help = check_flag(&args, &HELP_FLAGS);
+  let test = get_arg(&args, &TEST_FLAGS).map(|test| test.parse::<u32>().unwrap());
 
   if help {
     print_help();
