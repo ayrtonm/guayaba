@@ -27,6 +27,9 @@ impl GTE {
     let idx = idx as usize;
     Some(&mut self.ctrl_registers[idx])
   }
+  pub fn bcnf(&self, imm16: u32) -> Option<Register> {
+    Some(imm16)
+  }
   pub fn execute_command(&mut self, imm25: u32) -> Option<Register> {
     None
   }

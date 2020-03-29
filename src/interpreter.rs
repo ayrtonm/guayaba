@@ -174,6 +174,7 @@ impl Interpreter {
         }
       };
       //ALU instructions with two general purpose registers that trap overflow
+      //FIXME: this doesn't actually do anything in case of an overflow yet
       (rd = rs $method:ident rt trap) => {
         {
           let rs = self.r3000.nth_reg(get_rs(op));
@@ -476,11 +477,14 @@ impl Interpreter {
               match get_rt(op) {
                 0x00 => {
                   //BCnF
-                  log!("BCnF")
+                  self.$copn.bcnf(get_imm16(op))
                 },
                 0x01 => {
                   //BCnT
-                  log!("BCnT")
+                  //technically we're implementing one illegal instruction here
+                  //since BCnT is not implemented for COP0
+                  //however, GTE (i.e. COP2) does implement it
+                  None
                 },
                 _ => {
                   unreachable!("ran into invalid opcode")
@@ -588,7 +592,7 @@ impl Interpreter {
           },
           0x22 => {
             //SUB
-            log!("sub")
+            compute!(rd = rs wrapping_sub rt trap)
           },
           0x23 => {
             //SUBU

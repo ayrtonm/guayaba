@@ -27,6 +27,10 @@ impl Cop0 {
     let idx = idx as usize;
     Some(&mut self.ctrl_registers[idx])
   }
+  pub fn bcnf(&self, _: u32) -> Option<Register> {
+    //this is technically an illegal instruction since COP0 does not implement it
+    None
+  }
   pub fn execute_command(&mut self, imm25: u32) -> Option<Register> {
     None
   }

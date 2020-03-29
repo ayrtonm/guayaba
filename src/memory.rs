@@ -9,12 +9,12 @@ use crate::register::Register;
 use crate::register::Parts;
 
 pub const KB: usize = 1024;
-const phys_mask: u32 = 0x1fff_ffff;
+const PHYS_MASK: u32 = 0x1fff_ffff;
 
 macro_rules! read_memory {
   ($address:expr, $function:ident, $self:expr) => {
     {
-      let phys_addr = $address & phys_mask;
+      let phys_addr = $address & PHYS_MASK;
       match phys_addr {
         (Memory::MAIN_RAM..=Memory::MAIN_RAM_END) => {
           $function(&$self.main_ram, phys_addr - Memory::MAIN_RAM)
@@ -55,7 +55,7 @@ macro_rules! read_memory {
 macro_rules! write_memory {
   ($address:expr, $value:expr, $function:ident, $self:expr) => {
     {
-      let phys_addr = $address & phys_mask;
+      let phys_addr = $address & PHYS_MASK;
       match phys_addr {
         (Memory::MAIN_RAM..=Memory::MAIN_RAM_END) => {
           $function(&mut $self.main_ram, phys_addr - Memory::MAIN_RAM, $value)
