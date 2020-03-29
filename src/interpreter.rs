@@ -10,11 +10,13 @@ use crate::r3000::Name;
 use crate::cop0::Cop0;
 use crate::memory::Memory;
 use crate::cd::CD;
+use crate::gte::GTE;
 
 pub struct Interpreter {
   r3000: R3000,
   cop0: Cop0,
   memory: Memory,
+  gte: GTE,
   cd: Option<CD>,
   next_pc: Option<Register>,
   //these are register writes due to memory loads which happen after one cycle
@@ -24,14 +26,16 @@ pub struct Interpreter {
 impl Interpreter {
   pub fn new(bios_filename: &String, infile: Option<&String>) -> io::Result<Self> {
     let r3000 = R3000::new();
-    let cop0 = Cop0::new();
+    let cop0 = Default::default();
     let memory = Memory::new(bios_filename)?;
+    let gte = Default::default();
     let cd = infile.and_then(|f| CD::new(f).ok());
     let delayed_writes = Vec::new();
     Ok(Interpreter {
       r3000,
       cop0,
       memory,
+      gte,
       cd,
       next_pc: None,
       delayed_writes,
@@ -436,6 +440,58 @@ impl Interpreter {
         }
       };
     }
+    macro_rules! cop {
+      ($copn:ident) => {
+        {
+          match get_rs(op) {
+            0x00 => {
+              //MFCn
+              let rt = get_rt(op);
+              let rd = self.$copn.nth_reg(get_rd(op));
+              self.delayed_writes.push(DelayedWrite::new(Name::Rn(rt), rd, 1));
+              None
+            },
+            0x02 => {
+              //CFCn
+              log!("CFC0")
+            },
+            0x04 => {
+              //MTCn
+              let rt = self.r3000.nth_reg(get_rt(op));
+              let rd = self.cop0.nth_reg_mut(get_rd(op));
+              *rd = rt;
+              None
+            },
+            0x06 => {
+              //CTCn
+              log!("CTC0")
+            },
+            0x08 => {
+              match get_rt(op) {
+                0x00 => {
+                  //BCnF
+                  log!("BCnF")
+                },
+                0x01 => {
+                  //BCnT
+                  log!("BCnT")
+                },
+                _ => {
+                  unreachable!("ran into invalid opcode")
+                },
+              }
+            },
+            0x10..=0x1F => {
+              //COPn imm25
+              self.$copn.execute_command(get_imm25(op))
+            },
+            _ => {
+              unreachable!("ran into invalid opcode")
+            },
+          }
+        }
+      }
+    }
     //after executing an opcode, complete the loads from the previous opcode
     self.r3000.flush_write_cache(&mut self.delayed_writes);
     //this match statement optionally returns the next program counter
@@ -645,56 +701,7 @@ impl Interpreter {
       },
       0x10 => {
         //COP0
-        match get_rs(op) {
-          0x00 => {
-            //MFC0
-            let rt = get_rt(op);
-            let rd = self.cop0.nth_reg(get_rd(op));
-            self.delayed_writes.push(DelayedWrite::new(Name::Rn(rt), rd, 1));
-            None
-          },
-          0x02 => {
-            //CFC0
-            log!("CFC0")
-          },
-          0x04 => {
-            //MTC0
-            let rt = self.r3000.nth_reg(get_rt(op));
-            let rd = self.cop0.nth_reg_mut(get_rd(op));
-            *rd = rt;
-            None
-          },
-          0x06 => {
-            //CTC0
-            log!("CTC0")
-          },
-          0x08 => {
-            match get_rt(op) {
-              0x00 => {
-                //BCnF
-                log!("BCnF")
-              },
-              0x01 => {
-                //BCnT
-                log!("BCnT")
-              },
-              _ => {
-                unreachable!("ran into invalid opcode")
-              },
-            }
-          },
-          0x10..=0x1F => {
-            //COP0 imm25
-            match get_imm25(op) {
-              _ => {
-                log!("COP0 imm25")
-              },
-            }
-          },
-          _ => {
-            unreachable!("ran into invalid opcode")
-          },
-        }
+        cop!(cop0)
       },
       0x11 => {
         //COP1
@@ -702,7 +709,7 @@ impl Interpreter {
       },
       0x12 => {
         //COP2
-        log!("cop2")
+        cop!(gte)
       },
       0x13 => {
         //COP3

@@ -9,6 +9,7 @@ mod cop0;
 mod register;
 mod memory;
 mod cd;
+mod gte;
 
 fn get_arg<'a>(args: &'a Vec<String>, flags: &[&str]) -> Option<&'a String> {
   args.iter()
