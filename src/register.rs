@@ -60,10 +60,10 @@ impl Parts for Register{
         self.shr(rhs)
       },
       0x8000_0000 => {
-        unimplemented!("")
+        todo!("sra")
       },
       _ => {
-        unreachable!("")
+        unreachable!("sra")
       },
     }
   }

@@ -55,15 +55,15 @@ impl R3000 {
   }
   //general purpose MIPS registers are referred to as R0..R31
   //this method is used to address registers R0 through R31
-  pub fn nth_reg(&self, idx: u32) -> &Register {
+  pub fn nth_reg(&self, idx: u32) -> Register {
     assert!(idx < 32);
     let idx = idx as usize;
     match idx {
       0 => {
-        &R3000::ZERO
+        R3000::ZERO
       },
       _ => {
-        &self.general_registers[idx - 1]
+        self.general_registers[idx - 1]
       },
     }
   }
@@ -82,27 +82,27 @@ impl R3000 {
     }
   }
   //general purpose MIPS registers also have names we can use
-  //pub fn ra(&self) -> &Register {
-  //  self.nth_reg(31)
-  //}
+  pub fn ra(&self) -> Register {
+    self.nth_reg(31)
+  }
   pub fn ra_mut(&mut self) -> &mut Register {
     self.nth_reg_mut(31).unwrap()
   }
   //these are the special purpose MIPS registers
-  pub fn pc(&self) -> &Register {
-    &self.pc
+  pub fn pc(&self) -> Register {
+    self.pc
   }
   pub fn pc_mut(&mut self) -> &mut Register {
     &mut self.pc
   }
-  pub fn lo(&self) -> &Register {
-    &self.lo
+  pub fn lo(&self) -> Register {
+    self.lo
   }
   pub fn lo_mut(&mut self) -> &mut Register {
     &mut self.lo
   }
-  pub fn hi(&self) -> &Register {
-    &self.hi
+  pub fn hi(&self) -> Register {
+    self.hi
   }
   pub fn hi_mut(&mut self) -> &mut Register {
     &mut self.hi
