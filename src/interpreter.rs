@@ -462,14 +462,14 @@ impl Interpreter {
               //MTCn
               let rt = self.r3000.nth_reg(get_rt(op));
               let rd = self.$copn.nth_data_reg_mut(get_rd(op));
-              *rd = rt;
+              rd.map(|rd| *rd = rt);
               None
             },
             0x06 => {
               //CTCn
               let rt = self.r3000.nth_reg(get_rt(op));
               let rd = self.$copn.nth_ctrl_reg_mut(get_rd(op));
-              *rd = rt;
+              rd.map(|rd| *rd = rt);
               None
             },
             0x08 => {
