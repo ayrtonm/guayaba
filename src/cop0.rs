@@ -2,21 +2,33 @@ use crate::register::Register;
 
 #[derive(Default)]
 pub struct Cop0 {
-  registers: [Register; 32],
+  data_registers: [Register; 32],
+  ctrl_registers: [Register; 32],
 }
 
 impl Cop0 {
-  pub fn nth_reg(&self, idx: u32) -> Register {
+  pub fn nth_data_reg(&self, idx: u32) -> Register {
     assert!(idx < 32);
     let idx = idx as usize;
-    self.registers[idx]
+    self.data_registers[idx]
   }
-  pub fn nth_reg_mut(&mut self, idx: u32) -> &mut Register {
+  pub fn nth_data_reg_mut(&mut self, idx: u32) -> &mut Register {
     assert!(idx < 32);
     let idx = idx as usize;
-    &mut self.registers[idx]
+    &mut self.data_registers[idx]
+  }
+  pub fn nth_ctrl_reg(&self, idx: u32) -> Register {
+    assert!(idx < 32);
+    let idx = idx as usize;
+    self.ctrl_registers[idx]
+  }
+  pub fn nth_ctrl_reg_mut(&mut self, idx: u32) -> &mut Register {
+    assert!(idx < 32);
+    let idx = idx as usize;
+    &mut self.ctrl_registers[idx]
   }
   pub fn execute_command(&mut self, imm25: u32) -> Option<Register> {
     None
   }
 }
+

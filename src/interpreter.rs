@@ -447,24 +447,30 @@ impl Interpreter {
             0x00 => {
               //MFCn
               let rt = get_rt(op);
-              let rd = self.$copn.nth_reg(get_rd(op));
-              self.delayed_writes.push(DelayedWrite::new(Name::Rn(rt), rd, 1));
+              let rd_data = self.$copn.nth_data_reg(get_rd(op));
+              self.delayed_writes.push(DelayedWrite::new(Name::Rn(rt), rd_data, 1));
               None
             },
             0x02 => {
               //CFCn
-              log!("CFC0")
+              let rt = get_rt(op);
+              let rd_ctrl = self.$copn.nth_ctrl_reg(get_rd(op));
+              self.delayed_writes.push(DelayedWrite::new(Name::Rn(rt), rd_ctrl, 1));
+              None
             },
             0x04 => {
               //MTCn
               let rt = self.r3000.nth_reg(get_rt(op));
-              let rd = self.cop0.nth_reg_mut(get_rd(op));
+              let rd = self.$copn.nth_data_reg_mut(get_rd(op));
               *rd = rt;
               None
             },
             0x06 => {
               //CTCn
-              log!("CTC0")
+              let rt = self.r3000.nth_reg(get_rt(op));
+              let rd = self.$copn.nth_ctrl_reg_mut(get_rd(op));
+              *rd = rt;
+              None
             },
             0x08 => {
               match get_rt(op) {
@@ -614,7 +620,7 @@ impl Interpreter {
           },
           _ => {
             //invalid opcode
-            panic!("ran into invalid opcode")
+            unreachable!("ran into invalid opcode")
           }
         }
       },
@@ -639,7 +645,7 @@ impl Interpreter {
           },
           _ => {
             //invalid opcode
-            panic!("ran into invalid opcode")
+            unreachable!("ran into invalid opcode")
           },
         }
       },

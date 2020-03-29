@@ -7,12 +7,12 @@ pub struct GTE {
 }
 
 impl GTE {
-  pub fn nth_reg(&self, idx: u32) -> Register {
+  pub fn nth_data_reg(&self, idx: u32) -> Register {
     assert!(idx < 32);
     let idx = idx as usize;
     self.data_registers[idx]
   }
-  pub fn nth_reg_mut(&mut self, idx: u32) -> &mut Register {
+  pub fn nth_data_reg_mut(&mut self, idx: u32) -> &mut Register {
     assert!(idx < 32);
     let idx = idx as usize;
     &mut self.data_registers[idx]
