@@ -830,6 +830,6 @@ mod tests {
     vm.memory.write_word(BIOS + 8, 0x0000_0004);
     vm.memory.write_word(BIOS + 12, instr);
     vm.memory.write_word(BIOS + 16, 0x0000_0006);
-    vm.run(None);
+    vm.run(Some(10));
   }
 }

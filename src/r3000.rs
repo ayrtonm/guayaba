@@ -159,7 +159,7 @@ mod tests {
       r3000.nth_reg_mut(i).map(|ri| *ri = i + 31);
     }
     for i in 1..=31 {
-      assert_eq!(*r3000.nth_reg(i), (31 + i) as u32);
+      assert_eq!(r3000.nth_reg(i), (31 + i) as u32);
     }
   }
 
