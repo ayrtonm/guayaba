@@ -174,7 +174,7 @@ impl Memory {
     assert_eq!(address & 0x0000_0001, 0);
     write_memory!(address, value, write_half_to_array, self);
   }
-  pub fn write_word(&mut self, address: Register, value: Register) {
+  pub fn write_word(&mut self, address: Register, value: Register)  {
     assert_eq!(address & 0x0000_0003, 0);
     write_memory!(address, value, write_word_to_array, self);
   }
@@ -182,7 +182,7 @@ impl Memory {
 
 #[cfg(test)]
 mod tests {
-  use super::*;
+  use memory::*;
 
   impl Memory {
     pub fn blank() -> Memory {

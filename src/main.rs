@@ -9,6 +9,7 @@ mod cop0;
 mod register;
 mod memory;
 mod cd;
+mod dma;
 mod gte;
 
 fn get_arg<'a>(args: &'a Vec<String>, flags: &[&str]) -> Option<&'a String> {
@@ -27,9 +28,11 @@ const HELP_FLAGS: [&str;2] = ["-h", "--help"];
 const BIOS_FLAGS: [&str;2] = ["-b", "--bios"];
 const INFILE_FLAGS: [&str;2] = ["-i", "--input"];
 const TEST_FLAGS: [&str;2] = ["-t", "--test"];
-const ALL_FLAGS: [([&str;2],Option<&str>);4] = [(HELP_FLAGS, None),
+const LOG_FLAGS: [&str;2] = ["-l", "--log"];
+const ALL_FLAGS: [([&str;2],Option<&str>);5] = [(HELP_FLAGS, None),
                                                 (BIOS_FLAGS, Some("BIOS")),
                                                 (INFILE_FLAGS, Some("INFILE")),
+                                                (LOG_FLAGS, None),
                                                 (TEST_FLAGS, Some("n"))];
 
 fn print_help() {
@@ -51,13 +54,14 @@ fn main() -> io::Result<()> {
   let infile = get_arg(&args, &INFILE_FLAGS);
   let help = check_flag(&args, &HELP_FLAGS);
   let test = get_arg(&args, &TEST_FLAGS).map(|test| test.parse::<u32>().unwrap());
+  let logging = check_flag(&args, &LOG_FLAGS);
 
   if help {
     print_help();
   } else {
     match bios {
       Some(bios_filename) => {
-        Interpreter::new(bios_filename, infile)?.run(test);
+        Interpreter::new(bios_filename, infile)?.run(test, logging);
       },
       None => {
         print_help();

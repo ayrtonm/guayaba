@@ -11,13 +11,18 @@ use crate::cop0::Cop0;
 use crate::memory::Memory;
 use crate::cd::CD;
 use crate::gte::GTE;
+use crate::dma::DMA;
 
 pub struct Interpreter {
+  //these correspond to physical components
   r3000: R3000,
   cop0: Cop0,
   memory: Memory,
   gte: GTE,
   cd: Option<CD>,
+  dma: DMA,
+
+  //regular members of interpreter
   next_pc: Option<Register>,
   //these are register writes due to memory loads which happen after one cycle
   delayed_writes: Vec<DelayedWrite>,
@@ -30,6 +35,7 @@ impl Interpreter {
     let memory = Memory::new(bios_filename)?;
     let gte = Default::default();
     let cd = infile.and_then(|f| CD::new(f).ok());
+    let dma = Default::default();
     let delayed_writes = Vec::new();
     Ok(Interpreter {
       r3000,
@@ -37,58 +43,54 @@ impl Interpreter {
       memory,
       gte,
       cd,
+      dma,
       next_pc: None,
       delayed_writes,
     })
   }
-  pub fn run(&mut self, n: Option<u32>) {
+  pub fn run(&mut self, n: Option<u32>, logging: bool) {
     n.map(
       |n| {
         println!("started in test mode");
         for i in 1..=n {
-          println!("{} ----------------------", i);
-          self.step();
+          self.step(logging);
         }
     }).or_else(
       || {
         println!("started in free-running mode");
         let mut i = 1;
         loop {
-          println!("{} ----------------------", i);
-          self.step();
+          self.step(logging);
           i += 1;
         }
       });
     self.cd.as_ref().map(|cd| cd.preview(10));
   }
-  fn step(&mut self) {
+  fn step(&mut self, logging: bool) {
     //get opcode from memory at program counter
     let op = self.memory.read_word(self.r3000.pc());
-    println!("read opcode {:#x} from [{:#x}]", op, self.r3000.pc());
-    print!("  ");
+    if logging {
+      println!("----------------------");
+      println!("read opcode {:#x} from [{:#x}]", op, self.r3000.pc());
+      println!("  ");
+    }
     //the instruction following each jump is always executed before updating the pc
     //increment the program counter
     *self.r3000.pc_mut() = self.next_pc
                            .take()
                            .map_or_else(|| self.r3000.pc() + 4, |next_pc| next_pc);
-    self.next_pc = self.execute_opcode(op);
+    self.next_pc = self.execute_opcode(op, logging);
   }
   //if program counter should incremented normally, return None
   //otherwise return Some(new program counter)
-  fn execute_opcode(&mut self, op: u32) -> Option<Register> {
-    let logging = true;
+  fn execute_opcode(&mut self, op: u32, logging: bool) -> Option<Register> {
     macro_rules! log {
-      ($e:tt) => {
-        {
-          print!("reached unimplemented opcode: ");
-          println!($e);
-          if logging {
-            unreachable!("reached unimplemented opcode {:#x?}", self.r3000);
-          } else {
-            None
-          }
-        }
-      };
+      () => ($crate::print!("\n"));
+      ($($arg:tt)*) => ({
+        if logging {
+          println!($($arg)*);
+        };
+      })
     }
     //loading a value from memory is a delayed operation (i.e. the updated register
     //is not visible to the next opcode). Note that the rs + imm16 in parentheses is
@@ -104,7 +106,7 @@ impl Interpreter {
           let rt = get_rt(op);
           let result = self.memory.$method(rs + imm16);
           self.delayed_writes.push(DelayedWrite::new(Name::Rn(rt), result, 1));
-          println!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x}", rt, rs, imm16, rs + imm16, result);
+          log!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x}", rt, rs, imm16, rs + imm16, result);
           None
         }
       };
@@ -115,7 +117,7 @@ impl Interpreter {
           let rt = self.r3000.nth_reg(get_rt(op));
           let imm16 = get_imm16(op).half_sign_extended();
           self.memory.$method(rs + imm16, rt);
-          println!("[{:#x} + {:#x}] = [{:#x}] \n  = R{} \n  = {:#x}", rs, imm16, rs + imm16, get_rt(op), rt);
+          log!("[{:#x} + {:#x}] = [{:#x}] \n  = R{} \n  = {:#x}", rs, imm16, rs + imm16, get_rt(op), rt);
           None
         }
       };
@@ -124,7 +126,7 @@ impl Interpreter {
           let rs = self.r3000.nth_reg(get_rs(op));
           let lo = self.r3000.lo_mut();
           *lo = rs;
-          println!("op1");
+          log!("op1");
           None
         }
       };
@@ -133,7 +135,7 @@ impl Interpreter {
           let rs = self.r3000.nth_reg(get_rs(op));
           let hi = self.r3000.hi_mut();
           *hi = rs;
-          println!("op2");
+          log!("op2");
           None
         }
       };
@@ -142,7 +144,7 @@ impl Interpreter {
           let lo = self.r3000.lo();
           let rd = self.r3000.nth_reg_mut(get_rd(op));
           rd.map(|rd| *rd = lo);
-          println!("op3");
+          log!("op3");
           None
         }
       };
@@ -151,7 +153,7 @@ impl Interpreter {
           let hi = self.r3000.hi();
           let rd = self.r3000.nth_reg_mut(get_rd(op));
           rd.map(|rd| *rd = hi);
-          println!("op4");
+          log!("op4");
           None
         }
       };
@@ -167,7 +169,7 @@ impl Interpreter {
           let rt = self.r3000.nth_reg(get_rt(op));
           let rd = self.r3000.nth_reg_mut(get_rd(op));
           rd.map(|rd| *rd = rs.$method(rt));
-          println!("R{} = R{} {} {:#x} \n  = {:#x} {} {:#x} \n  = {:#x}",
+          log!("R{} = R{} {} {:#x} \n  = {:#x} {} {:#x} \n  = {:#x}",
                     get_rd(op), get_rs(op), stringify!($method), get_rt(op),
                     rs, stringify!($method), rt, self.r3000.nth_reg(get_rd(op)));
           None
@@ -181,7 +183,7 @@ impl Interpreter {
           let rt = self.r3000.nth_reg(get_rt(op));
           let rd = self.r3000.nth_reg_mut(get_rd(op));
           rd.map(|rd| *rd = rs.$method(rt));
-          println!("op6");
+          log!("op6");
           None
         }
       };
@@ -192,7 +194,7 @@ impl Interpreter {
           let imm16 = get_imm16(op).half_sign_extended();
           let rt = self.r3000.nth_reg_mut(get_rt(op));
           rt.map(|rt| *rt = rs.$method(imm16));
-          println!("op7");
+          log!("op7");
           None
         }
       };
@@ -203,7 +205,7 @@ impl Interpreter {
           let imm16 = get_imm16(op).half_sign_extended();
           let rt = self.r3000.nth_reg_mut(get_rt(op));
           rt.map(|rt| *rt = rs.$method(imm16));
-          println!("R{} = R{} {} {:#x} \n  = {:#x} {} {:#x} \n  = {:#x}",
+          log!("R{} = R{} {} {:#x} \n  = {:#x} {} {:#x} \n  = {:#x}",
                     get_rt(op), get_rs(op), stringify!($method), imm16,
                     rs, stringify!($method), imm16, self.r3000.nth_reg(get_rt(op)));
           None
@@ -216,7 +218,7 @@ impl Interpreter {
           let imm5 = get_imm5(op);
           let rd = self.r3000.nth_reg_mut(get_rd(op));
           rd.map(|rd| *rd = rt.$method(imm5));
-          println!("R{} = R{} {} {:#x} \n  = {:#x} {} {:#x} \n  = {:#x}",
+          log!("R{} = R{} {} {:#x} \n  = {:#x} {} {:#x} \n  = {:#x}",
                     get_rd(op), get_rt(op), stringify!($method), imm5,
                     rt, stringify!($method), imm5, self.r3000.nth_reg(get_rd(op)));
           None
@@ -229,7 +231,7 @@ impl Interpreter {
           let rs = self.r3000.nth_reg(get_rs(op));
           let rd = self.r3000.nth_reg_mut(get_rd(op));
           rd.map(|rd| *rd = rt.$method(rs & 0x1F));
-          println!("op9");
+          log!("op9");
           None
         }
       };
@@ -238,7 +240,7 @@ impl Interpreter {
           let rt = self.r3000.nth_reg_mut(get_rt(op));
           let imm16 = get_imm16(op);
           rt.map(|rt| *rt = imm16 << 16);
-          println!("R{} = {:#x} << 16 \n  = {:#x}", get_rt(op), imm16, self.r3000.nth_reg(get_rt(op)));
+          log!("R{} = {:#x} << 16 \n  = {:#x}", get_rt(op), imm16, self.r3000.nth_reg(get_rt(op)));
           None
         }
       };
@@ -262,7 +264,7 @@ impl Interpreter {
           };
           self.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, delay));
           self.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, delay));
-          println!("op11");
+          log!("op11");
           None
         }
       };
@@ -286,7 +288,7 @@ impl Interpreter {
           };
           self.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, delay));
           self.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, delay));
-          println!("op11");
+          log!("op11");
           None
         }
       };
@@ -305,7 +307,7 @@ impl Interpreter {
           let hi_res = rs % rt;
           self.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, 36));
           self.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, 36));
-          println!("op12");
+          log!("op12");
           None
         }
       };
@@ -341,7 +343,7 @@ impl Interpreter {
           let hi_res = (rs % rt) as u32;
           self.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, 36));
           self.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, 36));
-          println!("op12");
+          log!("op12");
           None
         }
       };
@@ -351,14 +353,14 @@ impl Interpreter {
         {
           let imm = get_imm26(op);
           let dest = (self.r3000.pc() & 0xf000_0000) + (imm * 4);
-          println!("PC = {:#x}", dest);
+          log!("PC = {:#x}", dest);
           Some(dest)
         }
       };
       (rs) => {
         {
           let rs = self.r3000.nth_reg(get_rs(op));
-          println!("op14");
+          log!("op14");
           Some(rs)
         }
       };
@@ -366,7 +368,7 @@ impl Interpreter {
         {
           let rt = self.r3000.nth_reg(get_rt(op));
           let rs = self.r3000.nth_reg(get_rs(op));
-          println!("op15");
+          log!("op15");
           if rs $cmp rt {
             let imm16 = get_imm16(op);
             let pc = self.r3000.pc();
@@ -380,7 +382,7 @@ impl Interpreter {
       (rs $cmp:tt 0) => {
         {
           let rs = self.r3000.nth_reg(get_rs(op));
-          println!("op16");
+          log!("op16");
           if (rs as i32) $cmp 0 {
             let imm16 = get_imm16(op);
             let pc = self.r3000.pc();
@@ -396,7 +398,7 @@ impl Interpreter {
       (imm26) => {
         {
           *self.r3000.ra_mut() = self.r3000.pc() + 4;
-          println!("op17");
+          log!("op17");
           jump!(imm26)
         }
       };
@@ -405,7 +407,7 @@ impl Interpreter {
           let result = self.r3000.pc() + 4;
           let rd = self.r3000.nth_reg_mut(get_rd(op));
           rd.map(|rd| *rd = result);
-          println!("op18");
+          log!("op18");
           jump!(rs)
         }
       };
@@ -413,7 +415,7 @@ impl Interpreter {
         {
           let rt = self.r3000.nth_reg(get_rt(op));
           let rs = self.r3000.nth_reg(get_rs(op));
-          println!("op19");
+          log!("op19");
           if *rs $cmp *rt {
             *self.r3000.ra_mut() = self.r3000.pc() + 4;
             let imm16 = get_imm16(op);
@@ -428,7 +430,7 @@ impl Interpreter {
       (rs $cmp:tt 0) => {
         {
           let rs = self.r3000.nth_reg(get_rs(op));
-          println!("op20");
+          log!("op20");
           if (rs as i32) $cmp 0 {
             *self.r3000.ra_mut() = self.r3000.pc() + 4;
             let imm16 = get_imm16(op);
@@ -544,11 +546,11 @@ impl Interpreter {
           },
           0x0C => {
             //SYSCALL
-            log!("syscall")
+            todo!("syscall")
           },
           0x0D => {
             //BREAK
-            log!("break")
+            todo!("break")
           },
           0x10 => {
             //MFHI
@@ -735,7 +737,7 @@ impl Interpreter {
       },
       0x22 => {
         //LWL
-        log!("lwl")
+        todo!("lwl")
       },
       0x23 => {
         //LW
@@ -751,7 +753,7 @@ impl Interpreter {
       },
       0x26 => {
         //LWR
-        log!("lwr")
+        todo!("lwr")
       },
       0x28 => {
         //SB
@@ -763,7 +765,7 @@ impl Interpreter {
       },
       0x2A => {
         //SWL
-        log!("swl")
+        todo!("swl")
       },
       0x2B => {
         //SW
@@ -771,7 +773,7 @@ impl Interpreter {
       },
       0x2E => {
         //SWR
-        log!("swr")
+        todo!("swr")
       },
       0x30 => {
         //LWC0
@@ -783,7 +785,7 @@ impl Interpreter {
       },
       0x32 => {
         //LWC2
-        log!("lwc2")
+        todo!("lwc2")
       },
       0x33 => {
         //LWC3
@@ -799,7 +801,7 @@ impl Interpreter {
       },
       0x3A => {
         //SWC2
-        log!("swc2")
+        todo!("swc2")
       },
       0x3B => {
         //SWC3
