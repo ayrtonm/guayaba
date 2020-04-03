@@ -27,24 +27,20 @@ impl DelayedWrite {
   }
 }
 
-pub struct MutRefRegister {
-  value: Register,
+pub struct MutRegister<'a> {
+  value: &'a mut Register,
   name: Name,
-}
-
-impl MutRefRegister {
-  pub fn new(value: Register, name: Name) -> Self {
-    MutRefRegister {
-      value, name
-    }
-  }
 }
 
 pub trait MaybeSet {
   fn maybe_set(self, value: Register) -> Option<Name>;
 }
 
-//this is for the MIPS registers
+impl<'a> MaybeSet for Option<MutRegister<'a>> {
+  fn maybe_set(self, value: Register) -> Option<Name> {
+    self.map(|reg| {*reg.value = value; reg.name})
+  }
+}
 impl MaybeSet for Option<&mut Register> {
   fn maybe_set(self, value: Register) -> Option<Name> {
     self.map(|reg| *reg = value);
