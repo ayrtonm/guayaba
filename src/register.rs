@@ -2,6 +2,15 @@ use std::ops::*;
 
 pub type Register = u32;
 
+pub trait MaybeSet {
+  fn maybe_set(self, value: Register);
+}
+impl MaybeSet for Option<&mut Register> {
+  fn maybe_set(self, value: Register) {
+    self.map(|reg| *reg = value);
+  }
+}
+
 pub trait Parts {
   fn word(&self) -> Register;
   fn half(&self) -> Register;

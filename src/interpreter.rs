@@ -4,6 +4,7 @@ use std::ops::Shr;
 use crate::common::*;
 use crate::register::Register;
 use crate::register::Parts;
+use crate::register::MaybeSet;
 use crate::r3000::R3000;
 use crate::r3000::DelayedWrite;
 use crate::r3000::Name;
@@ -143,7 +144,7 @@ impl Interpreter {
         {
           let lo = self.r3000.lo();
           let rd = self.r3000.nth_reg_mut(get_rd(op));
-          rd.map(|rd| *rd = lo);
+          rd.maybe_set(lo);
           log!("op3");
           None
         }
@@ -152,7 +153,7 @@ impl Interpreter {
         {
           let hi = self.r3000.hi();
           let rd = self.r3000.nth_reg_mut(get_rd(op));
-          rd.map(|rd| *rd = hi);
+          rd.maybe_set(hi);
           log!("op4");
           None
         }
@@ -168,7 +169,7 @@ impl Interpreter {
           let rs = self.r3000.nth_reg(get_rs(op));
           let rt = self.r3000.nth_reg(get_rt(op));
           let rd = self.r3000.nth_reg_mut(get_rd(op));
-          rd.map(|rd| *rd = rs.$method(rt));
+          rd.maybe_set(rs.$method(rt));
           log!("R{} = R{} {} {:#x} \n  = {:#x} {} {:#x} \n  = {:#x}",
                     get_rd(op), get_rs(op), stringify!($method), get_rt(op),
                     rs, stringify!($method), rt, self.r3000.nth_reg(get_rd(op)));
@@ -182,7 +183,7 @@ impl Interpreter {
           let rs = self.r3000.nth_reg(get_rs(op));
           let rt = self.r3000.nth_reg(get_rt(op));
           let rd = self.r3000.nth_reg_mut(get_rd(op));
-          rd.map(|rd| *rd = rs.$method(rt));
+          rd.maybe_set(rs.$method(rt));
           log!("op6");
           None
         }
@@ -193,7 +194,7 @@ impl Interpreter {
           let rs = self.r3000.nth_reg(get_rs(op));
           let imm16 = get_imm16(op).half_sign_extended();
           let rt = self.r3000.nth_reg_mut(get_rt(op));
-          rt.map(|rt| *rt = rs.$method(imm16));
+          rt.maybe_set(rs.$method(imm16));
           log!("op7");
           None
         }
@@ -204,7 +205,7 @@ impl Interpreter {
           let rs = self.r3000.nth_reg(get_rs(op));
           let imm16 = get_imm16(op).half_sign_extended();
           let rt = self.r3000.nth_reg_mut(get_rt(op));
-          rt.map(|rt| *rt = rs.$method(imm16));
+          rt.maybe_set(rs.$method(imm16));
           log!("R{} = R{} {} {:#x} \n  = {:#x} {} {:#x} \n  = {:#x}",
                     get_rt(op), get_rs(op), stringify!($method), imm16,
                     rs, stringify!($method), imm16, self.r3000.nth_reg(get_rt(op)));
@@ -217,7 +218,7 @@ impl Interpreter {
           let rt = self.r3000.nth_reg(get_rt(op));
           let imm5 = get_imm5(op);
           let rd = self.r3000.nth_reg_mut(get_rd(op));
-          rd.map(|rd| *rd = rt.$method(imm5));
+          rd.maybe_set(rt.$method(imm5));
           log!("R{} = R{} {} {:#x} \n  = {:#x} {} {:#x} \n  = {:#x}",
                     get_rd(op), get_rt(op), stringify!($method), imm5,
                     rt, stringify!($method), imm5, self.r3000.nth_reg(get_rd(op)));
@@ -230,7 +231,7 @@ impl Interpreter {
           let rt = self.r3000.nth_reg(get_rt(op));
           let rs = self.r3000.nth_reg(get_rs(op));
           let rd = self.r3000.nth_reg_mut(get_rd(op));
-          rd.map(|rd| *rd = rt.$method(rs & 0x1F));
+          rd.maybe_set(rt.$method(rs & 0x1F));
           log!("op9");
           None
         }
@@ -239,7 +240,7 @@ impl Interpreter {
         {
           let rt = self.r3000.nth_reg_mut(get_rt(op));
           let imm16 = get_imm16(op);
-          rt.map(|rt| *rt = imm16 << 16);
+          rt.maybe_set(imm16 << 16);
           log!("R{} = {:#x} << 16 \n  = {:#x}", get_rt(op), imm16, self.r3000.nth_reg(get_rt(op)));
           None
         }
@@ -406,7 +407,7 @@ impl Interpreter {
         {
           let result = self.r3000.pc() + 4;
           let rd = self.r3000.nth_reg_mut(get_rd(op));
-          rd.map(|rd| *rd = result);
+          rd.maybe_set(result);
           log!("op18");
           jump!(rs)
         }
@@ -465,14 +466,14 @@ impl Interpreter {
               //MTCn
               let rt = self.r3000.nth_reg(get_rt(op));
               let rd = self.$copn.nth_data_reg_mut(get_rd(op));
-              rd.map(|rd| *rd = rt);
+              rd.maybe_set(rt);
               None
             },
             0x06 => {
               //CTCn
               let rt = self.r3000.nth_reg(get_rt(op));
               let rd = self.$copn.nth_ctrl_reg_mut(get_rd(op));
-              rd.map(|rd| *rd = rt);
+              rd.maybe_set(rt);
               None
             },
             0x08 => {
@@ -832,6 +833,6 @@ mod tests {
     vm.memory.write_word(BIOS + 8, 0x0000_0004);
     vm.memory.write_word(BIOS + 12, instr);
     vm.memory.write_word(BIOS + 16, 0x0000_0006);
-    vm.run(Some(10));
+    vm.run(Some(10),false);
   }
 }

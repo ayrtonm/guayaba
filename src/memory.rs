@@ -182,7 +182,7 @@ impl Memory {
 
 #[cfg(test)]
 mod tests {
-  use memory::*;
+  use super::*;
 
   impl Memory {
     pub fn blank() -> Memory {
