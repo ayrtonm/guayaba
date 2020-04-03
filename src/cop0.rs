@@ -24,37 +24,42 @@ impl Cop0 {
         self.r14
       },
       _ => {
-        unreachable!("tried accessing a commonly unused COP0 register")
+        println!("tried reading a commonly unused COP0 data register");
+        0
       },
     }
   }
   pub fn nth_data_reg_mut(&mut self, idx: u32) -> Option<&mut Register> {
-    Some(match idx {
+    match idx {
       12 => {
-        &mut self.r12
+        Some(&mut self.r12)
       },
       13 => {
-        &mut self.r13
+        Some(&mut self.r13)
       },
       14 => {
-        &mut self.r14
+        Some(&mut self.r14)
       },
       _ => {
-        unreachable!("tried accessing a commonly unused COP0 register")
+        println!("tried writing to a commonly unused COP0 data register");
+        None
       },
-    })
+    }
   }
   pub fn nth_ctrl_reg(&self, _idx: u32) -> Register {
-    unreachable!("tried accessing a commonly unused COP0 register")
+    unreachable!("tried reading a commonly unused COP0 control register");
+    0
   }
   pub fn nth_ctrl_reg_mut(&mut self, _idx: u32) -> Option<&mut Register> {
-    unreachable!("tried accessing a commonly unused COP0 register")
+    println!("tried writing to a commonly unused COP0 control register");
+    None
   }
   pub fn bcnf(&self, _: u32) -> Option<Register> {
     //this is technically an illegal instruction since COP0 does not implement it
     None
   }
   pub fn exception(&mut self, kind: Cop0Exception) {
+    println!("generated an {} exception", stringify!(kind));
   }
   pub fn cache_isolated(&self) -> bool {
     self.r12 & 0x10000 != 0

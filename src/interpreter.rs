@@ -108,10 +108,9 @@ impl Interpreter {
       (rt = [rs + imm16] $method:ident) => {
         {
           let rs = self.r3000.nth_reg(get_rs(op));
-          //FIXME: should this be sign extended?
-          let imm16 = get_imm16(op);
+          let imm16 = get_imm16(op).half_sign_extended();
           let rt = get_rt(op);
-          let result = self.memory.$method(rs + imm16);
+          let result = self.memory.$method(rs.wrapping_add(imm16));
           self.delayed_writes.push(DelayedWrite::new(Name::Rn(rt), result, 1));
           log!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x}", rt, rs, imm16, rs + imm16, result);
           None
@@ -187,14 +186,20 @@ impl Interpreter {
         }
       };
       //ALU instructions with two general purpose registers that trap overflow
-      //FIXME: this doesn't actually do anything in case of an overflow yet
       (rd = rs $method:ident rt trap) => {
         {
-          let rs = self.r3000.nth_reg(get_rs(op));
-          let rt = self.r3000.nth_reg(get_rt(op));
+          let rs = self.r3000.nth_reg(get_rs(op)) as u64;
+          let rt = self.r3000.nth_reg(get_rt(op)) as u64;
           let rd = self.r3000.nth_reg_mut(get_rd(op));
-          rd.maybe_set(rs.$method(rt));
-          log!("op6");
+          let result: u64 = rs.$method(rt);
+          if result > 0x0000_0000_ffff_ffff {
+            self.cop0.exception(Cop0Exception::overflow);
+          } else {
+            rd.maybe_set(result as u32);
+          }
+          log!("R{} = R{} {} {:#x} trap overflow\n  = {:#x} {} {:#x} \n  = {:#x}",
+                    get_rd(op), get_rs(op), stringify!($method), get_rt(op),
+                    rs, stringify!($method), rt, self.r3000.nth_reg(get_rd(op)));
           None
         }
       };
@@ -208,8 +213,8 @@ impl Interpreter {
           if result > 0x0000_0000_ffff_ffff {
             self.cop0.exception(Cop0Exception::overflow);
           } else {
-          };
-          rt.maybe_set(rs.$method(imm16) as u32);
+            rt.maybe_set(result as u32);
+          }
           log!("R{} = R{} {} {:#x} trap overflow\n  = {:#x} {} {:#x} \n  = {:#x}",
                     get_rt(op), get_rs(op), stringify!($method), imm16,
                     rs, stringify!($method), imm16, self.r3000.nth_reg(get_rt(op)));
@@ -373,7 +378,8 @@ impl Interpreter {
           let pc_upper_bits = self.r3000.pc() & 0xf000_0000;
           let shifted_imm26 = imm26 * 4;
           let dest = pc_upper_bits + shifted_imm26;
-          log!("jumping to (PC & 0xf0000000) + ({:#x} * 4)\n  = {:#x} + {:#x}\n  = {:#x} after the delay slot", imm26, pc_upper_bits, shifted_imm26, dest);
+          log!("jumping to (PC & 0xf0000000) + ({:#x} * 4)\n  = {:#x} + {:#x}\n  = {:#x} after the delay slot",
+                    imm26, pc_upper_bits, shifted_imm26, dest);
           Some(dest)
         }
       };
@@ -391,13 +397,14 @@ impl Interpreter {
           if rs $cmp rt {
             let imm16 = get_imm16(op);
             let pc = self.r3000.pc();
-            let inc = ((imm16 as i16) * 4) as u32;
+            let inc = ((imm16.half_sign_extended() as i32) * 4) as u32;
             let dest = pc.wrapping_add(inc);
             log!("jumping to PC + ({:#x} * 4) = {:#x} + {:#x} = {:#x} after the delay slot\n  since R{} {} R{} -> {:#x} {} {:#x}",
                       imm16, pc, inc, dest, get_rs(op), stringify!($cmp), get_rt(op), rs, stringify!($cmp), rt);
             Some(dest)
           } else {
-            log!("skipping jump since R{} {} R{} -> {:#x} {} {:#x}", get_rs(op), stringify!($cmp), get_rt(op), rs, stringify!($cmp), rt);
+            log!("skipping jump since R{} {} R{} -> {:#x} {} {:#x}",
+                      get_rs(op), stringify!($cmp), get_rt(op), rs, stringify!($cmp), rt);
             None
           }
         }
@@ -409,7 +416,8 @@ impl Interpreter {
           if (rs as i32) $cmp 0 {
             let imm16 = get_imm16(op);
             let pc = self.r3000.pc();
-            let dest = pc + (imm16 * 4);
+            let inc = ((imm16 as i16) * 4) as u32;
+            let dest = pc.wrapping_add(inc);
             Some(dest)
           } else {
             None
@@ -443,7 +451,8 @@ impl Interpreter {
             *self.r3000.ra_mut() = self.r3000.pc() + 4;
             let imm16 = get_imm16(op);
             let pc = self.r3000.pc();
-            let dest = pc + (imm16 * 4);
+            let inc = ((imm16 as i16) * 4) as u32;
+            let dest = pc.wrapping_add(inc);
             Some(dest)
           } else {
             None
