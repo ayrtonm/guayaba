@@ -1,10 +1,11 @@
 use std::io;
 use std::ops::Shl;
 use std::ops::Shr;
+use std::collections::VecDeque;
 use crate::common::*;
 use crate::register::Register;
 use crate::register::Parts;
-use crate::register::MaybeSet;
+use crate::r3000::MaybeSet;
 use crate::r3000::R3000;
 use crate::r3000::DelayedWrite;
 use crate::r3000::Name;
@@ -27,7 +28,8 @@ pub struct Interpreter {
   //regular members of interpreter
   next_pc: Option<Register>,
   //these are register writes due to memory loads which happen after one cycle
-  delayed_writes: Vec<DelayedWrite>,
+  delayed_writes: VecDeque<DelayedWrite>,
+  modified_register: Option<Name>,
 }
 
 impl Interpreter {
@@ -38,7 +40,7 @@ impl Interpreter {
     let gte = Default::default();
     let cd = infile.and_then(|f| CD::new(f).ok());
     let dma = Default::default();
-    let delayed_writes = Vec::new();
+    let delayed_writes = VecDeque::new();
     Ok(Interpreter {
       r3000,
       cop0,
@@ -48,6 +50,7 @@ impl Interpreter {
       dma,
       next_pc: None,
       delayed_writes,
+      modified_register: None,
     })
   }
   pub fn run(&mut self, n: Option<u32>, logging: bool) {
@@ -111,7 +114,7 @@ impl Interpreter {
           let imm16 = get_imm16(op).half_sign_extended();
           let rt = get_rt(op);
           let result = self.memory.$method(rs.wrapping_add(imm16));
-          self.delayed_writes.push(DelayedWrite::new(Name::Rn(rt), result, 1));
+          self.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt), result));
           log!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x}", rt, rs, imm16, rs + imm16, result);
           None
         }
@@ -152,8 +155,12 @@ impl Interpreter {
       (rd = lo) => {
         {
           let lo = self.r3000.lo();
-          let rd = self.r3000.nth_reg_mut(get_rd(op));
+          let rd_idx = get_rd(op);
+          let rd = self.r3000.nth_reg_mut(rd_idx);
           rd.maybe_set(lo);
+          //self.modified_register = Some(Name::Rn(rd_idx));
+
+          //self.modified_register = rd.maybe_set(lo);
           log!("op3");
           None
         }
@@ -161,7 +168,8 @@ impl Interpreter {
       (rd = hi) => {
         {
           let hi = self.r3000.hi();
-          let rd = self.r3000.nth_reg_mut(get_rd(op));
+          let rd_idx = get_rd(op);
+          let rd = self.r3000.nth_reg_mut(rd_idx);
           rd.maybe_set(hi);
           log!("op4");
           None
@@ -285,8 +293,8 @@ impl Interpreter {
               13
             },
           };
-          self.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, delay));
-          self.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, delay));
+          //self.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, delay));
+          //self.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, delay));
           log!("op11");
           None
         }
@@ -309,8 +317,8 @@ impl Interpreter {
               13
             },
           };
-          self.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, delay));
-          self.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, delay));
+          //self.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, delay));
+          //self.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, delay));
           log!("op11");
           None
         }
@@ -328,8 +336,8 @@ impl Interpreter {
             },
           };
           let hi_res = rs % rt;
-          self.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, 36));
-          self.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, 36));
+          //self.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, 36));
+          //self.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, 36));
           log!("op12");
           None
         }
@@ -364,8 +372,8 @@ impl Interpreter {
             },
           } as u32;
           let hi_res = (rs % rt) as u32;
-          self.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, 36));
-          self.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, 36));
+          //self.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, 36));
+          //self.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, 36));
           log!("op12");
           None
         }
@@ -428,7 +436,8 @@ impl Interpreter {
     macro_rules! call {
       (imm26) => {
         {
-          *self.r3000.ra_mut() = self.r3000.pc() + 4;
+          let ret = self.r3000.pc() + 4;
+          self.r3000.ra_mut().maybe_set(ret);
           log!("op17");
           jump!(imm26)
         }
@@ -464,7 +473,8 @@ impl Interpreter {
           let rs = self.r3000.nth_reg(get_rs(op));
           log!("op20");
           if (rs as i32) $cmp 0 {
-            *self.r3000.ra_mut() = self.r3000.pc() + 4;
+            let ret = self.r3000.pc() + 4;
+            self.r3000.ra_mut().maybe_set(ret);
             let imm16 = get_imm16(op);
             let pc = self.r3000.pc();
             let dest = pc + (imm16 * 4);
@@ -483,14 +493,14 @@ impl Interpreter {
               //MFCn
               let rt = get_rt(op);
               let rd_data = self.$copn.nth_data_reg(get_rd(op));
-              self.delayed_writes.push(DelayedWrite::new(Name::Rn(rt), rd_data, 1));
+              self.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt), rd_data));
               None
             },
             0x02 => {
               //CFCn
               let rt = get_rt(op);
               let rd_ctrl = self.$copn.nth_ctrl_reg(get_rd(op));
-              self.delayed_writes.push(DelayedWrite::new(Name::Rn(rt), rd_ctrl, 1));
+              self.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt), rd_ctrl));
               None
             },
             0x04 => {
@@ -540,7 +550,7 @@ impl Interpreter {
       }
     }
     //after executing an opcode, complete the loads from the previous opcode
-    self.r3000.flush_write_cache(&mut self.delayed_writes);
+    self.r3000.flush_write_cache(&mut self.delayed_writes, &mut self.modified_register);
     //this match statement optionally returns the next program counter
     //if the return value is None, then we increment pc as normal
     match get_primary_field(op) {

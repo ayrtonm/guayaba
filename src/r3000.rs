@@ -1,8 +1,9 @@
+use std::collections::VecDeque;
 use crate::register::Register;
 
 //different types of register names
 //these are for improved readability when doing delayed register writes
-#[derive(Debug)]
+#[derive(Debug,PartialEq)]
 pub enum Name {
   Pc,
   Hi,
@@ -15,19 +16,39 @@ pub enum Name {
 pub struct DelayedWrite {
   register_name: Name,
   value: Register,
-  cycles: u32,
 }
 
 impl DelayedWrite {
-  pub fn new(register_name: Name, value: Register, cycles: u32) -> Self {
+  pub fn new(register_name: Name, value: Register) -> Self {
     DelayedWrite {
       register_name,
       value,
-      cycles,
     }
   }
-  pub fn decrease_cycles(&mut self) {
-    self.cycles -= 1;
+}
+
+pub struct MutRefRegister {
+  value: Register,
+  name: Name,
+}
+
+impl MutRefRegister {
+  pub fn new(value: Register, name: Name) -> Self {
+    MutRefRegister {
+      value, name
+    }
+  }
+}
+
+pub trait MaybeSet {
+  fn maybe_set(self, value: Register) -> Option<Name>;
+}
+
+//this is for the MIPS registers
+impl MaybeSet for Option<&mut Register> {
+  fn maybe_set(self, value: Register) -> Option<Name> {
+    self.map(|reg| *reg = value);
+    None
   }
 }
 
@@ -85,8 +106,8 @@ impl R3000 {
   pub fn ra(&self) -> Register {
     self.nth_reg(31)
   }
-  pub fn ra_mut(&mut self) -> &mut Register {
-    self.nth_reg_mut(31).unwrap()
+  pub fn ra_mut(&mut self) -> Option<&mut Register> {
+    self.nth_reg_mut(31)
   }
   //these are the special purpose MIPS registers
   pub fn pc(&self) -> Register {
@@ -107,13 +128,23 @@ impl R3000 {
   pub fn hi_mut(&mut self) -> &mut Register {
     &mut self.hi
   }
-  pub fn flush_write_cache(&mut self, operations: &mut Vec<DelayedWrite>) {
-    operations.iter()
-              .filter(|write| write.cycles == 0)
-              .for_each(|write| self.do_write(write));
-    operations.retain(|write| write.cycles != 0);
-    operations.iter_mut()
-              .for_each(|write| write.decrease_cycles());
+  pub fn flush_write_cache(&mut self, operations: &mut VecDeque<DelayedWrite>, modified_register: &mut Option<Name>) {
+    match operations.pop_front() {
+      Some(write) => {
+        //self.do_write(&write);
+        match modified_register {
+          Some(name) => {
+            if *name != write.register_name {
+              self.do_write(&write);
+            }
+          },
+          None => {
+          },
+        }
+      },
+      None => {
+      },
+    }
   }
   fn do_write(&mut self, operation: &DelayedWrite) {
     match operation.register_name {
@@ -165,16 +196,29 @@ mod tests {
 
   #[test]
   fn flush_cache() {
-    let mut cache = Vec::new();
-    cache.push(DelayedWrite::new(Name::Rn(1), 4, 10));
-    cache.push(DelayedWrite::new(Name::Rn(3), 6, 0));
-    cache.push(DelayedWrite::new(Name::Rn(2), 5, 1));
+    let mut cache = VecDeque::new();
+    cache.push_back(DelayedWrite::new(Name::Rn(1), 4));
+    cache.push_back(DelayedWrite::new(Name::Rn(3), 6));
+    cache.push_back(DelayedWrite::new(Name::Rn(2), 5));
     let mut r3000 = R3000::new();
-    r3000.flush_write_cache(&mut cache);
+    r3000.flush_write_cache(&mut cache, &mut None);
     assert_eq!(cache.len(), 2);
-    assert_eq!(cache[0].cycles, 9);
-    assert_eq!(cache[0].value, 4);
-    assert_eq!(cache[1].cycles, 0);
+    assert_eq!(cache[0].value, 6);
     assert_eq!(cache[1].value, 5);
+  }
+
+  #[test]
+  fn delayed_load_priority() {
+    let mut cache = VecDeque::new();
+    cache.push_back(DelayedWrite::new(Name::Rn(4), 10));
+    let mut r3000 = R3000::new();
+    r3000.nth_reg_mut(4).maybe_set(20);
+    let mut modified = Some(Name::Rn(4));
+    r3000.flush_write_cache(&mut cache, &mut modified);
+    assert_eq!(r3000.nth_reg(4), 20);
+    cache.push_back(DelayedWrite::new(Name::Rn(4), 30));
+    let mut modified = Some(Name::Rn(3));
+    r3000.flush_write_cache(&mut cache, &mut modified);
+    assert_eq!(r3000.nth_reg(4), 30);
   }
 }
