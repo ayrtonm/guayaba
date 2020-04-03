@@ -54,14 +54,22 @@ impl Interpreter {
     n.map(
       |n| {
         println!("started in test mode");
-        for _ in 1..=n {
+        for i in 1..=n {
+          if logging {
+            println!("{} ----------------------", i);
+          }
           self.step(logging);
         }
     }).or_else(
       || {
         println!("started in free-running mode");
+        let mut i = 0;
         loop {
+          if logging {
+            println!("{} ----------------------", i);
+          }
           self.step(logging);
+          i += 1;
         }
       });
     self.cd.as_ref().map(|cd| cd.preview(10));
@@ -70,7 +78,6 @@ impl Interpreter {
     //get opcode from memory at program counter
     let op = self.memory.read_word(self.r3000.pc());
     if logging {
-      println!("----------------------");
       println!("read opcode {:#x} from [{:#x}]", op, self.r3000.pc());
       println!("  ");
     }
@@ -116,7 +123,11 @@ impl Interpreter {
           let rs = self.r3000.nth_reg(get_rs(op));
           let rt = self.r3000.nth_reg(get_rt(op));
           let imm16 = get_imm16(op).half_sign_extended();
-          self.memory.$method(rs + imm16, rt);
+          if !self.cop0.cache_isolated() {
+            self.memory.$method(rs.wrapping_add(imm16), rt);
+          } else {
+            log!("ignoring write while cache is isolated");
+          }
           log!("[{:#x} + {:#x}] = [{:#x}] \n  = R{} \n  = {:#x}", rs, imm16, rs + imm16, get_rt(op), rt);
           None
         }
@@ -358,16 +369,18 @@ impl Interpreter {
     macro_rules! jump {
       (imm26) => {
         {
-          let imm = get_imm26(op);
-          let dest = (self.r3000.pc() & 0xf000_0000) + (imm * 4);
-          log!("PC = {:#x}", dest);
+          let imm26 = get_imm26(op);
+          let pc_upper_bits = self.r3000.pc() & 0xf000_0000;
+          let shifted_imm26 = imm26 * 4;
+          let dest = pc_upper_bits + shifted_imm26;
+          log!("jumping to (PC & 0xf0000000) + ({:#x} * 4)\n  = {:#x} + {:#x}\n  = {:#x} after the delay slot", imm26, pc_upper_bits, shifted_imm26, dest);
           Some(dest)
         }
       };
       (rs) => {
         {
           let rs = self.r3000.nth_reg(get_rs(op));
-          log!("op14");
+          log!("jumping to R{} = {:#x} after the delay slot", get_rs(op), rs);
           Some(rs)
         }
       };
@@ -375,13 +388,16 @@ impl Interpreter {
         {
           let rt = self.r3000.nth_reg(get_rt(op));
           let rs = self.r3000.nth_reg(get_rs(op));
-          log!("op15");
           if rs $cmp rt {
             let imm16 = get_imm16(op);
             let pc = self.r3000.pc();
-            let dest = pc + (imm16 * 4);
+            let inc = ((imm16 as i16) * 4) as u32;
+            let dest = pc.wrapping_add(inc);
+            log!("jumping to PC + ({:#x} * 4) = {:#x} + {:#x} = {:#x} after the delay slot\n  since R{} {} R{} -> {:#x} {} {:#x}",
+                      imm16, pc, inc, dest, get_rs(op), stringify!($cmp), get_rt(op), rs, stringify!($cmp), rt);
             Some(dest)
           } else {
+            log!("skipping jump since R{} {} R{} -> {:#x} {} {:#x}", get_rs(op), stringify!($cmp), get_rt(op), rs, stringify!($cmp), rt);
             None
           }
         }
@@ -473,6 +489,9 @@ impl Interpreter {
               let rt = self.r3000.nth_reg(get_rt(op));
               let rd = self.$copn.nth_data_reg_mut(get_rd(op));
               rd.maybe_set(rt);
+              log!("{}R{} = R{}\n  = {:#x}",
+                        stringify!($copn), get_rd(op), get_rt(op),
+                        self.$copn.nth_data_reg(get_rd(op)));
               None
             },
             0x06 => {

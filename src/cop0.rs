@@ -56,6 +56,9 @@ impl Cop0 {
   }
   pub fn exception(&mut self, kind: Cop0Exception) {
   }
+  pub fn cache_isolated(&self) -> bool {
+    self.r12 & 0x10000 != 0
+  }
   pub fn execute_command(&mut self, imm25: u32) -> Option<Register> {
     //this is the only legal COP0 command
     if imm25 == 0x0000_0010 {
