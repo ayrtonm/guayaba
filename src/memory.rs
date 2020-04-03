@@ -18,10 +18,10 @@ macro_rules! read_memory {
       let phys_addr = $address & PHYS_MASK;
       match phys_addr {
         (Memory::MAIN_RAM..=Memory::MAIN_RAM_END) => {
-          $function(&$self.main_ram, phys_addr - Memory::MAIN_RAM)
+          $function(&*$self.main_ram, phys_addr - Memory::MAIN_RAM)
         },
         (Memory::EXPANSION_1..=Memory::EXPANSION_1_END) => {
-          $function(&$self.expansion_1, phys_addr - Memory::EXPANSION_1)
+          $function(&*$self.expansion_1, phys_addr - Memory::EXPANSION_1)
         },
         (Memory::SCRATCHPAD..=Memory::SCRATCHPAD_END) => {
           $function(&$self.scratchpad, phys_addr - Memory::SCRATCHPAD)
@@ -33,7 +33,7 @@ macro_rules! read_memory {
           $function(&$self.expansion_2, phys_addr - Memory::EXPANSION_2)
         },
         (Memory::EXPANSION_3..=Memory::EXPANSION_3_END) => {
-          $function(&$self.expansion_3, phys_addr - Memory::EXPANSION_3)
+          $function(&*$self.expansion_3, phys_addr - Memory::EXPANSION_3)
         },
         (Memory::BIOS..=Memory::BIOS_END) => {
           $function(&*$self.bios, phys_addr - Memory::BIOS)
@@ -59,10 +59,10 @@ macro_rules! write_memory {
       let phys_addr = $address & PHYS_MASK;
       match phys_addr {
         (Memory::MAIN_RAM..=Memory::MAIN_RAM_END) => {
-          $function(&mut $self.main_ram, phys_addr - Memory::MAIN_RAM, $value)
+          $function(&mut *$self.main_ram, phys_addr - Memory::MAIN_RAM, $value)
         },
         (Memory::EXPANSION_1..=Memory::EXPANSION_1_END) => {
-          $function(&mut $self.expansion_1, phys_addr - Memory::EXPANSION_1, $value)
+          $function(&mut *$self.expansion_1, phys_addr - Memory::EXPANSION_1, $value)
         },
         (Memory::SCRATCHPAD..=Memory::SCRATCHPAD_END) => {
           $function(&mut $self.scratchpad, phys_addr - Memory::SCRATCHPAD, $value)
@@ -74,7 +74,7 @@ macro_rules! write_memory {
           $function(&mut $self.expansion_2, phys_addr - Memory::EXPANSION_2, $value)
         },
         (Memory::EXPANSION_3..=Memory::EXPANSION_3_END) => {
-          $function(&mut $self.expansion_3, phys_addr - Memory::EXPANSION_3, $value)
+          $function(&mut *$self.expansion_3, phys_addr - Memory::EXPANSION_3, $value)
         },
         (Memory::BIOS..=Memory::BIOS_END) => {
           $function(&mut *$self.bios, phys_addr - Memory::BIOS, $value)
@@ -95,12 +95,12 @@ macro_rules! write_memory {
 }
 
 pub struct Memory {
-  main_ram: [u8; 2 * MB],
-  expansion_1: [u8; 8 * MB],
+  main_ram: Box<[u8]>,
+  expansion_1: Box<[u8]>,
   scratchpad: [u8; KB],
   io_ports: [u8; 8 * KB],
   expansion_2: [u8; 8 * KB],
-  expansion_3: [u8; 2 * MB],
+  expansion_3: Box<[u8]>,
   bios: Box<[u8; 512 * KB]>,
   cache_control: [u8; 512],
 }
@@ -115,12 +115,12 @@ impl Memory {
     bios_file.read_exact(&mut bios_contents)?;
     let bios = Box::new(bios_contents);
     Ok(Memory {
-      main_ram: [0; 2 * MB],
-      expansion_1: [0; 8 * MB],
+      main_ram: vec![0; 2 * MB].into_boxed_slice(),
+      expansion_1: vec![0; 8 * MB].into_boxed_slice(),
       scratchpad: [0; KB],
       io_ports: [0; 8 * KB],
       expansion_2: [0; 8 * KB],
-      expansion_3: [0; 2 * MB],
+      expansion_3: vec![0; 2 * MB].into_boxed_slice(),
       bios,
       cache_control: [0; 512],
     })
