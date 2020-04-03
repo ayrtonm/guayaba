@@ -9,6 +9,7 @@ use crate::r3000::R3000;
 use crate::r3000::DelayedWrite;
 use crate::r3000::Name;
 use crate::cop0::Cop0;
+use crate::cop0::Cop0Exception;
 use crate::memory::Memory;
 use crate::cd::CD;
 use crate::gte::GTE;
@@ -53,16 +54,14 @@ impl Interpreter {
     n.map(
       |n| {
         println!("started in test mode");
-        for i in 1..=n {
+        for _ in 1..=n {
           self.step(logging);
         }
     }).or_else(
       || {
         println!("started in free-running mode");
-        let mut i = 1;
         loop {
           self.step(logging);
-          i += 1;
         }
       });
     self.cd.as_ref().map(|cd| cd.preview(10));
@@ -191,11 +190,18 @@ impl Interpreter {
       //ALU instructions with a register and immediate 16-bit data that trap overflow
       (rt = rs $method:ident imm16 trap) => {
         {
-          let rs = self.r3000.nth_reg(get_rs(op));
-          let imm16 = get_imm16(op).half_sign_extended();
+          let rs = self.r3000.nth_reg(get_rs(op)) as u64;
+          let imm16 = get_imm16(op).half_sign_extended() as u64;
           let rt = self.r3000.nth_reg_mut(get_rt(op));
-          rt.maybe_set(rs.$method(imm16));
-          log!("op7");
+          let result: u64 = rs.$method(imm16);
+          if result > 0x0000_0000_ffff_ffff {
+            self.cop0.exception(Cop0Exception::overflow);
+          } else {
+          };
+          rt.maybe_set(rs.$method(imm16) as u32);
+          log!("R{} = R{} {} {:#x} trap overflow\n  = {:#x} {} {:#x} \n  = {:#x}",
+                    get_rt(op), get_rs(op), stringify!($method), imm16,
+                    rs, stringify!($method), imm16, self.r3000.nth_reg(get_rt(op)));
           None
         }
       };
