@@ -9,6 +9,7 @@ use crate::register::Register;
 use crate::register::Parts;
 
 pub const KB: usize = 1024;
+pub const MB: usize = 1024 * KB;
 const PHYS_MASK: u32 = 0x1fff_ffff;
 
 macro_rules! read_memory {
@@ -43,7 +44,7 @@ macro_rules! read_memory {
               $function(&$self.cache_control, $address - Memory::CACHE_CONTROL)
             },
             _ => {
-              panic!("tried to access an unmapped section of memory at {}", $address)
+              unreachable!("tried to read from an unmapped section of memory at {:#x}", $address)
             },
           }
         },
@@ -84,7 +85,7 @@ macro_rules! write_memory {
               $function(&mut $self.cache_control, $address - Memory::CACHE_CONTROL, $value)
             },
             _ => {
-              panic!("tried to access an unmapped section of memory at {:#x}", $address)
+              unreachable!("tried writing to an unmapped section of memory at {:#x}", $address)
             },
           }
         },
@@ -94,12 +95,12 @@ macro_rules! write_memory {
 }
 
 pub struct Memory {
-  main_ram: [u8; 2 * KB],
-  expansion_1: [u8; 8 * KB],
+  main_ram: [u8; 2 * MB],
+  expansion_1: [u8; 8 * MB],
   scratchpad: [u8; KB],
   io_ports: [u8; 8 * KB],
   expansion_2: [u8; 8 * KB],
-  expansion_3: [u8; 2 * KB],
+  expansion_3: [u8; 2 * MB],
   bios: Box<[u8; 512 * KB]>,
   cache_control: [u8; 512],
 }
@@ -114,21 +115,21 @@ impl Memory {
     bios_file.read_exact(&mut bios_contents)?;
     let bios = Box::new(bios_contents);
     Ok(Memory {
-      main_ram: [0; 2 * KB],
-      expansion_1: [0; 8 * KB],
+      main_ram: [0; 2 * MB],
+      expansion_1: [0; 8 * MB],
       scratchpad: [0; KB],
       io_ports: [0; 8 * KB],
       expansion_2: [0; 8 * KB],
-      expansion_3: [0; 2 * KB],
+      expansion_3: [0; 2 * MB],
       bios,
       cache_control: [0; 512],
     })
   }
   const MAIN_RAM: Register = 0;
-  const MAIN_RAM_END: Register = Memory::MAIN_RAM + (2 * KB as Register) - 1;
+  const MAIN_RAM_END: Register = Memory::MAIN_RAM + (2 * MB as Register) - 1;
 
   const EXPANSION_1: Register = 0x1f00_0000;
-  const EXPANSION_1_END: Register = Memory::EXPANSION_1 + (8 * KB as Register) - 1;
+  const EXPANSION_1_END: Register = Memory::EXPANSION_1 + (8 * MB as Register) - 1;
 
   const SCRATCHPAD: Register = 0x1f80_0000;
   const SCRATCHPAD_END: Register = Memory::SCRATCHPAD + (KB as Register) - 1;
@@ -140,7 +141,7 @@ impl Memory {
   const EXPANSION_2_END: Register = Memory::EXPANSION_2 + (8 * KB as Register) - 1;
 
   const EXPANSION_3: Register = 0x1fa0_0000;
-  const EXPANSION_3_END: Register = Memory::EXPANSION_3 + (2 * KB as Register) - 1;
+  const EXPANSION_3_END: Register = Memory::EXPANSION_3 + (2 * MB as Register) - 1;
 
   const BIOS: Register = 0x1fc0_0000;
   const BIOS_END: Register = Memory::BIOS + (512 * KB as Register) - 1;

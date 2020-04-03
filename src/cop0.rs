@@ -24,7 +24,7 @@ impl Cop0 {
         self.r14
       },
       _ => {
-        println!("tried reading a commonly unused COP0 data register");
+        println!("tried reading from commonly unused COP0 data register R{}", idx);
         0
       },
     }
@@ -41,17 +41,17 @@ impl Cop0 {
         Some(&mut self.r14)
       },
       _ => {
-        println!("tried writing to a commonly unused COP0 data register");
+        println!("tried writing to commonly unused COP0 data register R{}", idx);
         None
       },
     }
   }
-  pub fn nth_ctrl_reg(&self, _idx: u32) -> Register {
-    unreachable!("tried reading a commonly unused COP0 control register");
+  pub fn nth_ctrl_reg(&self, idx: u32) -> Register {
+    println!("tried reading from commonly unused COP0 control register R{}", idx);
     0
   }
-  pub fn nth_ctrl_reg_mut(&mut self, _idx: u32) -> Option<&mut Register> {
-    println!("tried writing to a commonly unused COP0 control register");
+  pub fn nth_ctrl_reg_mut(&mut self, idx: u32) -> Option<&mut Register> {
+    println!("tried writing to commonly unused COP0 control register R{}", idx);
     None
   }
   pub fn bcnf(&self, _: u32) -> Option<Register> {

@@ -88,7 +88,7 @@ impl Interpreter {
     //increment the program counter
     *self.r3000.pc_mut() = self.next_pc
                            .take()
-                           .map_or_else(|| self.r3000.pc() + 4, |next_pc| next_pc);
+                           .map_or_else(|| self.r3000.pc().wrapping_add(4), |next_pc| next_pc);
     self.next_pc = self.execute_opcode(op, logging);
   }
   //if program counter should incremented normally, return None
@@ -125,12 +125,12 @@ impl Interpreter {
           let rs = self.r3000.nth_reg(get_rs(op));
           let rt = self.r3000.nth_reg(get_rt(op));
           let imm16 = get_imm16(op).half_sign_extended();
+          log!("[{:#x} + {:#x}] = [{:#x}] \n  = R{} \n  = {:#x}", rs, imm16, rs + imm16, get_rt(op), rt);
           if !self.cop0.cache_isolated() {
             self.memory.$method(rs.wrapping_add(imm16), rt);
           } else {
             log!("ignoring write while cache is isolated");
           }
-          log!("[{:#x} + {:#x}] = [{:#x}] \n  = R{} \n  = {:#x}", rs, imm16, rs + imm16, get_rt(op), rt);
           None
         }
       };
