@@ -157,10 +157,7 @@ impl Interpreter {
           let lo = self.r3000.lo();
           let rd_idx = get_rd(op);
           let rd = self.r3000.nth_reg_mut(rd_idx);
-          rd.maybe_set(lo);
-          //self.modified_register = Some(Name::Rn(rd_idx));
-
-          //self.modified_register = rd.maybe_set(lo);
+          self.modified_register = rd.maybe_set(lo);
           log!("op3");
           None
         }
@@ -170,7 +167,7 @@ impl Interpreter {
           let hi = self.r3000.hi();
           let rd_idx = get_rd(op);
           let rd = self.r3000.nth_reg_mut(rd_idx);
-          rd.maybe_set(hi);
+          self.modified_register = rd.maybe_set(hi);
           log!("op4");
           None
         }
@@ -186,7 +183,7 @@ impl Interpreter {
           let rs = self.r3000.nth_reg(get_rs(op));
           let rt = self.r3000.nth_reg(get_rt(op));
           let rd = self.r3000.nth_reg_mut(get_rd(op));
-          rd.maybe_set(rs.$method(rt));
+          self.modified_register = rd.maybe_set(rs.$method(rt));
           log!("R{} = R{} {} {:#x} \n  = {:#x} {} {:#x} \n  = {:#x}",
                     get_rd(op), get_rs(op), stringify!($method), get_rt(op),
                     rs, stringify!($method), rt, self.r3000.nth_reg(get_rd(op)));
@@ -203,7 +200,7 @@ impl Interpreter {
           if result > 0x0000_0000_ffff_ffff {
             self.cop0.exception(Cop0Exception::overflow);
           } else {
-            rd.maybe_set(result as u32);
+            self.modified_register = rd.maybe_set(result as u32);
           }
           log!("R{} = R{} {} {:#x} trap overflow\n  = {:#x} {} {:#x} \n  = {:#x}",
                     get_rd(op), get_rs(op), stringify!($method), get_rt(op),
@@ -221,7 +218,7 @@ impl Interpreter {
           if result > 0x0000_0000_ffff_ffff {
             self.cop0.exception(Cop0Exception::overflow);
           } else {
-            rt.maybe_set(result as u32);
+            self.modified_register = rt.maybe_set(result as u32);
           }
           log!("R{} = R{} {} {:#x} trap overflow\n  = {:#x} {} {:#x} \n  = {:#x}",
                     get_rt(op), get_rs(op), stringify!($method), imm16,
@@ -235,7 +232,7 @@ impl Interpreter {
           let rs = self.r3000.nth_reg(get_rs(op));
           let imm16 = get_imm16(op).half_sign_extended();
           let rt = self.r3000.nth_reg_mut(get_rt(op));
-          rt.maybe_set(rs.$method(imm16));
+          self.modified_register = rt.maybe_set(rs.$method(imm16));
           log!("R{} = R{} {} {:#x} \n  = {:#x} {} {:#x} \n  = {:#x}",
                     get_rt(op), get_rs(op), stringify!($method), imm16,
                     rs, stringify!($method), imm16, self.r3000.nth_reg(get_rt(op)));
@@ -248,7 +245,7 @@ impl Interpreter {
           let rt = self.r3000.nth_reg(get_rt(op));
           let imm5 = get_imm5(op);
           let rd = self.r3000.nth_reg_mut(get_rd(op));
-          rd.maybe_set(rt.$method(imm5));
+          self.modified_register = rd.maybe_set(rt.$method(imm5));
           log!("R{} = R{} {} {:#x} \n  = {:#x} {} {:#x} \n  = {:#x}",
                     get_rd(op), get_rt(op), stringify!($method), imm5,
                     rt, stringify!($method), imm5, self.r3000.nth_reg(get_rd(op)));
@@ -261,7 +258,7 @@ impl Interpreter {
           let rt = self.r3000.nth_reg(get_rt(op));
           let rs = self.r3000.nth_reg(get_rs(op));
           let rd = self.r3000.nth_reg_mut(get_rd(op));
-          rd.maybe_set(rt.$method(rs & 0x1F));
+          self.modified_register = rd.maybe_set(rt.$method(rs & 0x1F));
           log!("op9");
           None
         }
@@ -270,7 +267,7 @@ impl Interpreter {
         {
           let rt = self.r3000.nth_reg_mut(get_rt(op));
           let imm16 = get_imm16(op);
-          rt.maybe_set(imm16 << 16);
+          self.modified_register = rt.maybe_set(imm16 << 16);
           log!("R{} = {:#x} << 16 \n  = {:#x}", get_rt(op), imm16, self.r3000.nth_reg(get_rt(op)));
           None
         }
@@ -436,17 +433,17 @@ impl Interpreter {
     macro_rules! call {
       (imm26) => {
         {
-          let ret = self.r3000.pc() + 4;
-          self.r3000.ra_mut().maybe_set(ret);
+          let ret = self.r3000.pc().wrapping_add(4);
+          self.modified_register = self.r3000.ra_mut().maybe_set(ret);
           log!("op17");
           jump!(imm26)
         }
       };
       (rs) => {
         {
-          let result = self.r3000.pc() + 4;
+          let result = self.r3000.pc().wrapping_add(4);
           let rd = self.r3000.nth_reg_mut(get_rd(op));
-          rd.maybe_set(result);
+          self.modified_register = rd.maybe_set(result);
           log!("op18");
           jump!(rs)
         }
@@ -457,7 +454,8 @@ impl Interpreter {
           let rs = self.r3000.nth_reg(get_rs(op));
           log!("op19");
           if *rs $cmp *rt {
-            *self.r3000.ra_mut() = self.r3000.pc() + 4;
+            let ret = self.r3000.pc().wrapping_add(4);
+            self.modified_register = self.r3000.ra_mut().maybe_set(ret);
             let imm16 = get_imm16(op);
             let pc = self.r3000.pc();
             let inc = ((imm16 as i16) * 4) as u32;
@@ -473,8 +471,8 @@ impl Interpreter {
           let rs = self.r3000.nth_reg(get_rs(op));
           log!("op20");
           if (rs as i32) $cmp 0 {
-            let ret = self.r3000.pc() + 4;
-            self.r3000.ra_mut().maybe_set(ret);
+            let ret = self.r3000.pc().wrapping_add(4);
+            self.modified_register = self.r3000.ra_mut().maybe_set(ret);
             let imm16 = get_imm16(op);
             let pc = self.r3000.pc();
             let dest = pc + (imm16 * 4);
@@ -507,7 +505,7 @@ impl Interpreter {
               //MTCn
               let rt = self.r3000.nth_reg(get_rt(op));
               let rd = self.$copn.nth_data_reg_mut(get_rd(op));
-              rd.maybe_set(rt);
+              self.modified_register = rd.maybe_set(rt);
               log!("{}R{} = R{}\n  = {:#x}",
                         stringify!($copn), get_rd(op), get_rt(op),
                         self.$copn.nth_data_reg(get_rd(op)));
@@ -517,7 +515,7 @@ impl Interpreter {
               //CTCn
               let rt = self.r3000.nth_reg(get_rt(op));
               let rd = self.$copn.nth_ctrl_reg_mut(get_rd(op));
-              rd.maybe_set(rt);
+              self.modified_register = rd.maybe_set(rt);
               None
             },
             0x08 => {

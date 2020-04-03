@@ -32,15 +32,26 @@ pub struct MutRegister<'a> {
   name: Name,
 }
 
+impl<'a> MutRegister<'a> {
+  pub fn new(value: &'a mut Register, name: Name) -> Self {
+    MutRegister {
+      value, name
+    }
+  }
+}
+
 pub trait MaybeSet {
   fn maybe_set(self, value: Register) -> Option<Name>;
 }
 
+//this is for the main MIPS processor registers
 impl<'a> MaybeSet for Option<MutRegister<'a>> {
   fn maybe_set(self, value: Register) -> Option<Name> {
     self.map(|reg| {*reg.value = value; reg.name})
   }
 }
+
+//this is for the coprocessor registers
 impl MaybeSet for Option<&mut Register> {
   fn maybe_set(self, value: Register) -> Option<Name> {
     self.map(|reg| *reg = value);
@@ -86,7 +97,7 @@ impl R3000 {
   }
   //this methods returns a mutable reference to R1 through R31
   //R0 is always mapped to zero so it doesn't make sense here
-  pub fn nth_reg_mut(&mut self, idx: u32) -> Option<&mut Register> {
+  pub fn nth_reg_mut(&mut self, idx: u32) -> Option<MutRegister> {
     assert!(idx < 32);
     let idx = idx as usize;
     match idx {
@@ -94,7 +105,7 @@ impl R3000 {
         None
       },
       _ => {
-        Some(&mut self.general_registers[idx - 1])
+        Some(MutRegister::new(&mut self.general_registers[idx - 1], Name::Rn(idx as u32)))
       },
     }
   }
@@ -102,7 +113,7 @@ impl R3000 {
   pub fn ra(&self) -> Register {
     self.nth_reg(31)
   }
-  pub fn ra_mut(&mut self) -> Option<&mut Register> {
+  pub fn ra_mut(&mut self) -> Option<MutRegister> {
     self.nth_reg_mut(31)
   }
   //these are the special purpose MIPS registers
