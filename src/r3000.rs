@@ -135,7 +135,8 @@ impl R3000 {
   pub fn hi_mut(&mut self) -> &mut Register {
     &mut self.hi
   }
-  pub fn flush_write_cache(&mut self, operations: &mut VecDeque<DelayedWrite>, modified_register: &mut Option<Name>) {
+  pub fn flush_write_cache(&mut self, operations: &mut VecDeque<DelayedWrite>,
+                           modified_register: &mut Option<Name>) {
     match operations.pop_front() {
       Some(write) => {
         match modified_register {
@@ -145,6 +146,7 @@ impl R3000 {
             }
           },
           None => {
+            self.do_write(&write);
           },
         }
       },
@@ -217,15 +219,22 @@ mod tests {
   #[test]
   fn delayed_load_priority() {
     let mut cache = VecDeque::new();
-    cache.push_back(DelayedWrite::new(Name::Rn(4), 10));
     let mut r3000 = R3000::new();
+
+    cache.push_back(DelayedWrite::new(Name::Rn(4), 10));
     r3000.nth_reg_mut(4).maybe_set(20);
     let mut modified = Some(Name::Rn(4));
     r3000.flush_write_cache(&mut cache, &mut modified);
     assert_eq!(r3000.nth_reg(4), 20);
+
     cache.push_back(DelayedWrite::new(Name::Rn(4), 30));
-    let mut modified = Some(Name::Rn(3));
+    modified = Some(Name::Rn(3));
     r3000.flush_write_cache(&mut cache, &mut modified);
     assert_eq!(r3000.nth_reg(4), 30);
+
+    cache.push_back(DelayedWrite::new(Name::Rn(4), 40));
+    modified = None;
+    r3000.flush_write_cache(&mut cache, &mut modified);
+    assert_eq!(r3000.nth_reg(4), 40);
   }
 }
