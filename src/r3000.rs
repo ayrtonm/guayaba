@@ -138,7 +138,6 @@ impl R3000 {
   pub fn flush_write_cache(&mut self, operations: &mut VecDeque<DelayedWrite>, modified_register: &mut Option<Name>) {
     match operations.pop_front() {
       Some(write) => {
-        //self.do_write(&write);
         match modified_register {
           Some(name) => {
             if *name != write.register_name {
@@ -151,7 +150,8 @@ impl R3000 {
       },
       None => {
       },
-    }
+    };
+    *modified_register = None;
   }
   fn do_write(&mut self, operation: &DelayedWrite) {
     match operation.register_name {
@@ -194,7 +194,7 @@ mod tests {
   fn general_registers() {
     let mut r3000 = R3000::new();
     for i in 1..=31 {
-      r3000.nth_reg_mut(i).map(|ri| *ri = i + 31);
+      r3000.nth_reg_mut(i).maybe_set(i + 31);
     }
     for i in 1..=31 {
       assert_eq!(r3000.nth_reg(i), (31 + i) as u32);
