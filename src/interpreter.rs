@@ -117,7 +117,7 @@ impl Interpreter {
           let rt = get_rt(op);
           let result = self.memory.$method(rs.wrapping_add(imm16));
           self.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt), result));
-          log!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x} {}", rt, rs, imm16, rs + imm16, result, stringify!($method));
+          log!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x} {}", rt, rs, imm16, rs.wrapping_add(imm16), result, stringify!($method));
           None
         }
       };
@@ -127,7 +127,7 @@ impl Interpreter {
           let rs = self.r3000.nth_reg(get_rs(op));
           let rt = self.r3000.nth_reg(get_rt(op));
           let imm16 = get_imm16(op).half_sign_extended();
-          log!("[{:#x} + {:#x}] = [{:#x}] \n  = R{} \n  = {:#x} {}", rs, imm16, rs + imm16, get_rt(op), rt, stringify!($method));
+          log!("[{:#x} + {:#x}] = [{:#x}] \n  = R{} \n  = {:#x} {}", rs, imm16, rs.wrapping_add(imm16), get_rt(op), rt, stringify!($method));
           if !self.cop0.cache_isolated() {
             self.memory.$method(rs.wrapping_add(imm16), rt);
           } else {
@@ -186,7 +186,7 @@ impl Interpreter {
           let rt = self.r3000.nth_reg(get_rt(op));
           let rd = self.r3000.nth_reg_mut(get_rd(op));
           self.modified_register = rd.maybe_set(rs.$method(rt));
-          log!("R{} = R{} {} {:#x} \n  = {:#x} {} {:#x} \n  = {:#x}",
+          log!("R{} = R{} {} R{} \n  = {:#x} {} {:#x} \n  = {:#x}",
                     get_rd(op), get_rs(op), stringify!($method), get_rt(op),
                     rs, stringify!($method), rt, self.r3000.nth_reg(get_rd(op)));
           None
@@ -204,7 +204,7 @@ impl Interpreter {
           } else {
             self.modified_register = rd.maybe_set(result as u32);
           }
-          log!("R{} = R{} {} {:#x} trap overflow\n  = {:#x} {} {:#x} \n  = {:#x}",
+          log!("R{} = R{} {} R{} trap overflow\n  = {:#x} {} {:#x} \n  = {:#x}",
                     get_rd(op), get_rs(op), stringify!($method), get_rt(op),
                     rs, stringify!($method), rt, self.r3000.nth_reg(get_rd(op)));
           None
@@ -494,6 +494,8 @@ impl Interpreter {
               let rt = get_rt(op);
               let rd_data = self.$copn.nth_data_reg(get_rd(op));
               self.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt), rd_data));
+              log!("R{} = {}R{}\n  = {:#x} after the delay slot",
+                        rt, stringify!($copn), get_rd(op), rd_data);
               None
             },
             0x02 => {

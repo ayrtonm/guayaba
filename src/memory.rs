@@ -12,7 +12,6 @@ pub const KB: usize = 1024;
 pub const MB: usize = 1024 * KB;
 const PHYS_MASK: [u32; 8] = [0xffff_ffff, 0xffff_ffff, 0xffff_ffff, 0xffff_ffff,
                              0x7fff_ffff, 0x1fff_ffff, 0xffff_ffff, 0xffff_ffff];
-
 macro_rules! read_memory {
   ($address:expr, $function:ident, $self:expr) => {
     {
@@ -40,15 +39,12 @@ macro_rules! read_memory {
         (Memory::BIOS..=Memory::BIOS_END) => {
           $function(&*$self.bios, phys_addr - Memory::BIOS)
         },
+        (Memory::CACHE_CONTROL..=Memory::CACHE_CONTROL_END) => {
+          $function(&$self.cache_control, $address - Memory::CACHE_CONTROL)
+        },
         _ => {
-          match $address {
-            (Memory::CACHE_CONTROL..=Memory::CACHE_CONTROL_END) => {
-              $function(&$self.cache_control, $address - Memory::CACHE_CONTROL)
-            },
-            _ => {
-              unreachable!("tried to read from an unmapped section of memory at {:#x} phys addr = {:#x}", $address, phys_addr)
-            },
-          }
+          println!("tried to read from an unmapped section of memory at {:#x} phys addr = {:#x}", $address, phys_addr);
+          $self.extra
         },
       }
     }
@@ -82,15 +78,12 @@ macro_rules! write_memory {
         (Memory::BIOS..=Memory::BIOS_END) => {
           $function(&mut *$self.bios, phys_addr - Memory::BIOS, $value)
         },
+        (Memory::CACHE_CONTROL..=Memory::CACHE_CONTROL_END) => {
+          $function(&mut $self.cache_control, $address - Memory::CACHE_CONTROL, $value)
+        },
         _ => {
-          match $address {
-            (Memory::CACHE_CONTROL..=Memory::CACHE_CONTROL_END) => {
-              $function(&mut $self.cache_control, $address - Memory::CACHE_CONTROL, $value)
-            },
-            _ => {
-              println!("tried writing to an unmapped section of memory at {:#x} phys addr = {:#x}", $address, phys_addr)
-            },
-          }
+          println!("tried writing to an unmapped section of memory at {:#x} phys addr = {:#x}", $address, phys_addr);
+          $self.extra = $value;
         },
       }
   }
@@ -106,6 +99,7 @@ pub struct Memory {
   expansion_3: Box<[u8]>,
   bios: Box<[u8; 512 * KB]>,
   cache_control: [u8; 512],
+  extra: u32,
 }
 
 impl Memory {
@@ -126,6 +120,7 @@ impl Memory {
       expansion_3: vec![0; 2 * MB].into_boxed_slice(),
       bios,
       cache_control: [0; 512],
+      extra: 0,
     })
   }
   const MAIN_RAM: Register = 0;
