@@ -44,12 +44,13 @@ macro_rules! read_memory {
           $function(&$self.cache_control, $address - Memory::CACHE_CONTROL)
         },
         _ => {
-          println!("tried to read from an unmapped section of memory at {:#x} phys addr = {:#x}", $address, phys_addr);
-          if $self.extra.contains_key(&$address) {
+          let result = if $self.extra.contains_key(&$address) {
             $self.extra[&$address]
           } else {
             0
-          }
+          };
+          println!("{} [{:#x}] = [{:#x}] = {:#x} handled by hashmap", stringify!($function), $address, phys_addr, result);
+          result
         },
       }
     }
@@ -87,8 +88,8 @@ macro_rules! write_memory {
           $function(&mut $self.cache_control, $address - Memory::CACHE_CONTROL, $value)
         },
         _ => {
-          println!("tried writing to an unmapped section of memory at {:#x} phys addr = {:#x}", $address, phys_addr);
           $self.extra.insert($address, $value);
+          println!("{} [{:#x}] = [{:#x}] = {:#x} handled by hashmap", stringify!($function), $address, phys_addr, $value);
         },
       }
   }

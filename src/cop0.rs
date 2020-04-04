@@ -1,5 +1,6 @@
 use crate::register::Register;
 
+#[derive(Debug)]
 pub enum Cop0Exception {
   overflow,
 }
@@ -59,7 +60,7 @@ impl Cop0 {
     None
   }
   pub fn exception(&mut self, kind: Cop0Exception) {
-    println!("generated an {} exception", stringify!(kind));
+    println!("generated an {:?} exception", kind);
   }
   pub fn cache_isolated(&self) -> bool {
     self.r12 & 0x10000 != 0
