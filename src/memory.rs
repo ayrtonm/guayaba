@@ -4,6 +4,7 @@ use std::io::SeekFrom;
 use std::io::Read;
 use std::fs::metadata;
 use std::fs::File;
+use std::collections::HashMap;
 use crate::common::*;
 use crate::register::Register;
 use crate::register::Parts;
@@ -44,7 +45,11 @@ macro_rules! read_memory {
         },
         _ => {
           println!("tried to read from an unmapped section of memory at {:#x} phys addr = {:#x}", $address, phys_addr);
-          $self.extra
+          if $self.extra.contains_key(&$address) {
+            $self.extra[&$address]
+          } else {
+            0
+          }
         },
       }
     }
@@ -83,7 +88,7 @@ macro_rules! write_memory {
         },
         _ => {
           println!("tried writing to an unmapped section of memory at {:#x} phys addr = {:#x}", $address, phys_addr);
-          $self.extra = $value;
+          $self.extra.insert($address, $value);
         },
       }
   }
@@ -99,7 +104,7 @@ pub struct Memory {
   expansion_3: Box<[u8]>,
   bios: Box<[u8; 512 * KB]>,
   cache_control: [u8; 512],
-  extra: u32,
+  extra: HashMap<u32, u32>,
 }
 
 impl Memory {
@@ -111,6 +116,7 @@ impl Memory {
     bios_file.seek(SeekFrom::Start(0))?;
     bios_file.read_exact(&mut bios_contents)?;
     let bios = Box::new(bios_contents);
+    let extra = HashMap::new();
     Ok(Memory {
       main_ram: vec![0; 2 * MB].into_boxed_slice(),
       expansion_1: vec![0; 8 * MB].into_boxed_slice(),
@@ -120,7 +126,7 @@ impl Memory {
       expansion_3: vec![0; 2 * MB].into_boxed_slice(),
       bios,
       cache_control: [0; 512],
-      extra: 0,
+      extra,
     })
   }
   const MAIN_RAM: Register = 0;

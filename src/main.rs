@@ -27,13 +27,13 @@ fn check_flag(args: &Vec<String>, flags: &[&str]) -> bool {
 const HELP_FLAGS: [&str;2] = ["-h", "--help"];
 const BIOS_FLAGS: [&str;2] = ["-b", "--bios"];
 const INFILE_FLAGS: [&str;2] = ["-i", "--input"];
-const TEST_FLAGS: [&str;2] = ["-t", "--test"];
+const STEPS_FLAGS: [&str;2] = ["-n", "--steps"];
 const LOG_FLAGS: [&str;2] = ["-l", "--log"];
 const ALL_FLAGS: [([&str;2],Option<&str>);5] = [(HELP_FLAGS, None),
                                                 (BIOS_FLAGS, Some("BIOS")),
                                                 (INFILE_FLAGS, Some("INFILE")),
                                                 (LOG_FLAGS, None),
-                                                (TEST_FLAGS, Some("n"))];
+                                                (STEPS_FLAGS, Some("n"))];
 
 fn print_help() {
   println!("rspsx [OPTION...] -b BIOS -i INFILE");
@@ -53,7 +53,7 @@ fn main() -> io::Result<()> {
   let bios = get_arg(&args, &BIOS_FLAGS);
   let infile = get_arg(&args, &INFILE_FLAGS);
   let help = check_flag(&args, &HELP_FLAGS);
-  let test = get_arg(&args, &TEST_FLAGS).map(|test| test.parse::<u32>().unwrap());
+  let steps = get_arg(&args, &STEPS_FLAGS).map(|steps| steps.parse::<u32>().unwrap());
   let logging = check_flag(&args, &LOG_FLAGS);
 
   if help {
@@ -61,7 +61,7 @@ fn main() -> io::Result<()> {
   } else {
     match bios {
       Some(bios_filename) => {
-        Interpreter::new(bios_filename, infile)?.run(test, logging);
+        Interpreter::new(bios_filename, infile)?.run(steps, logging);
       },
       None => {
         print_help();
