@@ -10,12 +10,14 @@ use crate::register::Parts;
 
 pub const KB: usize = 1024;
 pub const MB: usize = 1024 * KB;
-const PHYS_MASK: u32 = 0x1fff_ffff;
+const PHYS_MASK: [u32; 8] = [0xffff_ffff, 0xffff_ffff, 0xffff_ffff, 0xffff_ffff,
+                             0x7fff_ffff, 0x1fff_ffff, 0xffff_ffff, 0xffff_ffff];
 
 macro_rules! read_memory {
   ($address:expr, $function:ident, $self:expr) => {
     {
-      let phys_addr = $address & PHYS_MASK;
+      let idx = ($address >> 29) as usize;
+      let phys_addr = $address & PHYS_MASK[idx];
       match phys_addr {
         (Memory::MAIN_RAM..=Memory::MAIN_RAM_END) => {
           $function(&*$self.main_ram, phys_addr - Memory::MAIN_RAM)
@@ -44,7 +46,7 @@ macro_rules! read_memory {
               $function(&$self.cache_control, $address - Memory::CACHE_CONTROL)
             },
             _ => {
-              unreachable!("tried to read from an unmapped section of memory at {:#x}", $address)
+              unreachable!("tried to read from an unmapped section of memory at {:#x} phys addr = {:#x}", $address, phys_addr)
             },
           }
         },
@@ -56,7 +58,8 @@ macro_rules! read_memory {
 macro_rules! write_memory {
   ($address:expr, $value:expr, $function:ident, $self:expr) => {
     {
-      let phys_addr = $address & PHYS_MASK;
+      let idx = ($address >> 29) as usize;
+      let phys_addr = $address & PHYS_MASK[idx];
       match phys_addr {
         (Memory::MAIN_RAM..=Memory::MAIN_RAM_END) => {
           $function(&mut *$self.main_ram, phys_addr - Memory::MAIN_RAM, $value)
@@ -85,7 +88,7 @@ macro_rules! write_memory {
               $function(&mut $self.cache_control, $address - Memory::CACHE_CONTROL, $value)
             },
             _ => {
-              unreachable!("tried writing to an unmapped section of memory at {:#x}", $address)
+              println!("tried writing to an unmapped section of memory at {:#x} phys addr = {:#x}", $address, phys_addr)
             },
           }
         },

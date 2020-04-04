@@ -59,6 +59,7 @@ impl Interpreter {
         println!("started in test mode");
         for i in 1..=n {
           if logging {
+            println!("  ");
             println!("{} ----------------------", i);
           }
           self.step(logging);
@@ -69,6 +70,7 @@ impl Interpreter {
         let mut i = 0;
         loop {
           if logging {
+            println!("  ");
             println!("{} ----------------------", i);
           }
           self.step(logging);
@@ -82,13 +84,13 @@ impl Interpreter {
     let op = self.memory.read_word(self.r3000.pc());
     if logging {
       println!("read opcode {:#x} from [{:#x}]", op, self.r3000.pc());
-      println!("  ");
     }
     //the instruction following each jump is always executed before updating the pc
     //increment the program counter
     *self.r3000.pc_mut() = self.next_pc
                            .take()
-                           .map_or_else(|| self.r3000.pc().wrapping_add(4), |next_pc| next_pc);
+                           .map_or_else(|| self.r3000.pc().wrapping_add(4),
+                                        |next_pc| next_pc);
     self.next_pc = self.execute_opcode(op, logging);
   }
   //if program counter should incremented normally, return None
@@ -115,7 +117,7 @@ impl Interpreter {
           let rt = get_rt(op);
           let result = self.memory.$method(rs.wrapping_add(imm16));
           self.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt), result));
-          log!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x}", rt, rs, imm16, rs + imm16, result);
+          log!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x} {}", rt, rs, imm16, rs + imm16, result, stringify!($method));
           None
         }
       };
@@ -125,7 +127,7 @@ impl Interpreter {
           let rs = self.r3000.nth_reg(get_rs(op));
           let rt = self.r3000.nth_reg(get_rt(op));
           let imm16 = get_imm16(op).half_sign_extended();
-          log!("[{:#x} + {:#x}] = [{:#x}] \n  = R{} \n  = {:#x}", rs, imm16, rs + imm16, get_rt(op), rt);
+          log!("[{:#x} + {:#x}] = [{:#x}] \n  = R{} \n  = {:#x} {}", rs, imm16, rs + imm16, get_rt(op), rt, stringify!($method));
           if !self.cop0.cache_isolated() {
             self.memory.$method(rs.wrapping_add(imm16), rt);
           } else {
