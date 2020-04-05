@@ -200,7 +200,8 @@ impl Interpreter {
           let rd = self.r3000.nth_reg_mut(get_rd(op));
           let result: u64 = rs.$method(rt);
           if result > 0x0000_0000_ffff_ffff {
-            self.cop0.exception(Cop0Exception::Overflow);
+            let pc = self.r3000.pc_mut();
+            *pc = self.cop0.generate_exception(Cop0Exception::Overflow, *pc);
           } else {
             self.modified_register = rd.maybe_set(result as u32);
           }
@@ -222,7 +223,8 @@ impl Interpreter {
               self.modified_register = rt.maybe_set(result as u32);
             },
             None => {
-              self.cop0.exception(Cop0Exception::Overflow);
+              let pc = self.r3000.pc_mut();
+              *pc = self.cop0.generate_exception(Cop0Exception::Overflow, *pc);
             },
           }
           log!("R{} = R{} {} {:#x} trap overflow\n  = {:#x} {} {:#x}\n  = {:#x}",
@@ -630,14 +632,9 @@ impl Interpreter {
           0x0C => {
             //SYSCALL
             log!("> SYSCALL");
-            //self.cop0.store_pc();
-            //let cop0r14 = self.cop0.nth_data_reg_mut(14);
-            //let pc = self.r3000.pc();
-            //cop0r14.maybe_set(pc);
-            //let cop0r13 = self.cop0.nth_data_reg_mut(13);
-            ////cop0r13.maybe_set(some value);
-            ////disable interrupts
-            todo!("syscall")
+            let pc = self.r3000.pc_mut();
+            *pc = self.cop0.generate_exception(Cop0Exception::Syscall, *pc);
+            None
           },
           0x0D => {
             //BREAK

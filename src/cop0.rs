@@ -2,6 +2,8 @@ use crate::register::Register;
 
 #[derive(Debug)]
 pub enum Cop0Exception {
+  Interrupt,
+  Syscall,
   Overflow,
 }
 
@@ -59,8 +61,23 @@ impl Cop0 {
     //this is technically an illegal instruction since COP0 does not implement it
     None
   }
-  pub fn exception(&mut self, kind: Cop0Exception) {
-    println!("generated an {:?} exception", kind);
+  pub fn generate_exception(&mut self, kind: Cop0Exception, current_pc: Register) -> Register {
+    println!("generated a {:?} exception", kind);
+    self.store_pc(current_pc);
+    let cause = match kind {
+      Cop0Exception::Interrupt => {
+        0x00
+      },
+      Cop0Exception::Syscall => {
+        0x08
+      },
+      Cop0Exception::Overflow => {
+        0x0C
+      },
+    };
+    self.set_exception_cause(cause);
+    self.disable_interrupts();
+    self.exception_vector()
   }
   pub fn cache_isolated(&self) -> bool {
     self.r12 & 0x10000 != 0
@@ -74,6 +91,30 @@ impl Cop0 {
       self.r12 |= bits2_3 | bits4_5;
     }
     None
+  }
+  fn store_pc(&mut self, current_pc: Register) {
+    self.r14 = current_pc;
+  }
+  fn set_exception_cause(&mut self, cause: u32) {
+    assert!(cause < 0x20);
+    self.r13 = (self.r13 & 0xffff_ff83) | (cause << 2);
+  }
+  fn exception_vector(&self) -> Register {
+    match self.r12 & 0x0040_0000 {
+      0 => {
+        0x80000080
+      },
+      0x0040_0000 => {
+        0xbfc00180
+      },
+      _ => {
+        unreachable!("");
+      },
+    }
+  }
+  fn disable_interrupts(&mut self) {
+    let prev = self.r12 & 1;
+    self.r12 = (self.r12 & 0xffff_fffa) | (prev << 2);
   }
 }
 
