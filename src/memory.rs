@@ -15,6 +15,8 @@ use crate::dma::Step;
 
 pub enum MemAction {
   DMA(Vec<Transfer>),
+  GPU_GP0(Register),
+  GPU_GP1(Register),
 }
 
 pub const KB: usize = 1024;
@@ -80,10 +82,16 @@ macro_rules! write_memory {
         (Memory::IO_PORTS..=Memory::IO_PORTS_END) => {
           $function(&mut $self.io_ports, phys_addr - Memory::IO_PORTS, $value);
           match phys_addr {
-            0x1f8010f4..=0x1f8010f7 => {
-              let mut transfers = Vec::new();
+            0x1f80_1810..=0x1f80_1813 => {
+              Some(MemAction::GPU_GP0($self.read_word(0x1f80_1810)))
+            },
+            0x1f80_1814..=0x1f80_1817 => {
+              Some(MemAction::GPU_GP1($self.read_word(0x1f80_1814)))
+            },
+            0x1f80_10f4..=0x1f80_10f7 => {
               let interrupt_register = $self.read_word(0x1f8010f4);
               let master_irq = interrupt_register >> 31;
+              let mut transfers = Vec::new();
               if master_irq != 0 {
                 for channel in 0..=6 {
                   let channel_enabled = interrupt_register >> (16 + channel);
@@ -209,6 +217,7 @@ impl Memory {
     assert_eq!(address & 0x0000_0003, 0);
     write_memory!(address, value, write_word_to_array, self)
   }
+  //pack the current state of I/O ports into a Transfer struct for a given channel
   fn dma_transfer(&self, channel: u32) -> Transfer {
     assert!(channel < 7);
     //these are addresses to locations in memory
@@ -234,33 +243,19 @@ impl Memory {
       0 => {
         let words = block_control & 0x0000_ffff;
         Chunks::NumWords(match words {
-          0 => {
-            0x0001_0000
-          },
-          _ => {
-            words
-          },
+          0 => 0x0001_0000,
+          _ => words,
         })
       },
       1 => {
         let size = block_control & 0x0000_ffff;
         let amount = block_control >> 16;
         let max_size = match channel {
-          0 => {
-            0x20
-          },
-          1 => {
-            0x20
-          },
-          2 => {
-            0x10
-          },
-          4 => {
-            0x10
-          },
-          _ => {
-            unreachable!("DMA channel {} is not configured properly", channel);
-          },
+          0 => 0x20,
+          1 => 0x20,
+          2 => 0x10,
+          4 => 0x10,
+          _ => unreachable!("DMA channel {} is not configured properly", channel),
         };
         Chunks::Blocks(
           Blocks::new(
@@ -273,15 +268,9 @@ impl Memory {
           )
         )
       },
-      2 => {
-        Chunks::LinkedList
-      },
-      3 => {
-        unreachable!("DMA channel {} is not configured properly", channel);
-      },
-      _ => {
-        unreachable!("DMA channel {} is not configured properly", channel);
-      },
+      2 => Chunks::LinkedList,
+      3 => unreachable!("DMA channel {} is not configured properly", channel),
+      _ => unreachable!("DMA channel {} is not configured properly", channel),
     };
     Transfer::new(channel, start_address, chunks, direction, step, sync_mode)
   }
