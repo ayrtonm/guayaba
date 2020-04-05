@@ -3,6 +3,8 @@ use crate::register::Register;
 #[derive(Debug)]
 pub enum Cop0Exception {
   Interrupt,
+  LoadAddress,
+  StoreAddress,
   Syscall,
   Overflow,
 }
@@ -62,11 +64,16 @@ impl Cop0 {
     None
   }
   pub fn generate_exception(&mut self, kind: Cop0Exception, current_pc: Register) -> Register {
-    println!("generated a {:?} exception", kind);
     self.store_pc(current_pc);
     let cause = match kind {
       Cop0Exception::Interrupt => {
         0x00
+      },
+      Cop0Exception::LoadAddress => {
+        0x04
+      },
+      Cop0Exception::StoreAddress => {
+        0x05
       },
       Cop0Exception::Syscall => {
         0x08

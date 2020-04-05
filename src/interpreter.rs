@@ -423,8 +423,15 @@ impl Interpreter {
       (rs) => {
         {
           let rs = self.r3000.nth_reg(get_rs(op));
-          log!("jumping to R{} = {:#x} after the delay slot", get_rs(op), rs);
-          Some(rs)
+          if rs & 0x0000_0003 != 0 {
+            let pc = self.r3000.pc_mut();
+            *pc = self.cop0.generate_exception(Cop0Exception::LoadAddress, *pc);
+            log!("ignoring jumping to R{} = {:#x} and generating an exception", get_rs(op), rs);
+            None
+          } else {
+            log!("jumping to R{} = {:#x} after the delay slot", get_rs(op), rs);
+            Some(rs)
+          }
         }
       };
       (rs $cmp:tt rt) => {

@@ -4,7 +4,6 @@ use std::io::SeekFrom;
 use std::io::Read;
 use std::fs::metadata;
 use std::fs::File;
-use std::collections::HashMap;
 use crate::common::*;
 use crate::register::Register;
 use crate::register::Parts;
