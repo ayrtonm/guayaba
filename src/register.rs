@@ -55,17 +55,7 @@ impl Parts for Register{
     }
   }
   fn sra(&self, rhs: Register) -> Register {
-    match self & 0x8000_0000 {
-      0 => {
-        self.shr(rhs)
-      },
-      0x8000_0000 => {
-        todo!("sra")
-      },
-      _ => {
-        unreachable!("sra")
-      },
-    }
+    (*self as i32).shr(rhs) as Register
   }
   fn and(&self, rhs: Register) -> Register {
     self.bitand(rhs)
