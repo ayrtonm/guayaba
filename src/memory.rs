@@ -45,12 +45,8 @@ macro_rules! read_memory {
         },
         (Memory::IO_PORTS..=Memory::IO_PORTS_END) => {
           match phys_addr {
-            0x1f80_1810..=0x1f80_1813 => {
-              MemResponse::GPU
-            },
-            _ => {
-              MemResponse::Value($function(&$self.io_ports, phys_addr - Memory::IO_PORTS))
-            },
+            0x1f80_1810..=0x1f80_1813 => MemResponse::GPU,
+            _ => MemResponse::Value($function(&$self.io_ports, phys_addr - Memory::IO_PORTS)),
           }
         },
         (Memory::EXPANSION_2..=Memory::EXPANSION_2_END) => {

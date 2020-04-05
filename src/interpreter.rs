@@ -84,7 +84,10 @@ impl Interpreter {
     self.cd.as_ref().map(|cd| cd.preview(10));
   }
   fn resolve_memresponse(&mut self, response: MemResponse) -> Register {
-    0
+    match response {
+      MemResponse::Value(value) => value,
+      MemResponse::GPU => 0,
+    }
   }
   fn handle_dma(&mut self, transfers: Vec<Transfer>) {
     transfers.iter().for_each(
@@ -172,15 +175,9 @@ impl Interpreter {
             self.memory.$method(rs.wrapping_add(imm16), rt).map(
               |action| {
                 match action {
-                  MemAction::DMA(transfers) => {
-                    self.handle_dma(transfers)
-                  },
-                  MemAction::GpuGp0(value) => {
-                    self.gpu.write_to_gp0(value)
-                  },
-                  MemAction::GpuGp1(value) => {
-                    self.gpu.write_to_gp1(value)
-                  },
+                  MemAction::DMA(transfers) => self.handle_dma(transfers),
+                  MemAction::GpuGp0(value) => self.gpu.write_to_gp0(value),
+                  MemAction::GpuGp1(value) => self.gpu.write_to_gp1(value),
                 }
               }
             );
