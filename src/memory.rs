@@ -233,7 +233,7 @@ impl Memory {
     let chunks = match sync_mode {
       0 => {
         let words = block_control & 0x0000_ffff;
-        Chunks::num_words(match words {
+        Chunks::NumWords(match words {
           0 => {
             0x0001_0000
           },
@@ -262,7 +262,7 @@ impl Memory {
             unreachable!("DMA channel {} is not configured properly", channel);
           },
         };
-        Chunks::blocks(
+        Chunks::Blocks(
           Blocks::new(
             if size < max_size {
               size
@@ -283,7 +283,7 @@ impl Memory {
         unreachable!("DMA channel {} is not configured properly", channel);
       },
     };
-    Transfer::new(start_address, chunks, direction, step, sync_mode)
+    Transfer::new(channel, start_address, chunks, direction, step, sync_mode)
   }
 }
 

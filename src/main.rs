@@ -11,6 +11,7 @@ mod memory;
 mod cd;
 mod dma;
 mod gte;
+mod gpu;
 
 fn get_arg<'a>(args: &'a Vec<String>, flags: &[&str]) -> Option<&'a String> {
   args.iter()

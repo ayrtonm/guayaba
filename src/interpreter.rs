@@ -14,14 +14,17 @@ use crate::cop0::Cop0Exception;
 use crate::memory::Memory;
 use crate::memory::MemAction;
 use crate::cd::CD;
+use crate::gpu::GPU;
 use crate::gte::GTE;
 use crate::dma::Transfer;
+use crate::dma::Direction;
 
 pub struct Interpreter {
   //these correspond to physical components
   r3000: R3000,
   cop0: Cop0,
   memory: Memory,
+  gpu: GPU,
   gte: GTE,
   cd: Option<CD>,
 
@@ -37,6 +40,7 @@ impl Interpreter {
     let r3000 = R3000::new();
     let cop0 = Default::default();
     let memory = Memory::new(bios_filename)?;
+    let gpu = GPU::new();
     let gte = Default::default();
     let cd = infile.and_then(|f| CD::new(f).ok());
     let delayed_writes = VecDeque::new();
@@ -44,6 +48,7 @@ impl Interpreter {
       r3000,
       cop0,
       memory,
+      gpu,
       gte,
       cd,
       next_pc: None,
@@ -76,6 +81,37 @@ impl Interpreter {
         }
       });
     self.cd.as_ref().map(|cd| cd.preview(10));
+  }
+  fn handle_dma(&mut self, transfers: Vec<Transfer>) {
+    transfers.iter().for_each(
+      |transfer| {
+        match transfer.channel() {
+          0 => {
+          },
+          1 => {
+          },
+          2 => {
+            match transfer.direction() {
+              Direction::ToRAM => {
+              },
+              Direction::FromRAM => {
+              },
+            }
+          },
+          3 => {
+          },
+          4 => {
+          },
+          5 => {
+          },
+          6 => {
+          },
+          _ => {
+            unreachable!("tried handling a non-existent DMA channel")
+          },
+        }
+      }
+    )
   }
   fn step(&mut self, logging: bool) {
     //get opcode from memory at program counter
@@ -133,7 +169,7 @@ impl Interpreter {
               |action| {
                 match action {
                   MemAction::DMA(transfers) => {
-                    //take care of transfer here
+                    self.handle_dma(transfers)
                   },
                 }
               }

@@ -1,8 +1,8 @@
 use crate::register::Register;
 
 pub enum Chunks {
-  num_words(u32),
-  blocks(Blocks),
+  NumWords(u32),
+  Blocks(Blocks),
   LinkedList,
 }
 
@@ -30,11 +30,8 @@ pub enum Step {
   Backward,
 }
 
-#[derive(Default,Debug)]
-pub struct DMA {
-}
-
 pub struct Transfer {
+  channel: u32,
   start_address: Register,
   chunks: Chunks,
   direction: Direction,
@@ -43,14 +40,21 @@ pub struct Transfer {
 }
 
 impl Transfer {
-  pub fn new(start_address: Register, chunks: Chunks, direction: Direction,
-             step: Step, sync_mode: u32) -> Self {
+  pub fn new(channel: u32, start_address: Register, chunks: Chunks,
+             direction: Direction, step: Step, sync_mode: u32) -> Self {
     Transfer {
+      channel,
       start_address,
       chunks,
       direction,
       step,
       sync_mode,
     }
+  }
+  pub fn channel(&self) -> u32 {
+    self.channel
+  }
+  pub fn direction(&self) -> &Direction {
+    &self.direction
   }
 }
