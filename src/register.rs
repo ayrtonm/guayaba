@@ -76,9 +76,8 @@ impl Parts for Register{
       0
     }
   }
-  //FIXME: fix signed comparison
   fn signed_compare(&self, rhs: Register) -> Register {
-    if *self < rhs {
+    if (*self as i32) < (rhs as i32) {
       1
     } else {
       0

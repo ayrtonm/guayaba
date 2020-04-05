@@ -44,13 +44,7 @@ macro_rules! read_memory {
           $function(&$self.cache_control, $address - Memory::CACHE_CONTROL)
         },
         _ => {
-          let result = if $self.extra.contains_key(&$address) {
-            $self.extra[&$address]
-          } else {
-            0
-          };
-          panic!("{} [{:#x}] = [{:#x}] = {:#x} handled by hashmap", stringify!($function), $address, phys_addr, result);
-          result
+          panic!("{} [{:#x}] = [{:#x}] is illegal", stringify!($function), $address, phys_addr);
         },
       }
     }
@@ -88,8 +82,7 @@ macro_rules! write_memory {
           $function(&mut $self.cache_control, $address - Memory::CACHE_CONTROL, $value)
         },
         _ => {
-          $self.extra.insert($address, $value);
-          panic!("{} [{:#x}] = [{:#x}] = {:#x} handled by hashmap", stringify!($function), $address, phys_addr, $value);
+          panic!("{} [{:#x}] = [{:#x}] = {:#x} is illegal", stringify!($function), $address, phys_addr, $value);
         },
       }
   }
@@ -105,7 +98,6 @@ pub struct Memory {
   expansion_3: Box<[u8]>,
   bios: Box<[u8; 512 * KB]>,
   cache_control: [u8; 512],
-  extra: HashMap<u32, u32>,
 }
 
 impl Memory {
@@ -117,7 +109,6 @@ impl Memory {
     bios_file.seek(SeekFrom::Start(0))?;
     bios_file.read_exact(&mut bios_contents)?;
     let bios = Box::new(bios_contents);
-    let extra = HashMap::new();
     Ok(Memory {
       main_ram: vec![0; 2 * MB].into_boxed_slice(),
       expansion_1: vec![0; 8 * MB].into_boxed_slice(),
@@ -127,7 +118,6 @@ impl Memory {
       expansion_3: vec![0; 2 * MB].into_boxed_slice(),
       bios,
       cache_control: [0; 512],
-      extra,
     })
   }
   const MAIN_RAM: Register = 0;

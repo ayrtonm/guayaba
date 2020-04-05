@@ -2,7 +2,7 @@ use crate::register::Register;
 
 #[derive(Debug)]
 pub enum Cop0Exception {
-  overflow,
+  Overflow,
 }
 
 #[derive(Default)]

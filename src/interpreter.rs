@@ -127,7 +127,7 @@ impl Interpreter {
           let rs = self.r3000.nth_reg(get_rs(op));
           let rt = self.r3000.nth_reg(get_rt(op));
           let imm16 = get_imm16(op).half_sign_extended();
-          log!("[{:#x} + {:#x}] = [{:#x}] \n  = R{} \n  = {:#x} {}", rs, imm16, rs.wrapping_add(imm16), get_rt(op), rt, stringify!($method));
+          log!("[{:#x} + {:#x}] = [{:#x}] \n  = R{}\n  = {:#x} {}", rs, imm16, rs.wrapping_add(imm16), get_rt(op), rt, stringify!($method));
           if !self.cop0.cache_isolated() {
             self.memory.$method(rs.wrapping_add(imm16), rt);
           } else {
@@ -186,7 +186,7 @@ impl Interpreter {
           let rt = self.r3000.nth_reg(get_rt(op));
           let rd = self.r3000.nth_reg_mut(get_rd(op));
           self.modified_register = rd.maybe_set(rs.$method(rt));
-          log!("R{} = R{} {} R{} \n  = {:#x} {} {:#x} \n  = {:#x}",
+          log!("R{} = R{} {} R{}\n  = {:#x} {} {:#x}\n  = {:#x}",
                     get_rd(op), get_rs(op), stringify!($method), get_rt(op),
                     rs, stringify!($method), rt, self.r3000.nth_reg(get_rd(op)));
           None
@@ -200,11 +200,11 @@ impl Interpreter {
           let rd = self.r3000.nth_reg_mut(get_rd(op));
           let result: u64 = rs.$method(rt);
           if result > 0x0000_0000_ffff_ffff {
-            self.cop0.exception(Cop0Exception::overflow);
+            self.cop0.exception(Cop0Exception::Overflow);
           } else {
             self.modified_register = rd.maybe_set(result as u32);
           }
-          log!("R{} = R{} {} R{} trap overflow\n  = {:#x} {} {:#x} \n  = {:#x}",
+          log!("R{} = R{} {} R{} trap overflow\n  = {:#x} {} {:#x}\n  = {:#x}",
                     get_rd(op), get_rs(op), stringify!($method), get_rt(op),
                     rs, stringify!($method), rt, self.r3000.nth_reg(get_rd(op)));
           None
@@ -213,16 +213,19 @@ impl Interpreter {
       //ALU instructions with a register and immediate 16-bit data that trap overflow
       (rt = rs $method:ident signed imm16 trap) => {
         {
-          let rs = self.r3000.nth_reg(get_rs(op)) as u64;
-          let imm16 = get_imm16(op).half_sign_extended() as u64;
+          let rs = self.r3000.nth_reg(get_rs(op)) as i32;
+          let imm16 = get_imm16(op).half_sign_extended() as i32;
           let rt = self.r3000.nth_reg_mut(get_rt(op));
-          let result: u64 = rs.$method(imm16);
-          if result > 0x0000_0000_ffff_ffff {
-            self.cop0.exception(Cop0Exception::overflow);
-          } else {
-            self.modified_register = rt.maybe_set(result as u32);
+          let result = rs.$method(imm16);
+          match result {
+            Some(result) => {
+              self.modified_register = rt.maybe_set(result as u32);
+            },
+            None => {
+              self.cop0.exception(Cop0Exception::Overflow);
+            },
           }
-          log!("R{} = R{} {} {:#x} trap overflow\n  = {:#x} {} {:#x} \n  = {:#x}",
+          log!("R{} = R{} {} {:#x} trap overflow\n  = {:#x} {} {:#x}\n  = {:#x}",
                     get_rt(op), get_rs(op), stringify!($method), imm16,
                     rs, stringify!($method), imm16, self.r3000.nth_reg(get_rt(op)));
           None
@@ -235,7 +238,7 @@ impl Interpreter {
           let imm16 = get_imm16(op);
           let rt = self.r3000.nth_reg_mut(get_rt(op));
           self.modified_register = rt.maybe_set(rs.$method(imm16));
-          log!("R{} = R{} {} {:#x} \n  = {:#x} {} {:#x} \n  = {:#x}",
+          log!("R{} = R{} {} {:#x}\n  = {:#x} {} {:#x}\n  = {:#x}",
                     get_rt(op), get_rs(op), stringify!($method), imm16,
                     rs, stringify!($method), imm16, self.r3000.nth_reg(get_rt(op)));
           None
@@ -248,7 +251,7 @@ impl Interpreter {
           let imm16 = get_imm16(op).half_sign_extended();
           let rt = self.r3000.nth_reg_mut(get_rt(op));
           self.modified_register = rt.maybe_set(rs.$method(imm16));
-          log!("R{} = R{} {} {:#x} \n  = {:#x} {} {:#x} \n  = {:#x}",
+          log!("R{} = R{} {} {:#x}\n  = {:#x} {} {:#x}\n  = {:#x}",
                     get_rt(op), get_rs(op), stringify!($method), imm16,
                     rs, stringify!($method), imm16, self.r3000.nth_reg(get_rt(op)));
           None
@@ -261,7 +264,7 @@ impl Interpreter {
           let imm5 = get_imm5(op);
           let rd = self.r3000.nth_reg_mut(get_rd(op));
           self.modified_register = rd.maybe_set(rt.$method(imm5));
-          log!("R{} = R{} {} {:#x} \n  = {:#x} {} {:#x} \n  = {:#x}",
+          log!("R{} = R{} {} {:#x}\n  = {:#x} {} {:#x}\n  = {:#x}",
                     get_rd(op), get_rt(op), stringify!($method), imm5,
                     rt, stringify!($method), imm5, self.r3000.nth_reg(get_rd(op)));
           None
@@ -305,8 +308,11 @@ impl Interpreter {
               13
             },
           };
+          //TODO: add delay back in
           //self.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, delay));
           //self.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, delay));
+          *self.r3000.hi_mut() = hi_res;
+          *self.r3000.lo_mut() = lo_res;
           log!("op11");
           None
         }
@@ -329,8 +335,11 @@ impl Interpreter {
               13
             },
           };
+          //TODO: add delay back in
           //self.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, delay));
           //self.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, delay));
+          *self.r3000.hi_mut() = hi_res;
+          *self.r3000.lo_mut() = lo_res;
           log!("op11");
           None
         }
@@ -348,8 +357,11 @@ impl Interpreter {
             },
           };
           let hi_res = rs % rt;
+          //TODO: add delay back in
           //self.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, 36));
           //self.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, 36));
+          *self.r3000.hi_mut() = hi_res;
+          *self.r3000.lo_mut() = lo_res;
           log!("op12");
           None
         }
@@ -384,8 +396,11 @@ impl Interpreter {
             },
           } as u32;
           let hi_res = (rs % rt) as u32;
+          //TODO: add delay back in
           //self.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, 36));
           //self.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, 36));
+          *self.r3000.hi_mut() = hi_res;
+          *self.r3000.lo_mut() = lo_res;
           log!("op12");
           None
         }
@@ -450,7 +465,7 @@ impl Interpreter {
         {
           let ret = self.r3000.pc().wrapping_add(4);
           self.modified_register = self.r3000.ra_mut().maybe_set(ret);
-          log!("op17");
+          log!("R31 = {:#x}", ret);
           jump!(imm26)
         }
       };
@@ -615,6 +630,13 @@ impl Interpreter {
           0x0C => {
             //SYSCALL
             log!("> SYSCALL");
+            //self.cop0.store_pc();
+            //let cop0r14 = self.cop0.nth_data_reg_mut(14);
+            //let pc = self.r3000.pc();
+            //cop0r14.maybe_set(pc);
+            //let cop0r13 = self.cop0.nth_data_reg_mut(13);
+            ////cop0r13.maybe_set(some value);
+            ////disable interrupts
             todo!("syscall")
           },
           0x0D => {
@@ -780,7 +802,7 @@ impl Interpreter {
       0x08 => {
         //ADDI
         log!("> ADDI");
-        compute!(rt = rs wrapping_add signed imm16 trap)
+        compute!(rt = rs checked_add signed imm16 trap)
       },
       0x09 => {
         //ADDIU
