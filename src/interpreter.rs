@@ -175,6 +175,7 @@ impl Interpreter {
                     self.gpu.write_to_gp0(value)
                   },
                   MemAction::GPU_GP1(value) => {
+                    self.gpu.write_to_gp1(value)
                   },
                 }
               }
