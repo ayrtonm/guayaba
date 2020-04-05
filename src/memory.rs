@@ -19,6 +19,11 @@ pub enum MemAction {
   GPU_GP1(Register),
 }
 
+pub enum MemResponse {
+  value(Register),
+  GPU,
+}
+
 pub const KB: usize = 1024;
 pub const MB: usize = 1024 * KB;
 const PHYS_MASK: [u32; 8] = [0xffff_ffff, 0xffff_ffff, 0xffff_ffff, 0xffff_ffff,
@@ -30,28 +35,35 @@ macro_rules! read_memory {
       let phys_addr = $address & PHYS_MASK[idx];
       match phys_addr {
         (Memory::MAIN_RAM..=Memory::MAIN_RAM_END) => {
-          $function(&*$self.main_ram, phys_addr - Memory::MAIN_RAM)
+          MemResponse::value($function(&*$self.main_ram, phys_addr - Memory::MAIN_RAM))
         },
         (Memory::EXPANSION_1..=Memory::EXPANSION_1_END) => {
-          $function(&*$self.expansion_1, phys_addr - Memory::EXPANSION_1)
+          MemResponse::value($function(&*$self.expansion_1, phys_addr - Memory::EXPANSION_1))
         },
         (Memory::SCRATCHPAD..=Memory::SCRATCHPAD_END) => {
-          $function(&$self.scratchpad, phys_addr - Memory::SCRATCHPAD)
+          MemResponse::value($function(&$self.scratchpad, phys_addr - Memory::SCRATCHPAD))
         },
         (Memory::IO_PORTS..=Memory::IO_PORTS_END) => {
-          $function(&$self.io_ports, phys_addr - Memory::IO_PORTS)
+          match phys_addr {
+            0x1f80_1810..=0x1f80_1813 => {
+              MemResponse::GPU
+            },
+            _ => {
+              MemResponse::value($function(&$self.io_ports, phys_addr - Memory::IO_PORTS))
+            },
+          }
         },
         (Memory::EXPANSION_2..=Memory::EXPANSION_2_END) => {
-          $function(&$self.expansion_2, phys_addr - Memory::EXPANSION_2)
+          MemResponse::value($function(&$self.expansion_2, phys_addr - Memory::EXPANSION_2))
         },
         (Memory::EXPANSION_3..=Memory::EXPANSION_3_END) => {
-          $function(&*$self.expansion_3, phys_addr - Memory::EXPANSION_3)
+          MemResponse::value($function(&*$self.expansion_3, phys_addr - Memory::EXPANSION_3))
         },
         (Memory::BIOS..=Memory::BIOS_END) => {
-          $function(&*$self.bios, phys_addr - Memory::BIOS)
+          MemResponse::value($function(&*$self.bios, phys_addr - Memory::BIOS))
         },
         (Memory::CACHE_CONTROL..=Memory::CACHE_CONTROL_END) => {
-          $function(&$self.cache_control, $address - Memory::CACHE_CONTROL)
+          MemResponse::value($function(&$self.cache_control, $address - Memory::CACHE_CONTROL))
         },
         _ => {
           panic!("{} [{:#x}] = [{:#x}] is illegal", stringify!($function), $address, phys_addr);
@@ -83,13 +95,20 @@ macro_rules! write_memory {
           $function(&mut $self.io_ports, phys_addr - Memory::IO_PORTS, $value);
           match phys_addr {
             0x1f80_1810..=0x1f80_1813 => {
-              Some(MemAction::GPU_GP0($self.read_word(0x1f80_1810)))
+              Some(
+                MemAction::GPU_GP0(
+                  read_word_from_array(
+                    &$self.io_ports, 0x1f80_1810 - Memory::IO_PORTS)))
             },
             0x1f80_1814..=0x1f80_1817 => {
-              Some(MemAction::GPU_GP1($self.read_word(0x1f80_1814)))
+              Some(
+                MemAction::GPU_GP1(
+                  read_word_from_array(
+                    &$self.io_ports, 0x1f80_1814 - Memory::IO_PORTS)))
             },
             0x1f80_10f4..=0x1f80_10f7 => {
-              let interrupt_register = $self.read_word(0x1f8010f4);
+              let interrupt_register = read_word_from_array(
+                &$self.io_ports, 0x1f8010f4 - Memory::IO_PORTS);
               let master_irq = interrupt_register >> 31;
               let mut transfers = Vec::new();
               if master_irq != 0 {
@@ -188,21 +207,36 @@ impl Memory {
   const CACHE_CONTROL_END: Register = Memory::CACHE_CONTROL + 512 - 1;
 
   //FIXME: fix alignment restrictions, what happens when read is misaligned?
-  pub fn read_byte_sign_extended(&self, address: Register) -> Register {
-    read_memory!(address, read_byte_from_array, self).byte_sign_extended()
+  //TODO: technically this doesn't sign extend the GPU response
+  pub fn read_byte_sign_extended(&self, address: Register) -> MemResponse {
+    match read_memory!(address, read_byte_from_array, self) {
+      MemResponse::value(value) => {
+        MemResponse::value(value.byte_sign_extended())
+      },
+      GPU => {
+        GPU
+      },
+    }
   }
-  pub fn read_half_sign_extended(&self, address: Register) -> Register {
+  pub fn read_half_sign_extended(&self, address: Register) -> MemResponse {
     assert_eq!(address & 0x0000_0001, 0);
-    read_memory!(address, read_half_from_array, self).half_sign_extended()
+    match read_memory!(address, read_half_from_array, self) {
+      MemResponse::value(value) => {
+        MemResponse::value(value.half_sign_extended())
+      },
+      GPU => {
+        GPU
+      },
+    }
   }
-  pub fn read_byte(&self, address: Register) -> Register {
+  pub fn read_byte(&self, address: Register) -> MemResponse {
     read_memory!(address, read_byte_from_array, self)
   }
-  pub fn read_half(&self, address: Register) -> Register {
+  pub fn read_half(&self, address: Register) -> MemResponse {
     assert_eq!(address & 0x0000_0001, 0);
     read_memory!(address, read_half_from_array, self)
   }
-  pub fn read_word(&self, address: Register) -> Register {
+  pub fn read_word(&self, address: Register) -> MemResponse {
     assert_eq!(address & 0x0000_0003, 0);
     read_memory!(address, read_word_from_array, self)
   }
@@ -221,20 +255,20 @@ impl Memory {
   fn dma_transfer(&self, channel: u32) -> Transfer {
     assert!(channel < 7);
     //these are addresses to locations in memory
-    let base_addr = 0x1f80_1080 + (channel * 0x0000_0010);
-    let block_control = base_addr + 4;
-    let channel_control = block_control + 4;
+    let base_addr = 0x1f80_1080 + (channel * 0x0000_0010) - Memory::IO_PORTS;
+    let block_control = base_addr + 4 - Memory::IO_PORTS;
+    let channel_control = block_control + 4 - Memory::IO_PORTS;
 
     //these are the values of locations in memory
-    let start_address = self.read_word(base_addr) & 0x00ff_fffc;
-    let block_control = self.read_word(block_control);
-    let sync_mode = (self.read_word(channel_control) >> 9) & 3;
-    let direction = match self.read_word(channel_control) & 1 {
+    let start_address = read_word_from_array(&self.io_ports, base_addr) & 0x00ff_fffc;
+    let block_control = read_word_from_array(&self.io_ports, block_control);
+    let sync_mode = (read_word_from_array(&self.io_ports, channel_control) >> 9) & 3;
+    let direction = match read_word_from_array(&self.io_ports, channel_control) & 1 {
       0 => Direction::ToRAM,
       1 => Direction::FromRAM,
       _ => unreachable!(""),
     };
-    let step = match self.read_word(channel_control) & 2 {
+    let step = match read_word_from_array(&self.io_ports, channel_control) & 2 {
       0 => Step::Forward,
       1 => Step::Backward,
       _ => unreachable!(""),
@@ -283,12 +317,12 @@ mod tests {
   impl Memory {
     pub fn blank() -> Memory {
       Memory {
-        main_ram: [0; 2 * KB],
-        expansion_1: [0; 8 * KB],
+        main_ram: vec![0; 2 * MB].into_boxed_slice(),
+        expansion_1: vec![0; 8 * MB].into_boxed_slice(),
         scratchpad: [0; KB],
         io_ports: [0; 8 * KB],
         expansion_2: [0; 8 * KB],
-        expansion_3: [0; 2 * KB],
+        expansion_3: vec![0; 2 * MB].into_boxed_slice(),
         bios: Box::new([0; 512 * KB]),
         cache_control: [0; 512],
       }

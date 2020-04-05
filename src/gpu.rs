@@ -121,6 +121,8 @@ impl Size for VecDeque<Command> {
 }
 
 pub struct GPU {
+  gpustat: Register,
+  gpuread: Register,
   vram: Box<[u8]>,
   command_buffer: VecDeque<Command>,
   waiting_for_parameters: bool,
@@ -131,6 +133,8 @@ impl GPU {
   pub fn new() -> Self {
     let command_buffer = VecDeque::new();
     GPU {
+      gpustat: 0,
+      gpuread: 0,
       vram: vec![0; MB].into_boxed_slice(),
       command_buffer,
       waiting_for_parameters: false,

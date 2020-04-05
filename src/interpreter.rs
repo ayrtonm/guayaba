@@ -13,6 +13,7 @@ use crate::cop0::Cop0;
 use crate::cop0::Cop0Exception;
 use crate::memory::Memory;
 use crate::memory::MemAction;
+use crate::memory::MemResponse;
 use crate::cd::CD;
 use crate::gpu::GPU;
 use crate::gte::GTE;
@@ -82,6 +83,9 @@ impl Interpreter {
       });
     self.cd.as_ref().map(|cd| cd.preview(10));
   }
+  fn resolve_memresponse(&mut self, response: MemResponse) -> Register {
+    0
+  }
   fn handle_dma(&mut self, transfers: Vec<Transfer>) {
     transfers.iter().for_each(
       |transfer| {
@@ -115,7 +119,7 @@ impl Interpreter {
   }
   fn step(&mut self, logging: bool) {
     //get opcode from memory at program counter
-    let op = self.memory.read_word(self.r3000.pc());
+    let op = self.resolve_memresponse(self.memory.read_word(self.r3000.pc()));
     if logging {
       println!("read opcode {:#x} from [{:#x}]", op, self.r3000.pc());
     }
@@ -149,7 +153,7 @@ impl Interpreter {
           let rs = self.r3000.nth_reg(get_rs(op));
           let imm16 = get_imm16(op).half_sign_extended();
           let rt = get_rt(op);
-          let result = self.memory.$method(rs.wrapping_add(imm16));
+          let result = self.resolve_memresponse(self.memory.$method(rs.wrapping_add(imm16)));
           self.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt), result));
           log!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x} {}",
                     rt, rs, imm16, rs.wrapping_add(imm16), result, stringify!($method));
@@ -1015,7 +1019,6 @@ impl Interpreter {
 mod tests {
   use super::*;
 
-  #[test]
   fn dummy_bios() {
     //this is the entry point in case we want to test some dummy instructions
     const BIOS: Register = 0x1fc0_0000;
