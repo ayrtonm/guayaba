@@ -7,6 +7,15 @@ use std::fs::File;
 use crate::common::*;
 use crate::register::Register;
 use crate::register::Parts;
+use crate::dma::Transfer;
+use crate::dma::Chunks;
+use crate::dma::Blocks;
+use crate::dma::Direction;
+use crate::dma::Step;
+
+pub enum MemAction {
+  DMA(Vec<Transfer>),
+}
 
 pub const KB: usize = 1024;
 pub const MB: usize = 1024 * KB;
@@ -57,28 +66,55 @@ macro_rules! write_memory {
       let phys_addr = $address & PHYS_MASK[idx];
       match phys_addr {
         (Memory::MAIN_RAM..=Memory::MAIN_RAM_END) => {
-          $function(&mut *$self.main_ram, phys_addr - Memory::MAIN_RAM, $value)
+          $function(&mut *$self.main_ram, phys_addr - Memory::MAIN_RAM, $value);
+          None
         },
         (Memory::EXPANSION_1..=Memory::EXPANSION_1_END) => {
-          $function(&mut *$self.expansion_1, phys_addr - Memory::EXPANSION_1, $value)
+          $function(&mut *$self.expansion_1, phys_addr - Memory::EXPANSION_1, $value);
+          None
         },
         (Memory::SCRATCHPAD..=Memory::SCRATCHPAD_END) => {
-          $function(&mut $self.scratchpad, phys_addr - Memory::SCRATCHPAD, $value)
+          $function(&mut $self.scratchpad, phys_addr - Memory::SCRATCHPAD, $value);
+          None
         },
         (Memory::IO_PORTS..=Memory::IO_PORTS_END) => {
-          $function(&mut $self.io_ports, phys_addr - Memory::IO_PORTS, $value)
+          $function(&mut $self.io_ports, phys_addr - Memory::IO_PORTS, $value);
+          match phys_addr {
+            0x1f8010f4..=0x1f8010f7 => {
+              let mut transfers = Vec::new();
+              let interrupt_register = $self.read_word(0x1f8010f4);
+              let master_irq = interrupt_register >> 31;
+              if master_irq != 0 {
+                for channel in 0..=6 {
+                  let channel_enabled = interrupt_register >> (16 + channel);
+                  let channel_irq = interrupt_register >> (24 + channel);
+                  if (channel_enabled & channel_irq) != 0 {
+                    transfers.push($self.dma_transfer(channel));
+                  }
+                }
+              }
+              Some(MemAction::DMA(transfers))
+            },
+            _ => {
+              None
+            },
+          }
         },
         (Memory::EXPANSION_2..=Memory::EXPANSION_2_END) => {
-          $function(&mut $self.expansion_2, phys_addr - Memory::EXPANSION_2, $value)
+          $function(&mut $self.expansion_2, phys_addr - Memory::EXPANSION_2, $value);
+          None
         },
         (Memory::EXPANSION_3..=Memory::EXPANSION_3_END) => {
-          $function(&mut *$self.expansion_3, phys_addr - Memory::EXPANSION_3, $value)
+          $function(&mut *$self.expansion_3, phys_addr - Memory::EXPANSION_3, $value);
+          None
         },
         (Memory::BIOS..=Memory::BIOS_END) => {
-          $function(&mut *$self.bios, phys_addr - Memory::BIOS, $value)
+          $function(&mut *$self.bios, phys_addr - Memory::BIOS, $value);
+          None
         },
         (Memory::CACHE_CONTROL..=Memory::CACHE_CONTROL_END) => {
-          $function(&mut $self.cache_control, $address - Memory::CACHE_CONTROL, $value)
+          $function(&mut $self.cache_control, $address - Memory::CACHE_CONTROL, $value);
+          None
         },
         _ => {
           panic!("{} [{:#x}] = [{:#x}] = {:#x} is illegal", stringify!($function), $address, phys_addr, $value);
@@ -162,16 +198,92 @@ impl Memory {
     assert_eq!(address & 0x0000_0003, 0);
     read_memory!(address, read_word_from_array, self)
   }
-  pub fn write_byte(&mut self, address: Register, value: Register) {
-    write_memory!(address, value, write_byte_to_array, self);
+  pub fn write_byte(&mut self, address: Register, value: Register) -> Option<MemAction> {
+    write_memory!(address, value, write_byte_to_array, self)
   }
-  pub fn write_half(&mut self, address: Register, value: Register) {
+  pub fn write_half(&mut self, address: Register, value: Register) -> Option<MemAction> {
     assert_eq!(address & 0x0000_0001, 0);
-    write_memory!(address, value, write_half_to_array, self);
+    write_memory!(address, value, write_half_to_array, self)
   }
-  pub fn write_word(&mut self, address: Register, value: Register)  {
+  pub fn write_word(&mut self, address: Register, value: Register) -> Option<MemAction>  {
     assert_eq!(address & 0x0000_0003, 0);
-    write_memory!(address, value, write_word_to_array, self);
+    write_memory!(address, value, write_word_to_array, self)
+  }
+  fn dma_transfer(&self, channel: u32) -> Transfer {
+    assert!(channel < 7);
+    //these are addresses to locations in memory
+    let base_addr = 0x1f80_1080 + (channel * 0x0000_0010);
+    let block_control = base_addr + 4;
+    let channel_control = block_control + 4;
+
+    //these are the values of locations in memory
+    let start_address = self.read_word(base_addr) & 0x00ff_fffc;
+    let block_control = self.read_word(block_control);
+    let sync_mode = (self.read_word(channel_control) >> 9) & 3;
+    let direction = match self.read_word(channel_control) & 1 {
+      0 => Direction::ToRAM,
+      1 => Direction::FromRAM,
+      _ => unreachable!(""),
+    };
+    let step = match self.read_word(channel_control) & 2 {
+      0 => Step::Forward,
+      1 => Step::Backward,
+      _ => unreachable!(""),
+    };
+    let chunks = match sync_mode {
+      0 => {
+        let words = block_control & 0x0000_ffff;
+        Chunks::num_words(match words {
+          0 => {
+            0x0001_0000
+          },
+          _ => {
+            words
+          },
+        })
+      },
+      1 => {
+        let size = block_control & 0x0000_ffff;
+        let amount = block_control >> 16;
+        let max_size = match channel {
+          0 => {
+            0x20
+          },
+          1 => {
+            0x20
+          },
+          2 => {
+            0x10
+          },
+          4 => {
+            0x10
+          },
+          _ => {
+            unreachable!("DMA channel {} is not configured properly", channel);
+          },
+        };
+        Chunks::blocks(
+          Blocks::new(
+            if size < max_size {
+              size
+            } else {
+              max_size
+            } as u16,
+            amount as u16
+          )
+        )
+      },
+      2 => {
+        Chunks::LinkedList
+      },
+      3 => {
+        unreachable!("DMA channel {} is not configured properly", channel);
+      },
+      _ => {
+        unreachable!("DMA channel {} is not configured properly", channel);
+      },
+    };
+    Transfer::new(start_address, chunks, direction, step, sync_mode)
   }
 }
 

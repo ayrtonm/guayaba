@@ -12,9 +12,10 @@ use crate::r3000::Name;
 use crate::cop0::Cop0;
 use crate::cop0::Cop0Exception;
 use crate::memory::Memory;
+use crate::memory::MemAction;
 use crate::cd::CD;
 use crate::gte::GTE;
-use crate::dma::DMA;
+use crate::dma::Transfer;
 
 pub struct Interpreter {
   //these correspond to physical components
@@ -23,7 +24,6 @@ pub struct Interpreter {
   memory: Memory,
   gte: GTE,
   cd: Option<CD>,
-  dma: DMA,
 
   //regular members of interpreter
   next_pc: Option<Register>,
@@ -39,7 +39,6 @@ impl Interpreter {
     let memory = Memory::new(bios_filename)?;
     let gte = Default::default();
     let cd = infile.and_then(|f| CD::new(f).ok());
-    let dma = Default::default();
     let delayed_writes = VecDeque::new();
     Ok(Interpreter {
       r3000,
@@ -47,7 +46,6 @@ impl Interpreter {
       memory,
       gte,
       cd,
-      dma,
       next_pc: None,
       delayed_writes,
       modified_register: None,
@@ -117,7 +115,8 @@ impl Interpreter {
           let rt = get_rt(op);
           let result = self.memory.$method(rs.wrapping_add(imm16));
           self.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt), result));
-          log!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x} {}", rt, rs, imm16, rs.wrapping_add(imm16), result, stringify!($method));
+          log!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x} {}",
+                    rt, rs, imm16, rs.wrapping_add(imm16), result, stringify!($method));
           None
         }
       };
@@ -127,9 +126,18 @@ impl Interpreter {
           let rs = self.r3000.nth_reg(get_rs(op));
           let rt = self.r3000.nth_reg(get_rt(op));
           let imm16 = get_imm16(op).half_sign_extended();
-          log!("[{:#x} + {:#x}] = [{:#x}] \n  = R{}\n  = {:#x} {}", rs, imm16, rs.wrapping_add(imm16), get_rt(op), rt, stringify!($method));
+          log!("[{:#x} + {:#x}] = [{:#x}] \n  = R{}\n  = {:#x} {}",
+                    rs, imm16, rs.wrapping_add(imm16), get_rt(op), rt, stringify!($method));
           if !self.cop0.cache_isolated() {
-            self.memory.$method(rs.wrapping_add(imm16), rt);
+            self.memory.$method(rs.wrapping_add(imm16), rt).map(
+              |action| {
+                match action {
+                  MemAction::DMA(transfers) => {
+                    //take care of transfer here
+                  },
+                }
+              }
+            );
           } else {
             log!("ignoring write while cache is isolated");
           }
