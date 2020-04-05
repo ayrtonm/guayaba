@@ -175,10 +175,10 @@ impl Interpreter {
                   MemAction::DMA(transfers) => {
                     self.handle_dma(transfers)
                   },
-                  MemAction::GPU_GP0(value) => {
+                  MemAction::GpuGp0(value) => {
                     self.gpu.write_to_gp0(value)
                   },
-                  MemAction::GPU_GP1(value) => {
+                  MemAction::GpuGp1(value) => {
                     self.gpu.write_to_gp1(value)
                   },
                 }

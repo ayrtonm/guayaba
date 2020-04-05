@@ -15,12 +15,12 @@ use crate::dma::Step;
 
 pub enum MemAction {
   DMA(Vec<Transfer>),
-  GPU_GP0(Register),
-  GPU_GP1(Register),
+  GpuGp0(Register),
+  GpuGp1(Register),
 }
 
 pub enum MemResponse {
-  value(Register),
+  Value(Register),
   GPU,
 }
 
@@ -35,13 +35,13 @@ macro_rules! read_memory {
       let phys_addr = $address & PHYS_MASK[idx];
       match phys_addr {
         (Memory::MAIN_RAM..=Memory::MAIN_RAM_END) => {
-          MemResponse::value($function(&*$self.main_ram, phys_addr - Memory::MAIN_RAM))
+          MemResponse::Value($function(&*$self.main_ram, phys_addr - Memory::MAIN_RAM))
         },
         (Memory::EXPANSION_1..=Memory::EXPANSION_1_END) => {
-          MemResponse::value($function(&*$self.expansion_1, phys_addr - Memory::EXPANSION_1))
+          MemResponse::Value($function(&*$self.expansion_1, phys_addr - Memory::EXPANSION_1))
         },
         (Memory::SCRATCHPAD..=Memory::SCRATCHPAD_END) => {
-          MemResponse::value($function(&$self.scratchpad, phys_addr - Memory::SCRATCHPAD))
+          MemResponse::Value($function(&$self.scratchpad, phys_addr - Memory::SCRATCHPAD))
         },
         (Memory::IO_PORTS..=Memory::IO_PORTS_END) => {
           match phys_addr {
@@ -49,21 +49,21 @@ macro_rules! read_memory {
               MemResponse::GPU
             },
             _ => {
-              MemResponse::value($function(&$self.io_ports, phys_addr - Memory::IO_PORTS))
+              MemResponse::Value($function(&$self.io_ports, phys_addr - Memory::IO_PORTS))
             },
           }
         },
         (Memory::EXPANSION_2..=Memory::EXPANSION_2_END) => {
-          MemResponse::value($function(&$self.expansion_2, phys_addr - Memory::EXPANSION_2))
+          MemResponse::Value($function(&$self.expansion_2, phys_addr - Memory::EXPANSION_2))
         },
         (Memory::EXPANSION_3..=Memory::EXPANSION_3_END) => {
-          MemResponse::value($function(&*$self.expansion_3, phys_addr - Memory::EXPANSION_3))
+          MemResponse::Value($function(&*$self.expansion_3, phys_addr - Memory::EXPANSION_3))
         },
         (Memory::BIOS..=Memory::BIOS_END) => {
-          MemResponse::value($function(&*$self.bios, phys_addr - Memory::BIOS))
+          MemResponse::Value($function(&*$self.bios, phys_addr - Memory::BIOS))
         },
         (Memory::CACHE_CONTROL..=Memory::CACHE_CONTROL_END) => {
-          MemResponse::value($function(&$self.cache_control, $address - Memory::CACHE_CONTROL))
+          MemResponse::Value($function(&$self.cache_control, $address - Memory::CACHE_CONTROL))
         },
         _ => {
           panic!("{} [{:#x}] = [{:#x}] is illegal", stringify!($function), $address, phys_addr);
@@ -96,13 +96,13 @@ macro_rules! write_memory {
           match phys_addr {
             0x1f80_1810..=0x1f80_1813 => {
               Some(
-                MemAction::GPU_GP0(
+                MemAction::GpuGp0(
                   read_word_from_array(
                     &$self.io_ports, 0x1f80_1810 - Memory::IO_PORTS)))
             },
             0x1f80_1814..=0x1f80_1817 => {
               Some(
-                MemAction::GPU_GP1(
+                MemAction::GpuGp1(
                   read_word_from_array(
                     &$self.io_ports, 0x1f80_1814 - Memory::IO_PORTS)))
             },
@@ -210,22 +210,22 @@ impl Memory {
   //TODO: technically this doesn't sign extend the GPU response
   pub fn read_byte_sign_extended(&self, address: Register) -> MemResponse {
     match read_memory!(address, read_byte_from_array, self) {
-      MemResponse::value(value) => {
-        MemResponse::value(value.byte_sign_extended())
+      MemResponse::Value(value) => {
+        MemResponse::Value(value.byte_sign_extended())
       },
-      GPU => {
-        GPU
+      MemResponse::GPU => {
+        MemResponse::GPU
       },
     }
   }
   pub fn read_half_sign_extended(&self, address: Register) -> MemResponse {
     assert_eq!(address & 0x0000_0001, 0);
     match read_memory!(address, read_half_from_array, self) {
-      MemResponse::value(value) => {
-        MemResponse::value(value.half_sign_extended())
+      MemResponse::Value(value) => {
+        MemResponse::Value(value.half_sign_extended())
       },
-      GPU => {
-        GPU
+      MemResponse::GPU => {
+        MemResponse::GPU
       },
     }
   }
