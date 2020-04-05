@@ -167,9 +167,7 @@ impl R3000 {
         self.lo = operation.value;
       },
       Name::Rn(idx) => {
-        assert!((idx < 32) && (idx > 0));
-        let idx = idx as usize;
-        self.general_registers[idx - 1] = operation.value;
+        self.nth_reg_mut(idx).maybe_set(operation.value);
       },
     }
   }
