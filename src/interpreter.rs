@@ -211,7 +211,7 @@ impl Interpreter {
         }
       };
       //ALU instructions with a register and immediate 16-bit data that trap overflow
-      (rt = rs $method:ident imm16 trap) => {
+      (rt = rs $method:ident signed imm16 trap) => {
         {
           let rs = self.r3000.nth_reg(get_rs(op)) as u64;
           let imm16 = get_imm16(op).half_sign_extended() as u64;
@@ -230,6 +230,19 @@ impl Interpreter {
       };
       //ALU instructions with a register and immediate 16-bit data
       (rt = rs $method:tt imm16) => {
+        {
+          let rs = self.r3000.nth_reg(get_rs(op));
+          let imm16 = get_imm16(op);
+          let rt = self.r3000.nth_reg_mut(get_rt(op));
+          self.modified_register = rt.maybe_set(rs.$method(imm16));
+          log!("R{} = R{} {} {:#x} \n  = {:#x} {} {:#x} \n  = {:#x}",
+                    get_rt(op), get_rs(op), stringify!($method), imm16,
+                    rs, stringify!($method), imm16, self.r3000.nth_reg(get_rt(op)));
+          None
+        }
+      };
+      //ALU instructions with a register and immediate 16-bit data
+      (rt = rs $method:tt signed imm16) => {
         {
           let rs = self.r3000.nth_reg(get_rs(op));
           let imm16 = get_imm16(op).half_sign_extended();
@@ -561,114 +574,142 @@ impl Interpreter {
         match get_secondary_field(op) {
           0x00 => {
             //SLL
+            log!("> SLL");
             compute!(rd = rt shl imm5)
           },
           0x02 => {
             //SRL
+            log!("> SRL");
             compute!(rd = rt shr imm5)
           },
           0x03 => {
             //SRA
+            log!("> SRA");
             compute!(rd = rt sra imm5)
           },
           0x04 => {
             //SLLV
+            log!("> SLLV");
             compute!(rd = rt shl (rs and 0x1F))
           },
           0x06 => {
             //SRLV
+            log!("> SRLV");
             compute!(rd = rt shr (rs and 0x1F))
           },
           0x07 => {
             //SRAV
+            log!("> SRAV");
             compute!(rd = rt sra (rs and 0x1F))
           },
           0x08 => {
             //JR
+            log!("> JR");
             jump!(rs)
           },
           0x09 => {
             //JALR
+            log!("> JALR");
             call!(rs)
           },
           0x0C => {
             //SYSCALL
+            log!("> SYSCALL");
             todo!("syscall")
           },
           0x0D => {
             //BREAK
+            log!("> BREAK");
             todo!("break")
           },
           0x10 => {
             //MFHI
+            log!("> MFHI");
             mov!(rd = hi)
           },
           0x11 => {
             //MTHI
+            log!("> MTHI");
             mov!(hi = rs)
           },
           0x12 => {
             //MFLO
+            log!("> MFLO");
             mov!(rd = lo)
           },
           0x13 => {
             //MTLO
+            log!("> MTLO");
             mov!(lo = rs)
           },
           0x18 => {
             //MULT
+            log!("> MULT");
             compute!(hi:lo = rs * rt signed)
           },
           0x19 => {
             //MULTU
+            log!("> MULTU");
             compute!(hi:lo = rs * rt)
           },
           0x1A => {
             //DIV
+            log!("> DIV");
             compute!(hi:lo = rs / rt signed)
           },
           0x1B => {
             //DIVU
+            log!("> DIVU");
             compute!(hi:lo = rs / rt)
           },
           0x20 => {
             //ADD
+            log!("> ADD");
             compute!(rd = rs wrapping_add rt trap)
           },
           0x21 => {
             //ADDU
+            log!("> ADDU");
             compute!(rd = rs wrapping_add rt)
           },
           0x22 => {
             //SUB
+            log!("> SUB");
             compute!(rd = rs wrapping_sub rt trap)
           },
           0x23 => {
             //SUBU
+            log!("> SUBU");
             compute!(rd = rs wrapping_sub rt)
           },
           0x24 => {
             //AND
+            log!("> AND");
             compute!(rd = rs and rt)
           },
           0x25 => {
             //OR
+            log!("> OR");
             compute!(rd = rs or rt)
           },
           0x26 => {
             //XOR
+            log!("> XOR");
             compute!(rd = rs xor rt)
           },
           0x27 => {
             //NOR
+            log!("> NOR");
             compute!(rd = rs nor rt)
           },
           0x2A => {
             //SLT
+            log!("> SLT");
             compute!(rd = rs signed_compare rt)
           },
           0x2B => {
             //SLTU
+            log!("> SLTU");
             compute!(rd = rs compare rt)
           },
           _ => {
@@ -682,18 +723,22 @@ impl Interpreter {
         match get_rt(op) {
           0x00 => {
             //BLTZ
+            log!("> BLTZ");
             jump!(rs < 0)
           },
           0x01 => {
             //BGEZ
+            log!("> BGEZ");
             jump!(rs >= 0)
           },
           0x80 => {
             //BLTZAL
+            log!("> BLTZAL");
             call!(rs < 0)
           },
           0x81 => {
             //BGEZAL
+            log!("> BGEZAL");
             call!(rs >= 0)
           },
           _ => {
@@ -704,62 +749,77 @@ impl Interpreter {
       },
       0x02 => {
         //J
+        log!("> J");
         jump!(imm26)
       },
       0x03 => {
         //JAL
+        log!("> JAL");
         call!(imm26)
       },
       0x04 => {
         //BEQ
+        log!("> BEQ");
         jump!(rs == rt)
       },
       0x05 => {
         //BNE
+        log!("> BNE");
         jump!(rs != rt)
       },
       0x06 => {
         //BLEZ
+        log!("> BLEZ");
         jump!(rs <= 0)
       },
       0x07 => {
         //BGTZ
+        log!("> BGTZ");
         jump!(rs > 0)
       },
       0x08 => {
         //ADDI
-        compute!(rt = rs wrapping_add imm16 trap)
+        log!("> ADDI");
+        compute!(rt = rs wrapping_add signed imm16 trap)
       },
       0x09 => {
         //ADDIU
-        compute!(rt = rs wrapping_add imm16)
+        log!("> ADDIU");
+        compute!(rt = rs wrapping_add signed imm16)
       },
       0x0A => {
         //SLTI
+        log!("> SLTI");
         compute!(rt = rs signed_compare imm16)
       },
       0x0B => {
         //SLTIU
+        log!("> SLTIU");
         compute!(rt = rs compare imm16)
       },
       0x0C => {
         //ANDI
+        log!("> ANDI");
         compute!(rt = rs and imm16)
       },
       0x0D => {
         //ORI
+        log!("> ORI");
         compute!(rt = rs or imm16)
       },
       0x0E => {
         //XORI
+        log!("> XORI");
         compute!(rt = rs xor imm16)
       },
       0x0F => {
         //LUI
+        log!("> LUI");
         compute!(rt = imm16 shl 16)
       },
       0x10 => {
         //COP0
+        log!("> COP0");
         cop!(cop0)
       },
       0x11 => {
@@ -768,6 +828,7 @@ impl Interpreter {
       },
       0x12 => {
         //COP2
+        log!("> COP2");
         cop!(gte)
       },
       0x13 => {
@@ -776,50 +837,62 @@ impl Interpreter {
       },
       0x20 => {
         //LB
+        log!("> LB");
         mov!(rt = [rs + imm16] read_byte_sign_extended)
       },
       0x21 => {
         //LH
+        log!("> LH");
         mov!(rt = [rs + imm16] read_half_sign_extended)
       },
       0x22 => {
         //LWL
+        log!("> LWL");
         todo!("lwl")
       },
       0x23 => {
         //LW
+        log!("> LW");
         mov!(rt = [rs + imm16] read_word)
       },
       0x24 => {
         //LBU
+        log!("> LBU");
         mov!(rt = [rs + imm16] read_byte)
       },
       0x25 => {
         //LHU
+        log!("> LHU");
         mov!(rt = [rs + imm16] read_half)
       },
       0x26 => {
         //LWR
+        log!("> LWR");
         todo!("lwr")
       },
       0x28 => {
         //SB
+        log!("> SB");
         mov!([rs + imm16] = rt write_byte)
       },
       0x29 => {
         //SH
+        log!("> SH");
         mov!([rs + imm16] = rt write_half)
       },
       0x2A => {
         //SWL
+        log!("> SWL");
         todo!("swl")
       },
       0x2B => {
         //SW
+        log!("> SW");
         mov!([rs + imm16] = rt write_word)
       },
       0x2E => {
         //SWR
+        log!("> SWR");
         todo!("swr")
       },
       0x30 => {

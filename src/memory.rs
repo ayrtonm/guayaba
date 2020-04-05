@@ -49,7 +49,7 @@ macro_rules! read_memory {
           } else {
             0
           };
-          println!("{} [{:#x}] = [{:#x}] = {:#x} handled by hashmap", stringify!($function), $address, phys_addr, result);
+          panic!("{} [{:#x}] = [{:#x}] = {:#x} handled by hashmap", stringify!($function), $address, phys_addr, result);
           result
         },
       }
@@ -89,7 +89,7 @@ macro_rules! write_memory {
         },
         _ => {
           $self.extra.insert($address, $value);
-          println!("{} [{:#x}] = [{:#x}] = {:#x} handled by hashmap", stringify!($function), $address, phys_addr, $value);
+          panic!("{} [{:#x}] = [{:#x}] = {:#x} handled by hashmap", stringify!($function), $address, phys_addr, $value);
         },
       }
   }
