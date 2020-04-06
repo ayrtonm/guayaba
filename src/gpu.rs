@@ -142,7 +142,6 @@ impl GPU {
     }
   }
   pub fn write_to_gp0(&mut self, value: Register) {
-    println!("wrote {:#x} to GP0", value);
     if self.waiting_for_parameters {
       let mut cmd = self.partial_command.take().unwrap();
       cmd.append_parameters(value);
@@ -162,7 +161,6 @@ impl GPU {
     }
   }
   pub fn write_to_gp1(&mut self, value: Register) {
-    println!("wrote {:#x} to GP1", value);
     let id = ((value >> 24) & 0x3f) as u8;
     match id {
       0x00 => {
