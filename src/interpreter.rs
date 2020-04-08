@@ -116,6 +116,17 @@ impl Interpreter {
       MemResponse::GPU => 0,
     }
   }
+  fn resolve_memaction(&mut self, maybe_action: Option<MemAction>) {
+    maybe_action.map(
+      |action| {
+        match action {
+          MemAction::DMA(transfers) => self.handle_dma(transfers),
+          MemAction::GpuGp0(value) => self.gpu.write_to_gp0(value),
+          MemAction::GpuGp1(value) => self.gpu.write_to_gp1(value),
+        }
+      }
+    );
+  }
   fn handle_dma(&mut self, transfers: Vec<Transfer>) {
     transfers.iter().for_each(
       |transfer| {
@@ -199,15 +210,8 @@ impl Interpreter {
           log!("[{:#x} + {:#x}] = [{:#x}] \n  = R{}\n  = {:#x} {}",
                     rs, imm16, rs.wrapping_add(imm16), get_rt(op), rt, stringify!($method));
           if !self.cop0.cache_isolated() {
-            self.memory.$method(rs.wrapping_add(imm16), rt).map(
-              |action| {
-                match action {
-                  MemAction::DMA(transfers) => self.handle_dma(transfers),
-                  MemAction::GpuGp0(value) => self.gpu.write_to_gp0(value),
-                  MemAction::GpuGp1(value) => self.gpu.write_to_gp1(value),
-                }
-              }
-            );
+            let maybe_action = self.memory.$method(rs.wrapping_add(imm16), rt);
+            self.resolve_memaction(maybe_action);
           } else {
             log!("ignoring write while cache is isolated");
           }
