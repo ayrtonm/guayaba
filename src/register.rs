@@ -8,6 +8,9 @@ pub trait Parts {
   fn byte(&self) -> Register;
   fn half_sign_extended(&self) -> Register;
   fn byte_sign_extended(&self) -> Register;
+}
+
+pub trait Aliases {
   fn sra(&self, rhs: Register) -> Register;
   fn and(&self, rhs: Register) -> Register;
   fn or(&self, rhs: Register) -> Register;
@@ -16,6 +19,7 @@ pub trait Parts {
   fn compare(&self, rhs: Register) -> Register;
   fn signed_compare(&self, rhs: Register) -> Register;
 }
+
 impl Parts for Register{
   fn word(&self) -> Register {
     *self
@@ -54,6 +58,9 @@ impl Parts for Register{
       },
     }
   }
+}
+
+impl Aliases for Register {
   fn sra(&self, rhs: Register) -> Register {
     (*self as i32).shr(rhs) as Register
   }

@@ -1,7 +1,7 @@
 use crate::register::Register;
 
 pub trait DMAChannel {
-  fn send(&mut self, value: Register);
+  fn send(&mut self, data: Vec<Register>);
   fn receive(&self) -> Register;
 }
 

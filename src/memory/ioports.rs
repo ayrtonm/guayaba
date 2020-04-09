@@ -1,6 +1,5 @@
 use crate::common::*;
 use crate::memory::Memory;
-use crate::memory::MemAction;
 use crate::dma::Transfer;
 use crate::dma::Chunks;
 use crate::dma::Blocks;

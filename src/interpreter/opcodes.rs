@@ -2,6 +2,7 @@ use std::ops::Shl;
 use std::ops::Shr;
 use crate::register::Register;
 use crate::register::Parts;
+use crate::register::Aliases;
 use crate::r3000::MaybeSet;
 use crate::r3000::DelayedWrite;
 use crate::r3000::Name;

@@ -34,7 +34,7 @@ impl CD {
 }
 
 impl DMAChannel for CD {
-  fn send(&mut self, value: Register) {
+  fn send(&mut self, data: Vec<Register>) {
   }
   fn receive(&self) -> Register {
     0

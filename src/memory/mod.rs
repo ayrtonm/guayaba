@@ -8,6 +8,7 @@ use crate::common::*;
 use crate::register::Register;
 use crate::register::Parts;
 use crate::dma::Transfer;
+use crate::dma::DMAChannel;
 
 mod ioports;
 
@@ -115,18 +116,21 @@ macro_rules! write_memory {
               println!(">> [{:#x}] = {:#x}", phys_addr, $value);
               None
             },
+            //DMA interrupt register
             0x1f80_10f4..=0x1f80_10f7 => {
               println!(">> [{:#x}] = {:#x}", phys_addr, $value);
               let interrupt_register = read_word_from_array(
                 &$self.io_ports, 0x1f8010f4 - Memory::IO_PORTS);
               let master_irq = interrupt_register >> 31;
+              let master_enable = (interrupt_register >> 23) & 1;
               let mut transfers = Vec::new();
-              if master_irq != 0 {
+              if master_enable != 0 {
                 for channel in 0..=6 {
-                  let channel_enabled = interrupt_register >> (16 + channel);
-                  let channel_irq = interrupt_register >> (24 + channel);
-                  if (channel_enabled & channel_irq) != 0 {
+                  let channel_enable = (interrupt_register >> (16 + channel)) & 1;
+                  let channel_irq = (interrupt_register >> (24 + channel)) & 1;
+                  if (channel_enable & channel_irq) != 0 {
                     transfers.push($self.create_dma_transfer(channel));
+                    println!("{:?}", transfers);
                   }
                 }
               }
@@ -171,6 +175,14 @@ pub struct Memory {
   expansion_3: Box<[u8]>,
   bios: Box<[u8; 512 * KB]>,
   cache_control: [u8; 512],
+}
+
+impl DMAChannel for Memory {
+  fn send(&mut self, data: Vec<Register>) {
+  }
+  fn receive(&self) -> Register {
+    0
+  }
 }
 
 impl Memory {

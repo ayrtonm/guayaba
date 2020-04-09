@@ -38,7 +38,7 @@ impl Interpreter{
               }
             }
             let mut channel = self.get_dma_channel(transfer.channel());
-            buffer.iter().for_each(|&val| {channel.as_mut().map(|c| c.send(val));});
+            channel.map(|channel| channel.send(buffer));
             println!("sent data on DMA channel {}", transfer.channel());
           },
           _ => {
@@ -54,6 +54,9 @@ impl Interpreter{
       },
       3 => {
         self.cd.as_mut().map(|cd| cd as &mut dyn DMAChannel)
+      },
+      6 => {
+        Some(&mut self.memory)
       },
       _ => {
         todo!("implement get_dma_channel() for channel {}", channel)

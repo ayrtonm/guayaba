@@ -134,8 +134,8 @@ pub struct GPU {
 }
 
 impl DMAChannel for GPU {
-  fn send(&mut self, value: Register) {
-    self.write_to_gp0(value)
+  fn send(&mut self, data: Vec<Register>) {
+    data.iter().for_each(|&word| self.write_to_gp0(word))
   }
   fn receive(&self) -> Register {
     self.gpuread

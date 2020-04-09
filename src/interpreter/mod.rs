@@ -13,7 +13,7 @@ use crate::gpu::GPU;
 use crate::gte::GTE;
 
 mod opcodes;
-mod dma;
+mod handle_dma;
 
 pub struct Interpreter {
   //these correspond to physical components
