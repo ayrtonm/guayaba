@@ -113,6 +113,11 @@ macro_rules! write_memory {
             },
             0x1f80_1080..=0x1f80_10f3 => {
               println!(">> [{:#x}] = {:#x}", phys_addr, $value);
+              if phys_addr == 0x1f8010e8 && $value == 0x11000002 {
+                for i in 0..=6 {
+                  println!("{:#x?}", $self.dma_transfer(i));
+                }
+              };
               None
             },
             0x1f80_10f4..=0x1f80_10f7 => {
@@ -289,7 +294,7 @@ impl Memory {
     };
     let step = match read_word_from_array(&self.io_ports, channel_control) & 2 {
       0 => Step::Forward,
-      1 => Step::Backward,
+      2 => Step::Backward,
       _ => unreachable!(""),
     };
     let chunks = match sync_mode {
