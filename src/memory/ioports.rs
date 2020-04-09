@@ -1,5 +1,6 @@
-use crate::common::*;
+use crate::common::ReadArray;
 use crate::memory::Memory;
+use crate::register::Aliases;
 use crate::dma::Transfer;
 use crate::dma::Chunks;
 use crate::dma::Blocks;
@@ -16,17 +17,17 @@ impl Memory {
     let channel_control = block_control + 4;
   
     //these are the values of locations in memory
-    let start_address = read_word_from_array(&self.io_ports, base_addr) & 0x00ff_fffc;
-    let block_control = read_word_from_array(&self.io_ports, block_control);
-    let sync_mode = (read_word_from_array(&self.io_ports, channel_control) >> 9) & 3;
-    let direction = match read_word_from_array(&self.io_ports, channel_control) & 1 {
+    let start_address = self.io_ports.as_ref().read_word(base_addr) & 0x00ff_fffc;
+    let block_control = self.io_ports.as_ref().read_word(block_control);
+    let sync_mode = (self.io_ports.as_ref().read_word(channel_control) >> 9) & 3;
+    let direction = match self.io_ports.as_ref().read_word(channel_control).nth_bit(0) {
       0 => Direction::ToRAM,
       1 => Direction::FromRAM,
       _ => unreachable!(""),
     };
-    let step = match read_word_from_array(&self.io_ports, channel_control) & 2 {
+    let step = match self.io_ports.as_ref().read_word(channel_control).nth_bit(1) {
       0 => Step::Forward,
-      2 => Step::Backward,
+      1 => Step::Backward,
       _ => unreachable!(""),
     };
     let chunks = match sync_mode {

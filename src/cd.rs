@@ -3,7 +3,6 @@ use std::io::Seek;
 use std::io::SeekFrom;
 use std::io::Read;
 use std::fs::File;
-use crate::common::read_word_from_array;
 use crate::register::Register;
 use crate::dma::DMAChannel;
 
@@ -20,16 +19,6 @@ impl CD {
     Ok(CD {
       contents: Box::new(buffer),
     })
-  }
-  fn read_word(&self, address: u32) -> u32 {
-    read_word_from_array(&self.contents, address)
-  }
-  //print the first n words in the input file
-  pub fn preview(&self, n: u32) {
-    println!("Previewing the contents of the input CD");
-    for i in 0..n {
-      println!("{:#x} ", self.read_word(i * 4));
-    }
   }
 }
 

@@ -4,9 +4,11 @@ use std::io::SeekFrom;
 use std::io::Read;
 use std::fs::metadata;
 use std::fs::File;
-use crate::common::*;
+use crate::common::ReadArray;
+use crate::common::WriteArray;
 use crate::register::Register;
 use crate::register::Parts;
+use crate::register::Aliases;
 use crate::dma::Transfer;
 use crate::dma::DMAChannel;
 
@@ -36,13 +38,13 @@ macro_rules! read_memory {
       let phys_addr = $address & PHYS_MASK[idx];
       match phys_addr {
         (Memory::MAIN_RAM..=Memory::MAIN_RAM_END) => {
-          MemResponse::Value($function(&*$self.main_ram, phys_addr - Memory::MAIN_RAM))
+          MemResponse::Value($self.main_ram.as_ref().$function(phys_addr - Memory::MAIN_RAM))
         },
         (Memory::EXPANSION_1..=Memory::EXPANSION_1_END) => {
-          MemResponse::Value($function(&*$self.expansion_1, phys_addr - Memory::EXPANSION_1))
+          MemResponse::Value($self.expansion_1.as_ref().$function(phys_addr - Memory::EXPANSION_1))
         },
         (Memory::SCRATCHPAD..=Memory::SCRATCHPAD_END) => {
-          MemResponse::Value($function(&$self.scratchpad, phys_addr - Memory::SCRATCHPAD))
+          MemResponse::Value($self.scratchpad.as_ref().$function(phys_addr - Memory::SCRATCHPAD))
         },
         (Memory::IO_PORTS..=Memory::IO_PORTS_END) => {
           match phys_addr {
@@ -53,21 +55,21 @@ macro_rules! read_memory {
               MemResponse::GPUSTAT
             },
             _ => {
-              MemResponse::Value($function(&$self.io_ports, phys_addr - Memory::IO_PORTS))
+              MemResponse::Value($self.io_ports.as_ref().$function(phys_addr - Memory::IO_PORTS))
             },
           }
         },
         (Memory::EXPANSION_2..=Memory::EXPANSION_2_END) => {
-          MemResponse::Value($function(&$self.expansion_2, phys_addr - Memory::EXPANSION_2))
+          MemResponse::Value($self.expansion_2.as_ref().$function(phys_addr - Memory::EXPANSION_2))
         },
         (Memory::EXPANSION_3..=Memory::EXPANSION_3_END) => {
-          MemResponse::Value($function(&*$self.expansion_3, phys_addr - Memory::EXPANSION_3))
+          MemResponse::Value($self.expansion_3.as_ref().$function(phys_addr - Memory::EXPANSION_3))
         },
         (Memory::BIOS..=Memory::BIOS_END) => {
-          MemResponse::Value($function(&*$self.bios, phys_addr - Memory::BIOS))
+          MemResponse::Value($self.bios.as_ref().as_ref().$function(phys_addr - Memory::BIOS))
         },
         (Memory::CACHE_CONTROL..=Memory::CACHE_CONTROL_END) => {
-          MemResponse::Value($function(&$self.cache_control, $address - Memory::CACHE_CONTROL))
+          MemResponse::Value($self.cache_control.as_ref().$function($address - Memory::CACHE_CONTROL))
         },
         _ => {
           panic!("{} [{:#x}] = [{:#x}] is illegal", stringify!($function), $address, phys_addr);
@@ -84,32 +86,32 @@ macro_rules! write_memory {
       let phys_addr = $address & PHYS_MASK[idx];
       match phys_addr {
         (Memory::MAIN_RAM..=Memory::MAIN_RAM_END) => {
-          $function(&mut *$self.main_ram, phys_addr - Memory::MAIN_RAM, $value);
+          $self.main_ram.as_mut().$function(phys_addr - Memory::MAIN_RAM, $value);
           None
         },
         (Memory::EXPANSION_1..=Memory::EXPANSION_1_END) => {
-          $function(&mut *$self.expansion_1, phys_addr - Memory::EXPANSION_1, $value);
+          $self.expansion_1.as_mut().$function(phys_addr - Memory::EXPANSION_1, $value);
           None
         },
         (Memory::SCRATCHPAD..=Memory::SCRATCHPAD_END) => {
-          $function(&mut $self.scratchpad, phys_addr - Memory::SCRATCHPAD, $value);
+          $self.scratchpad.as_mut().$function(phys_addr - Memory::SCRATCHPAD, $value);
           None
         },
         (Memory::IO_PORTS..=Memory::IO_PORTS_END) => {
-          $function(&mut $self.io_ports, phys_addr - Memory::IO_PORTS, $value);
+          $self.io_ports.as_mut().$function(phys_addr - Memory::IO_PORTS, $value);
           match phys_addr {
             //GPU registers
             0x1f80_1810..=0x1f80_1813 => {
               Some(
                 MemAction::GpuGp0(
-                  read_word_from_array(
-                    &$self.io_ports, 0x1f80_1810 - Memory::IO_PORTS)))
+                  $self.io_ports.as_ref().read_word(
+                    0x1f80_1810 - Memory::IO_PORTS)))
             },
             0x1f80_1814..=0x1f80_1817 => {
               Some(
                 MemAction::GpuGp1(
-                  read_word_from_array(
-                    &$self.io_ports, 0x1f80_1814 - Memory::IO_PORTS)))
+                  $self.io_ports.as_ref().read_word(
+                    0x1f80_1814 - Memory::IO_PORTS)))
             },
             //DMA registers
             0x1f80_1080..=0x1f80_10f3 => {
@@ -119,15 +121,14 @@ macro_rules! write_memory {
             //DMA interrupt register
             0x1f80_10f4..=0x1f80_10f7 => {
               println!(">> [{:#x}] = {:#x}", phys_addr, $value);
-              let interrupt_register = read_word_from_array(
-                &$self.io_ports, 0x1f8010f4 - Memory::IO_PORTS);
-              let master_irq = interrupt_register >> 31;
-              let master_enable = (interrupt_register >> 23) & 1;
+              let interrupt_register = $self.io_ports.as_ref().read_word(0x1f8010f4 - Memory::IO_PORTS);
+              let master_irq = interrupt_register.nth_bit(31);
+              let master_enable = interrupt_register.nth_bit(23);
               let mut transfers = Vec::new();
               if master_enable != 0 {
                 for channel in 0..=6 {
-                  let channel_enable = (interrupt_register >> (16 + channel)) & 1;
-                  let channel_irq = (interrupt_register >> (24 + channel)) & 1;
+                  let channel_enable = interrupt_register.nth_bit(16 + channel);
+                  let channel_irq = interrupt_register.nth_bit(24 + channel);
                   if (channel_enable & channel_irq) != 0 {
                     transfers.push($self.create_dma_transfer(channel));
                     println!("{:?}", transfers);
@@ -142,26 +143,26 @@ macro_rules! write_memory {
           }
         },
         (Memory::EXPANSION_2..=Memory::EXPANSION_2_END) => {
-          $function(&mut $self.expansion_2, phys_addr - Memory::EXPANSION_2, $value);
+          $self.expansion_2.as_mut().$function(phys_addr - Memory::EXPANSION_2, $value);
           None
         },
         (Memory::EXPANSION_3..=Memory::EXPANSION_3_END) => {
-          $function(&mut *$self.expansion_3, phys_addr - Memory::EXPANSION_3, $value);
+          $self.expansion_3.as_mut().$function(phys_addr - Memory::EXPANSION_3, $value);
           None
         },
         (Memory::BIOS..=Memory::BIOS_END) => {
-          $function(&mut *$self.bios, phys_addr - Memory::BIOS, $value);
+          $self.bios.as_mut().as_mut().$function(phys_addr - Memory::BIOS, $value);
           None
         },
         (Memory::CACHE_CONTROL..=Memory::CACHE_CONTROL_END) => {
-          $function(&mut $self.cache_control, $address - Memory::CACHE_CONTROL, $value);
+          $self.cache_control.as_mut().$function($address - Memory::CACHE_CONTROL, $value);
           None
         },
         _ => {
           panic!("{} [{:#x}] = [{:#x}] = {:#x} is illegal", stringify!($function), $address, phys_addr, $value);
         },
       }
-  }
+    }
   };
 }
 
@@ -196,7 +197,7 @@ impl Memory {
     let bios = Box::new(bios_contents);
     //initialize I/O ports
     let mut io_ports = [0; 8 * KB];
-    write_word_to_array(&mut io_ports, 0x1f8010f0 - Memory::IO_PORTS, 0x0765_4321);
+    io_ports.as_mut().write_word(0x1f8010f0 - Memory::IO_PORTS, 0x0765_4321);
     Ok(Memory {
       main_ram: vec![0; 2 * MB].into_boxed_slice(),
       expansion_1: vec![0; 8 * MB].into_boxed_slice(),
@@ -235,7 +236,7 @@ impl Memory {
   //FIXME: fix alignment restrictions, what happens when read is misaligned?
   //TODO: technically this doesn't sign extend the GPU response
   pub fn read_byte_sign_extended(&self, address: Register) -> MemResponse {
-    match read_memory!(address, read_byte_from_array, self) {
+    match read_memory!(address, read_byte, self) {
       MemResponse::Value(value) => {
         MemResponse::Value(value.byte_sign_extended())
       },
@@ -249,7 +250,7 @@ impl Memory {
   }
   pub fn read_half_sign_extended(&self, address: Register) -> MemResponse {
     assert_eq!(address & 0x0000_0001, 0);
-    match read_memory!(address, read_half_from_array, self) {
+    match read_memory!(address, read_half, self) {
       MemResponse::Value(value) => {
         MemResponse::Value(value.half_sign_extended())
       },
@@ -262,26 +263,26 @@ impl Memory {
     }
   }
   pub fn read_byte(&self, address: Register) -> MemResponse {
-    read_memory!(address, read_byte_from_array, self)
+    read_memory!(address, read_byte, self)
   }
   pub fn read_half(&self, address: Register) -> MemResponse {
     assert_eq!(address & 0x0000_0001, 0);
-    read_memory!(address, read_half_from_array, self)
+    read_memory!(address, read_half, self)
   }
   pub fn read_word(&self, address: Register) -> MemResponse {
     assert_eq!(address & 0x0000_0003, 0);
-    read_memory!(address, read_word_from_array, self)
+    read_memory!(address, read_word, self)
   }
   pub fn write_byte(&mut self, address: Register, value: Register) -> Option<MemAction> {
-    write_memory!(address, value, write_byte_to_array, self)
+    write_memory!(address, value, write_byte, self)
   }
   pub fn write_half(&mut self, address: Register, value: Register) -> Option<MemAction> {
     assert_eq!(address & 0x0000_0001, 0);
-    write_memory!(address, value, write_half_to_array, self)
+    write_memory!(address, value, write_half, self)
   }
   pub fn write_word(&mut self, address: Register, value: Register) -> Option<MemAction>  {
     assert_eq!(address & 0x0000_0003, 0);
-    write_memory!(address, value, write_word_to_array, self)
+    write_memory!(address, value, write_word, self)
   }
 }
 

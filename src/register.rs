@@ -18,6 +18,7 @@ pub trait Aliases {
   fn nor(&self, rhs: Register) -> Register;
   fn compare(&self, rhs: Register) -> Register;
   fn signed_compare(&self, rhs: Register) -> Register;
+  fn nth_bit(&self, n: Register) -> Register;
 }
 
 impl Parts for Register{
@@ -61,6 +62,9 @@ impl Parts for Register{
 }
 
 impl Aliases for Register {
+  fn nth_bit(&self, n: Register) -> Register {
+    (self >> n) & 1
+  }
   fn sra(&self, rhs: Register) -> Register {
     (*self as i32).shr(rhs) as Register
   }

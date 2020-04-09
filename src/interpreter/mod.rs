@@ -94,7 +94,6 @@ impl Interpreter {
           }
         }
       });
-    self.cd.as_ref().map(|cd| cd.preview(10));
   }
   fn resolve_memresponse(&mut self, response: MemResponse) -> Register {
     match response {

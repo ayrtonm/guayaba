@@ -1,33 +1,51 @@
-pub fn read_byte_from_array(arr: &[u8], address: u32) -> u32 {
-  let address = address as usize;
-  arr[address] as u32
-}
-pub fn read_half_from_array(arr: &[u8], address: u32) -> u32 {
-  let address = address as usize;
-  arr[address] as u32 |
-  (arr[address + 1] as u32) << 8
-}
-pub fn read_word_from_array(arr: &[u8], address: u32) -> u32 {
-  let address = address as usize;
-  arr[address] as u32 |
-  (arr[address + 1] as u32) << 8 |
-  (arr[address + 2] as u32) << 16 |
-  (arr[address + 3] as u32) << 24
+use crate::register::Register;
+
+pub trait ReadArray {
+  fn read_byte(&self, address: Register) -> Register;
+  fn read_half(&self, address: Register) -> Register;
+  fn read_word(&self, address: Register) -> Register;
 }
 
-pub fn write_byte_to_array(arr: &mut [u8], address: u32, value: u32) {
-  let address = address as usize;
-  arr[address] = (value & 0x0000_00ff) as u8;
+pub trait WriteArray {
+  fn write_byte(&mut self, address: Register, value: Register);
+  fn write_half(&mut self, address: Register, value: Register);
+  fn write_word(&mut self, address: Register, value: Register);
 }
-pub fn write_half_to_array(arr: &mut [u8], address: u32, value: u32) {
-  let address = address as usize;
-  arr[address] = (value & 0x0000_00ff) as u8;
-  arr[address + 1] = ((value >> 8) & 0x0000_00ff) as u8;
+
+impl ReadArray for &[u8] {
+  fn read_byte(&self, address: Register) -> Register {
+    let address = address as usize;
+    self[address] as Register
+  }
+  fn read_half(&self, address: Register) -> Register {
+    let address = address as usize;
+    self[address] as Register |
+    (self[address + 1] as Register) << 8
+  }
+  fn read_word(&self, address: Register) -> Register {
+    let address = address as usize;
+    self[address] as Register |
+    (self[address + 1] as Register) << 8 |
+    (self[address + 2] as Register) << 16 |
+    (self[address + 3] as Register) << 24
+  }
 }
-pub fn write_word_to_array(arr: &mut [u8], address: u32, value: u32) {
-  let address = address as usize;
-  arr[address] = (value & 0x0000_00ff) as u8;
-  arr[address + 1] = ((value >> 8) & 0x0000_00ff) as u8;
-  arr[address + 2] = ((value >> 16) & 0x0000_00ff) as u8;
-  arr[address + 3] = ((value >> 24) & 0x0000_00ff) as u8;
+
+impl WriteArray for &mut [u8] {
+  fn write_byte(&mut self, address: Register, value: Register) {
+    let address = address as usize;
+    self[address] = (value & 0x0000_00ff) as u8;
+  }
+  fn write_half(&mut self, address: Register, value: Register) {
+    let address = address as usize;
+    self[address] = (value & 0x0000_00ff) as u8;
+    self[address + 1] = ((value >> 8) & 0x0000_00ff) as u8;
+  }
+  fn write_word(&mut self, address: Register, value: Register) {
+    let address = address as usize;
+    self[address] = (value & 0x0000_00ff) as u8;
+    self[address + 1] = ((value >> 8) & 0x0000_00ff) as u8;
+    self[address + 2] = ((value >> 16) & 0x0000_00ff) as u8;
+    self[address + 3] = ((value >> 24) & 0x0000_00ff) as u8;
+  }
 }
