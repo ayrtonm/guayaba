@@ -8,10 +8,8 @@ use crate::common::*;
 use crate::register::Register;
 use crate::register::Parts;
 use crate::dma::Transfer;
-use crate::dma::Chunks;
-use crate::dma::Blocks;
-use crate::dma::Direction;
-use crate::dma::Step;
+
+mod ioports;
 
 pub enum MemAction {
   DMA(Vec<Transfer>),
@@ -99,6 +97,7 @@ macro_rules! write_memory {
         (Memory::IO_PORTS..=Memory::IO_PORTS_END) => {
           $function(&mut $self.io_ports, phys_addr - Memory::IO_PORTS, $value);
           match phys_addr {
+            //GPU registers
             0x1f80_1810..=0x1f80_1813 => {
               Some(
                 MemAction::GpuGp0(
@@ -111,13 +110,9 @@ macro_rules! write_memory {
                   read_word_from_array(
                     &$self.io_ports, 0x1f80_1814 - Memory::IO_PORTS)))
             },
+            //DMA registers
             0x1f80_1080..=0x1f80_10f3 => {
               println!(">> [{:#x}] = {:#x}", phys_addr, $value);
-              if phys_addr == 0x1f8010e8 && $value == 0x11000002 {
-                for i in 0..=6 {
-                  println!("{:#x?}", $self.dma_transfer(i));
-                }
-              };
               None
             },
             0x1f80_10f4..=0x1f80_10f7 => {
@@ -131,7 +126,7 @@ macro_rules! write_memory {
                   let channel_enabled = interrupt_register >> (16 + channel);
                   let channel_irq = interrupt_register >> (24 + channel);
                   if (channel_enabled & channel_irq) != 0 {
-                    transfers.push($self.dma_transfer(channel));
+                    transfers.push($self.create_dma_transfer(channel));
                   }
                 }
               }
@@ -167,6 +162,7 @@ macro_rules! write_memory {
 }
 
 pub struct Memory {
+  //these correspond to physical memory locations
   main_ram: Box<[u8]>,
   expansion_1: Box<[u8]>,
   scratchpad: [u8; KB],
@@ -274,63 +270,6 @@ impl Memory {
   pub fn write_word(&mut self, address: Register, value: Register) -> Option<MemAction>  {
     assert_eq!(address & 0x0000_0003, 0);
     write_memory!(address, value, write_word_to_array, self)
-  }
-  //pack the current state of I/O ports into a Transfer struct for a given channel
-  fn dma_transfer(&self, channel: u32) -> Transfer {
-    assert!(channel < 7);
-    //these are addresses to locations in memory
-    let base_addr = 0x1f80_1080 + (channel * 0x0000_0010) - Memory::IO_PORTS;
-    let block_control = base_addr + 4;
-    let channel_control = block_control + 4;
-
-    //these are the values of locations in memory
-    let start_address = read_word_from_array(&self.io_ports, base_addr) & 0x00ff_fffc;
-    let block_control = read_word_from_array(&self.io_ports, block_control);
-    let sync_mode = (read_word_from_array(&self.io_ports, channel_control) >> 9) & 3;
-    let direction = match read_word_from_array(&self.io_ports, channel_control) & 1 {
-      0 => Direction::ToRAM,
-      1 => Direction::FromRAM,
-      _ => unreachable!(""),
-    };
-    let step = match read_word_from_array(&self.io_ports, channel_control) & 2 {
-      0 => Step::Forward,
-      2 => Step::Backward,
-      _ => unreachable!(""),
-    };
-    let chunks = match sync_mode {
-      0 => {
-        let words = block_control & 0x0000_ffff;
-        Chunks::NumWords(match words {
-          0 => 0x0001_0000,
-          _ => words,
-        })
-      },
-      1 => {
-        let size = block_control & 0x0000_ffff;
-        let amount = block_control >> 16;
-        let max_size = match channel {
-          0 => 0x20,
-          1 => 0x20,
-          2 => 0x10,
-          4 => 0x10,
-          _ => unreachable!("DMA channel {} is not configured properly", channel),
-        };
-        Chunks::Blocks(
-          Blocks::new(
-            if size < max_size {
-              size
-            } else {
-              max_size
-            } as u16,
-            amount as u16
-          )
-        )
-      },
-      2 => Chunks::LinkedList,
-      3 => unreachable!("DMA channel {} is not configured properly", channel),
-      _ => unreachable!("DMA channel {} is not configured properly", channel),
-    };
-    Transfer::new(channel, start_address, chunks, direction, step, sync_mode)
   }
 }
 

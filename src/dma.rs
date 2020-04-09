@@ -1,5 +1,10 @@
 use crate::register::Register;
 
+pub trait DMAChannel {
+  fn send(&mut self, value: Register);
+  fn receive(&self) -> Register;
+}
+
 #[derive(Debug)]
 pub enum Chunks {
   NumWords(u32),
@@ -19,6 +24,12 @@ impl Blocks {
       block_size,
       num_blocks,
     }
+  }
+  pub fn block_size(&self) -> u16 {
+    self.block_size
+  }
+  pub fn num_blocks(&self) -> u16 {
+    self.num_blocks
   }
 }
 
@@ -56,10 +67,19 @@ impl Transfer {
       sync_mode,
     }
   }
+  pub fn step(&self) -> &Step {
+    &self.step
+  }
+  pub fn start_address(&self) -> u32 {
+    self.start_address
+  }
   pub fn channel(&self) -> u32 {
     self.channel
   }
   pub fn direction(&self) -> &Direction {
     &self.direction
+  }
+  pub fn chunks(&self) -> &Chunks {
+    &self.chunks
   }
 }

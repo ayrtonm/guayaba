@@ -4,6 +4,8 @@ use std::io::SeekFrom;
 use std::io::Read;
 use std::fs::File;
 use crate::common::read_word_from_array;
+use crate::register::Register;
+use crate::dma::DMAChannel;
 
 pub struct CD {
   contents: Box<Vec<u8>>,
@@ -28,5 +30,13 @@ impl CD {
     for i in 0..n {
       println!("{:#x} ", self.read_word(i * 4));
     }
+  }
+}
+
+impl DMAChannel for CD {
+  fn send(&mut self, value: Register) {
+  }
+  fn receive(&self) -> Register {
+    0
   }
 }

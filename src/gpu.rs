@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 use crate::memory::MB;
 use crate::register::Register;
+use crate::dma::DMAChannel;
 
 struct Command {
   id: u8,
@@ -130,6 +131,15 @@ pub struct GPU {
   command_buffer: VecDeque<Command>,
   waiting_for_parameters: bool,
   partial_command: Option<Command>,
+}
+
+impl DMAChannel for GPU {
+  fn send(&mut self, value: Register) {
+    self.write_to_gp0(value)
+  }
+  fn receive(&self) -> Register {
+    self.gpuread
+  }
 }
 
 impl GPU {
