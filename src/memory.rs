@@ -17,11 +17,12 @@ pub enum MemAction {
   DMA(Vec<Transfer>),
   GpuGp0(Register),
   GpuGp1(Register),
+  Debug,
 }
 
 pub enum MemResponse {
   Value(Register),
-  GPU,
+  GPU(Register),
 }
 
 pub const KB: usize = 1024;
@@ -45,8 +46,12 @@ macro_rules! read_memory {
         },
         (Memory::IO_PORTS..=Memory::IO_PORTS_END) => {
           match phys_addr {
-            0x1f80_1810..=0x1f80_1813 => MemResponse::GPU,
-            _ => MemResponse::Value($function(&$self.io_ports, phys_addr - Memory::IO_PORTS)),
+            0x1f80_1810..=0x1f80_1813 => {
+              MemResponse::GPU($function(&$self.io_ports, phys_addr - Memory::IO_PORTS))
+            },
+            _ => {
+              MemResponse::Value($function(&$self.io_ports, phys_addr - Memory::IO_PORTS))
+            },
           }
         },
         (Memory::EXPANSION_2..=Memory::EXPANSION_2_END) => {
@@ -102,7 +107,12 @@ macro_rules! write_memory {
                   read_word_from_array(
                     &$self.io_ports, 0x1f80_1814 - Memory::IO_PORTS)))
             },
+            0x1f80_1080..=0x1f80_10f3 => {
+              println!(">> [{:#x}] = {:#x}", phys_addr, $value);
+              None
+            },
             0x1f80_10f4..=0x1f80_10f7 => {
+              println!(">> [{:#x}] = {:#x}", phys_addr, $value);
               let interrupt_register = read_word_from_array(
                 &$self.io_ports, 0x1f8010f4 - Memory::IO_PORTS);
               let master_irq = interrupt_register >> 31;
@@ -167,11 +177,14 @@ impl Memory {
     bios_file.seek(SeekFrom::Start(0))?;
     bios_file.read_exact(&mut bios_contents)?;
     let bios = Box::new(bios_contents);
+    //initialize I/O ports
+    let mut io_ports = [0; 8 * KB];
+    write_word_to_array(&mut io_ports, 0x1f8010f0 - Memory::IO_PORTS, 0x0765_4321);
     Ok(Memory {
       main_ram: vec![0; 2 * MB].into_boxed_slice(),
       expansion_1: vec![0; 8 * MB].into_boxed_slice(),
       scratchpad: [0; KB],
-      io_ports: [0; 8 * KB],
+      io_ports,
       expansion_2: [0; 8 * KB],
       expansion_3: vec![0; 2 * MB].into_boxed_slice(),
       bios,
@@ -209,8 +222,8 @@ impl Memory {
       MemResponse::Value(value) => {
         MemResponse::Value(value.byte_sign_extended())
       },
-      MemResponse::GPU => {
-        MemResponse::GPU
+      MemResponse::GPU(value) => {
+        MemResponse::GPU(value.byte_sign_extended())
       },
     }
   }
@@ -220,8 +233,8 @@ impl Memory {
       MemResponse::Value(value) => {
         MemResponse::Value(value.half_sign_extended())
       },
-      MemResponse::GPU => {
-        MemResponse::GPU
+      MemResponse::GPU(value) => {
+        MemResponse::GPU(value.half_sign_extended())
       },
     }
   }
@@ -252,8 +265,8 @@ impl Memory {
     assert!(channel < 7);
     //these are addresses to locations in memory
     let base_addr = 0x1f80_1080 + (channel * 0x0000_0010) - Memory::IO_PORTS;
-    let block_control = base_addr + 4 - Memory::IO_PORTS;
-    let channel_control = block_control + 4 - Memory::IO_PORTS;
+    let block_control = base_addr + 4;
+    let channel_control = block_control + 4;
 
     //these are the values of locations in memory
     let start_address = read_word_from_array(&self.io_ports, base_addr) & 0x00ff_fffc;

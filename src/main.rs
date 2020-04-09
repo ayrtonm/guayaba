@@ -91,7 +91,7 @@ fn main() -> io::Result<()> {
                                     .resizable()
                                     .build()
                                     .unwrap();
-        let event_pump = sdl.event_pump().unwrap();
+        let mut event_pump = sdl.event_pump().unwrap();
         let gl_context = window.gl_create_context().unwrap();
         let gl = gl::load_with(
           |s| {
@@ -102,7 +102,7 @@ fn main() -> io::Result<()> {
           gl::Clear(gl::COLOR_BUFFER_BIT);
         }
         window.gl_swap_window();
-        Interpreter::new(bios_filename, infile)?.run(steps, logging);
+        Interpreter::new(bios_filename, infile)?.run(steps, logging, &mut event_pump);
       },
       None => {
         print_help();

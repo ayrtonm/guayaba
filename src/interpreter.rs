@@ -61,6 +61,7 @@ pub struct Interpreter {
   //these are register writes due to memory loads which happen after one cycle
   delayed_writes: VecDeque<DelayedWrite>,
   modified_register: Option<Name>,
+  i: u32,
 }
 
 impl Interpreter {
@@ -82,9 +83,11 @@ impl Interpreter {
       next_pc: None,
       delayed_writes,
       modified_register: None,
+      i: 0,
     })
   }
-  pub fn run(&mut self, n: Option<u32>, logging: bool) {
+  pub fn run(&mut self, n: Option<u32>, logging: bool, event_pump: &mut sdl2::EventPump) {
+    let event_rate: u32 = 1_00_000;
     n.map(
       |n| {
         println!("started in test mode");
@@ -94,18 +97,33 @@ impl Interpreter {
             println!("{} ----------------------", i);
           }
           self.step(logging);
+          if i % event_rate == 0 {
+            for event in event_pump.poll_iter() {
+              match event {
+                sdl2::event::Event::Quit {..} => panic!(""),
+                _ => {},
+              }
+            }
+          }
         }
     }).or_else(
       || {
         println!("started in free-running mode");
-        let mut i = 0;
         loop {
           if logging {
             println!("  ");
-            println!("{} ----------------------", i);
+            println!("{} ----------------------", self.i);
           }
           self.step(logging);
-          i += 1;
+          self.i += 1;
+          if self.i % event_rate == 0 {
+            for event in event_pump.poll_iter() {
+              match event {
+                sdl2::event::Event::Quit {..} => panic!(""),
+                _ => {},
+              }
+            }
+          }
         }
       });
     self.cd.as_ref().map(|cd| cd.preview(10));
@@ -113,7 +131,7 @@ impl Interpreter {
   fn resolve_memresponse(&mut self, response: MemResponse) -> Register {
     match response {
       MemResponse::Value(value) => value,
-      MemResponse::GPU => 0,
+      MemResponse::GPU(value) => value,
     }
   }
   fn resolve_memaction(&mut self, maybe_action: Option<MemAction>) {
@@ -123,6 +141,7 @@ impl Interpreter {
           MemAction::DMA(transfers) => self.handle_dma(transfers),
           MemAction::GpuGp0(value) => self.gpu.write_to_gp0(value),
           MemAction::GpuGp1(value) => self.gpu.write_to_gp1(value),
+          MemAction::Debug => {println!("{:#x?} {}", self.r3000, self.i); panic!("")},
         }
       }
     );
@@ -280,12 +299,15 @@ impl Interpreter {
           let rs = self.r3000.nth_reg(get_rs(op)) as u64;
           let rt = self.r3000.nth_reg(get_rt(op)) as u64;
           let rd = self.r3000.nth_reg_mut(get_rd(op));
-          let result: u64 = rs.$method(rt);
-          if result > 0x0000_0000_ffff_ffff {
-            let pc = self.r3000.pc_mut();
-            *pc = self.cop0.generate_exception(Cop0Exception::Overflow, *pc);
-          } else {
-            self.modified_register = rd.maybe_set(result as u32);
+          let result = rs.$method(rt);
+          match result {
+            Some(result) => {
+              self.modified_register = rd.maybe_set(result as u32);
+            },
+            None => {
+              let pc = self.r3000.pc_mut();
+              *pc = self.cop0.generate_exception(Cop0Exception::Overflow, *pc);
+            },
           }
           log!("R{} = R{} {} R{} trap overflow\n  = {:#x} {} {:#x}\n  = {:#x}",
                     get_rd(op), get_rs(op), stringify!($method), get_rt(op),
@@ -672,6 +694,7 @@ impl Interpreter {
     }
     //after executing an opcode, complete the loads from the previous opcode
     self.r3000.flush_write_cache(&mut self.delayed_writes, &mut self.modified_register);
+    self.modified_register = None;
     //this match statement optionally returns the next program counter
     //if the return value is None, then we increment pc as normal
     match get_primary_field(op) {
@@ -773,7 +796,7 @@ impl Interpreter {
           0x20 => {
             //ADD
             log!("> ADD");
-            compute!(rd = rs wrapping_add rt trap)
+            compute!(rd = rs checked_add rt trap)
           },
           0x21 => {
             //ADDU
@@ -783,7 +806,7 @@ impl Interpreter {
           0x22 => {
             //SUB
             log!("> SUB");
-            compute!(rd = rs wrapping_sub rt trap)
+            compute!(rd = rs checked_sub rt trap)
           },
           0x23 => {
             //SUBU

@@ -1,11 +1,13 @@
 use crate::register::Register;
 
+#[derive(Debug)]
 pub enum Chunks {
   NumWords(u32),
   Blocks(Blocks),
   LinkedList,
 }
 
+#[derive(Debug)]
 pub struct Blocks {
   block_size: u16,
   num_blocks: u16,
@@ -20,16 +22,19 @@ impl Blocks {
   }
 }
 
+#[derive(Debug)]
 pub enum Direction {
   ToRAM,
   FromRAM,
 }
 
+#[derive(Debug)]
 pub enum Step {
   Forward,
   Backward,
 }
 
+#[derive(Debug)]
 pub struct Transfer {
   channel: u32,
   start_address: Register,
