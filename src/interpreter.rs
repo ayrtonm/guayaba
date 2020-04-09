@@ -131,7 +131,8 @@ impl Interpreter {
   fn resolve_memresponse(&mut self, response: MemResponse) -> Register {
     match response {
       MemResponse::Value(value) => value,
-      MemResponse::GPU(value) => value,
+      MemResponse::GPUREAD => 0,
+      MemResponse::GPUSTAT => 0x1000_0000,
     }
   }
   fn resolve_memaction(&mut self, maybe_action: Option<MemAction>) {

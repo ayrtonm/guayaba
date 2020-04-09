@@ -22,7 +22,8 @@ pub enum MemAction {
 
 pub enum MemResponse {
   Value(Register),
-  GPU(Register),
+  GPUREAD,
+  GPUSTAT,
 }
 
 pub const KB: usize = 1024;
@@ -47,7 +48,10 @@ macro_rules! read_memory {
         (Memory::IO_PORTS..=Memory::IO_PORTS_END) => {
           match phys_addr {
             0x1f80_1810..=0x1f80_1813 => {
-              MemResponse::GPU($function(&$self.io_ports, phys_addr - Memory::IO_PORTS))
+              MemResponse::GPUREAD
+            },
+            0x1f80_1814..=0x1f80_1817 => {
+              MemResponse::GPUSTAT
             },
             _ => {
               MemResponse::Value($function(&$self.io_ports, phys_addr - Memory::IO_PORTS))
@@ -222,8 +226,11 @@ impl Memory {
       MemResponse::Value(value) => {
         MemResponse::Value(value.byte_sign_extended())
       },
-      MemResponse::GPU(value) => {
-        MemResponse::GPU(value.byte_sign_extended())
+      MemResponse::GPUREAD => {
+        MemResponse::GPUREAD
+      },
+      MemResponse::GPUSTAT => {
+        MemResponse::GPUSTAT
       },
     }
   }
@@ -233,8 +240,11 @@ impl Memory {
       MemResponse::Value(value) => {
         MemResponse::Value(value.half_sign_extended())
       },
-      MemResponse::GPU(value) => {
-        MemResponse::GPU(value.half_sign_extended())
+      MemResponse::GPUREAD => {
+        MemResponse::GPUREAD
+      },
+      MemResponse::GPUSTAT => {
+        MemResponse::GPUSTAT
       },
     }
   }

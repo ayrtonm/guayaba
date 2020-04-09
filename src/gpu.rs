@@ -97,6 +97,9 @@ impl Command {
       0x1f => {
         self.parameters.len() == 3
       },
+      0x00 => {
+        true
+      }
       _ => {
         todo!("implement this")
       },
