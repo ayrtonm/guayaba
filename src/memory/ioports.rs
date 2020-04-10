@@ -20,15 +20,13 @@ impl Memory {
     let start_address = self.io_ports.as_ref().read_word(base_addr) & 0x00ff_fffc;
     let block_control = self.io_ports.as_ref().read_word(block_control);
     let sync_mode = (self.io_ports.as_ref().read_word(channel_control) >> 9) & 3;
-    let direction = match self.io_ports.as_ref().read_word(channel_control).nth_bit(0) {
-      0 => Direction::ToRAM,
-      1 => Direction::FromRAM,
-      _ => unreachable!(""),
+    let direction = match self.io_ports.as_ref().read_word(channel_control).nth_bit_bool(0) {
+      false => Direction::ToRAM,
+      true => Direction::FromRAM,
     };
-    let step = match self.io_ports.as_ref().read_word(channel_control).nth_bit(1) {
-      0 => Step::Forward,
-      1 => Step::Backward,
-      _ => unreachable!(""),
+    let step = match self.io_ports.as_ref().read_word(channel_control).nth_bit_bool(1) {
+      false => Step::Forward,
+      true => Step::Backward,
     };
     let chunks = match sync_mode {
       0 => {

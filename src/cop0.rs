@@ -1,4 +1,5 @@
 use crate::register::Register;
+use crate::register::Aliases;
 
 #[derive(Debug)]
 pub enum Cop0Exception {
@@ -87,7 +88,7 @@ impl Cop0 {
     self.exception_vector()
   }
   pub fn cache_isolated(&self) -> bool {
-    self.r12 & 0x10000 != 0
+    self.r12.nth_bit_bool(16)
   }
   pub fn execute_command(&mut self, imm25: u32) -> Option<Register> {
     //this is the only legal COP0 command
@@ -107,16 +108,10 @@ impl Cop0 {
     self.r13 = (self.r13 & 0xffff_ff83) | (cause << 2);
   }
   fn exception_vector(&self) -> Register {
-    match self.r12 & 0x0040_0000 {
-      0 => {
-        0x80000080
-      },
-      0x0040_0000 => {
-        0xbfc00180
-      },
-      _ => {
-        unreachable!("");
-      },
+    if self.r12.nth_bit_bool(22) {
+      0xbfc00180
+    } else {
+      0x80000080
     }
   }
   fn disable_interrupts(&mut self) {

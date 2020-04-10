@@ -19,6 +19,7 @@ pub trait Aliases {
   fn compare(&self, rhs: Register) -> Register;
   fn signed_compare(&self, rhs: Register) -> Register;
   fn nth_bit(&self, n: Register) -> Register;
+  fn nth_bit_bool(&self, n: Register) -> bool;
 }
 
 impl Parts for Register{
@@ -32,38 +33,19 @@ impl Parts for Register{
     self & 0x0000_00ff
   }
   fn half_sign_extended(&self) -> Register {
-    let ret = self.half();
-    match ret >> 15 {
-      0 => {
-        ret
-      },
-      1 => {
-        ret | 0xffff_0000
-      },
-      _ => {
-        unreachable!("")
-      },
-    }
+    (self.half() as i16) as Register
   }
   fn byte_sign_extended(&self) -> Register {
-    let ret = self.byte();
-    match ret >> 7 {
-      0 => {
-        ret
-      },
-      1 => {
-        ret | 0xffff_ff00
-      },
-      _ => {
-        unreachable!("")
-      },
-    }
+    (self.byte() as i8) as Register
   }
 }
 
 impl Aliases for Register {
   fn nth_bit(&self, n: Register) -> Register {
     (self >> n) & 1
+  }
+  fn nth_bit_bool(&self, n: Register) -> bool {
+    self.nth_bit(n) == 1
   }
   fn sra(&self, rhs: Register) -> Register {
     (*self as i32).shr(rhs) as Register
