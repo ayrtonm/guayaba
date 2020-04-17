@@ -12,6 +12,7 @@ use crate::register::Aliases;
 use crate::dma::Transfer;
 use crate::dma::DMAChannel;
 
+#[macro_use]
 mod ioports;
 
 pub enum MemAction {
@@ -47,7 +48,7 @@ macro_rules! read_memory {
           MemResponse::Value($self.scratchpad.as_ref().$function(phys_addr - Memory::SCRATCHPAD))
         },
         (Memory::IO_PORTS..=Memory::IO_PORTS_END) => {
-          $self.handle_io_read(phys_addr)
+          get_io_response!(phys_addr, $function, $self)
         },
         (Memory::EXPANSION_2..=Memory::EXPANSION_2_END) => {
           MemResponse::Value($self.expansion_2.as_ref().$function(phys_addr - Memory::EXPANSION_2))
@@ -89,7 +90,7 @@ macro_rules! write_memory {
         },
         (Memory::IO_PORTS..=Memory::IO_PORTS_END) => {
           $self.io_ports.as_mut().$function(phys_addr - Memory::IO_PORTS, $value);
-          $self.handle_io_write(phys_addr, $value)
+          get_io_action!(phys_addr, $value, $function, $self)
         },
         (Memory::EXPANSION_2..=Memory::EXPANSION_2_END) => {
           $self.expansion_2.as_mut().$function(phys_addr - Memory::EXPANSION_2, $value);

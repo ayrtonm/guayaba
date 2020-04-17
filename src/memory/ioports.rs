@@ -10,11 +10,10 @@ use crate::dma::Blocks;
 use crate::dma::Direction;
 use crate::dma::Step;
 
-impl Memory {
-  //FIXME: the next two functions are called inside macros for memory accesses of all sizes
-  //this means that the use of read_word() may not be correct here
-  pub(super) fn handle_io_read(&self, address: Register) -> MemResponse {
-    match address {
+#[macro_export]
+macro_rules! get_io_response {
+  ($address:expr, $function:ident, $self:expr) => {
+    match $address {
       0x1f80_1810..=0x1f80_1813 => {
         MemResponse::GPUREAD
       },
@@ -22,23 +21,27 @@ impl Memory {
         MemResponse::GPUSTAT
       },
       _ => {
-        MemResponse::Value(self.io_ports.as_ref().read_word(address - Memory::IO_PORTS))
+        MemResponse::Value($self.io_ports.as_ref().$function($address - Memory::IO_PORTS))
       },
     }
-  }
-  pub(super) fn handle_io_write(&mut self, address: Register, value: Register) -> Option<MemAction> {
-    match address {
+  };
+}
+
+#[macro_export]
+macro_rules! get_io_action {
+  ($address:expr, $value:expr, $function:ident, $self:expr) => {
+    match $address {
       //GPU registers
       0x1f80_1810..=0x1f80_1813 => {
         Some(
           MemAction::GpuGp0(
-            self.io_ports.as_ref().read_word(
+            $self.io_ports.as_ref().read_word(
               0x1f80_1810 - Memory::IO_PORTS)))
       },
       0x1f80_1814..=0x1f80_1817 => {
         Some(
           MemAction::GpuGp1(
-            self.io_ports.as_ref().read_word(
+            $self.io_ports.as_ref().read_word(
               0x1f80_1814 - Memory::IO_PORTS)))
       },
       //DMA registers
@@ -53,7 +56,10 @@ impl Memory {
         None
       },
     }
-  }
+  };
+}
+
+impl Memory {
   //pack the current state of I/O ports into a Transfer struct for a given channel
   pub(super) fn create_dma_transfer(&mut self, channel: u32) -> Transfer {
     assert!(channel < 7);
