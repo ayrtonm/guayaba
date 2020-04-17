@@ -47,17 +47,7 @@ macro_rules! read_memory {
           MemResponse::Value($self.scratchpad.as_ref().$function(phys_addr - Memory::SCRATCHPAD))
         },
         (Memory::IO_PORTS..=Memory::IO_PORTS_END) => {
-          match phys_addr {
-            0x1f80_1810..=0x1f80_1813 => {
-              MemResponse::GPUREAD
-            },
-            0x1f80_1814..=0x1f80_1817 => {
-              MemResponse::GPUSTAT
-            },
-            _ => {
-              MemResponse::Value($self.io_ports.as_ref().$function(phys_addr - Memory::IO_PORTS))
-            },
-          }
+          $self.handle_io_read(phys_addr)
         },
         (Memory::EXPANSION_2..=Memory::EXPANSION_2_END) => {
           MemResponse::Value($self.expansion_2.as_ref().$function(phys_addr - Memory::EXPANSION_2))
@@ -99,48 +89,7 @@ macro_rules! write_memory {
         },
         (Memory::IO_PORTS..=Memory::IO_PORTS_END) => {
           $self.io_ports.as_mut().$function(phys_addr - Memory::IO_PORTS, $value);
-          match phys_addr {
-            //GPU registers
-            0x1f80_1810..=0x1f80_1813 => {
-              Some(
-                MemAction::GpuGp0(
-                  $self.io_ports.as_ref().read_word(
-                    0x1f80_1810 - Memory::IO_PORTS)))
-            },
-            0x1f80_1814..=0x1f80_1817 => {
-              Some(
-                MemAction::GpuGp1(
-                  $self.io_ports.as_ref().read_word(
-                    0x1f80_1814 - Memory::IO_PORTS)))
-            },
-            //DMA registers
-            0x1f80_1080..=0x1f80_10f3 => {
-              println!(">> [{:#x}] = {:#x}", phys_addr, $value);
-              None
-            },
-            //DMA interrupt register
-            0x1f80_10f4..=0x1f80_10f7 => {
-              println!(">> [{:#x}] = {:#x}", phys_addr, $value);
-              let interrupt_register = $self.io_ports.as_ref().read_word(0x1f8010f4 - Memory::IO_PORTS);
-              let master_irq = interrupt_register.nth_bit(31);
-              let master_enable = interrupt_register.nth_bit(23);
-              let mut transfers = Vec::new();
-              if master_enable != 0 {
-                for channel in 0..=6 {
-                  let channel_enable = interrupt_register.nth_bit(16 + channel);
-                  let channel_irq = interrupt_register.nth_bit(24 + channel);
-                  if (channel_enable & channel_irq) != 0 {
-                    transfers.push($self.create_dma_transfer(channel));
-                    println!("{:?}", transfers);
-                  }
-                }
-              }
-              Some(MemAction::DMA(transfers))
-            },
-            _ => {
-              None
-            },
-          }
+          $self.handle_io_write(phys_addr, $value)
         },
         (Memory::EXPANSION_2..=Memory::EXPANSION_2_END) => {
           $self.expansion_2.as_mut().$function(phys_addr - Memory::EXPANSION_2, $value);

@@ -1,5 +1,8 @@
 use crate::common::ReadArray;
 use crate::memory::Memory;
+use crate::memory::MemAction;
+use crate::memory::MemResponse;
+use crate::register::Register;
 use crate::register::Aliases;
 use crate::dma::Transfer;
 use crate::dma::Chunks;
@@ -8,6 +11,49 @@ use crate::dma::Direction;
 use crate::dma::Step;
 
 impl Memory {
+  //FIXME: the next two functions are called inside macros for memory accesses of all sizes
+  //this means that the use of read_word() may not be correct here
+  pub(super) fn handle_io_read(&self, address: Register) -> MemResponse {
+    match address {
+      0x1f80_1810..=0x1f80_1813 => {
+        MemResponse::GPUREAD
+      },
+      0x1f80_1814..=0x1f80_1817 => {
+        MemResponse::GPUSTAT
+      },
+      _ => {
+        MemResponse::Value(self.io_ports.as_ref().read_word(address - Memory::IO_PORTS))
+      },
+    }
+  }
+  pub(super) fn handle_io_write(&mut self, address: Register, value: Register) -> Option<MemAction> {
+    match address {
+      //GPU registers
+      0x1f80_1810..=0x1f80_1813 => {
+        Some(
+          MemAction::GpuGp0(
+            self.io_ports.as_ref().read_word(
+              0x1f80_1810 - Memory::IO_PORTS)))
+      },
+      0x1f80_1814..=0x1f80_1817 => {
+        Some(
+          MemAction::GpuGp1(
+            self.io_ports.as_ref().read_word(
+              0x1f80_1814 - Memory::IO_PORTS)))
+      },
+      //DMA registers
+      0x1f80_1080..=0x1f80_10f3 => {
+        None
+      },
+      //DMA interrupt register
+      0x1f80_10f4..=0x1f80_10f7 => {
+        None
+      },
+      _ => {
+        None
+      },
+    }
+  }
   //pack the current state of I/O ports into a Transfer struct for a given channel
   pub(super) fn create_dma_transfer(&mut self, channel: u32) -> Transfer {
     assert!(channel < 7);
