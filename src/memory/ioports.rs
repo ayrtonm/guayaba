@@ -13,16 +13,20 @@ use crate::dma::Step;
 #[macro_export]
 macro_rules! get_io_response {
   ($address:expr, $function:ident, $self:expr) => {
-    match $address {
-      0x1f80_1810..=0x1f80_1813 => {
-        MemResponse::GPUREAD
-      },
-      0x1f80_1814..=0x1f80_1817 => {
-        MemResponse::GPUSTAT
-      },
-      _ => {
-        MemResponse::Value($self.io_ports.as_ref().$function($address - Memory::IO_PORTS))
-      },
+    {
+      let aligned_address = $address & 0xffff_fffc;
+      match aligned_address {
+        0x1f80_1810 => {
+          MemResponse::GPUREAD
+        },
+        0x1f80_1814 => {
+          MemResponse::GPUSTAT
+        },
+        _ => {
+          let offset = $address - Memory::IO_PORTS;
+          MemResponse::Value($self.io_ports.as_ref().$function(offset))
+        },
+      }
     }
   };
 }
@@ -30,31 +34,61 @@ macro_rules! get_io_response {
 #[macro_export]
 macro_rules! get_io_action {
   ($address:expr, $value:expr, $function:ident, $self:expr) => {
-    match $address {
-      //GPU registers
-      0x1f80_1810..=0x1f80_1813 => {
-        Some(
-          MemAction::GpuGp0(
-            $self.io_ports.as_ref().read_word(
-              0x1f80_1810 - Memory::IO_PORTS)))
-      },
-      0x1f80_1814..=0x1f80_1817 => {
-        Some(
-          MemAction::GpuGp1(
-            $self.io_ports.as_ref().read_word(
-              0x1f80_1814 - Memory::IO_PORTS)))
-      },
-      //DMA registers
-      0x1f80_1080..=0x1f80_10f3 => {
-        None
-      },
-      //DMA interrupt register
-      0x1f80_10f4..=0x1f80_10f7 => {
-        None
-      },
-      _ => {
-        None
-      },
+    {
+      let aligned_address = $address & 0xffff_fffc;
+      let aligned_offset = aligned_address - Memory::IO_PORTS;
+      match aligned_address {
+        //GPU registers
+        0x1f80_1810 => {
+          Some(
+            MemAction::GpuGp0(
+              $self.io_ports.as_ref()
+                            .read_word(aligned_offset)))
+        },
+        0x1f80_1814 => {
+          Some(
+            MemAction::GpuGp1(
+              $self.io_ports.as_ref()
+                            .read_word(aligned_offset)))
+        },
+        //DMA channel controls
+        0x1f80_1088 |
+        0x1f80_1098 |
+        0x1f80_10a8 |
+        0x1f80_10b8 |
+        0x1f80_10c8 |
+        0x1f80_10d8 |
+        0x1f80_10e8 => {
+          let channel_num = (aligned_address - 0x1f80_1088) >> 4;
+          let control_register = $self.io_ports.as_ref()
+                                               .read_word(aligned_offset);
+          let sync_mode = (control_register >> 9) & 3;
+          match sync_mode {
+            0 => {
+              if control_register.nth_bit_bool(28) {
+                Some(MemAction::DMA($self.create_dma_transfer(channel_num)))
+              } else {
+                None
+              }
+            },
+            1 | 2 => {
+              if control_register.nth_bit_bool(24) {
+                Some(MemAction::DMA($self.create_dma_transfer(channel_num)))
+              } else {
+                None
+              }
+            },
+            _ => unreachable!("DMA channel {} is not configured properly", channel_num),
+          }
+        },
+        //DMA interrupt register
+        0x1f80_10f4 => {
+          None
+        },
+        _ => {
+          None
+        },
+      }
     }
   };
 }

@@ -16,7 +16,7 @@ use crate::dma::DMAChannel;
 mod ioports;
 
 pub enum MemAction {
-  DMA(Vec<Transfer>),
+  DMA(Transfer),
   GpuGp0(Register),
   GpuGp1(Register),
   Debug,
