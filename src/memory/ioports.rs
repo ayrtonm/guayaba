@@ -103,7 +103,7 @@ impl Memory {
         control_register.clear(28).clear(24)
       },
       1 | 2 => {
-        control_register.clear(24)
+        control_register.clear(28).clear(24)
       },
       _ => unreachable!("DMA channel {} is not configured properly", channel),
     };

@@ -106,8 +106,7 @@ impl Interpreter {
         ret
       },
       MemResponse::GPUSTAT => {
-        let ret: Register = 0x1c00_0000;
-        ret
+        self.gpu.gpustat()
       },
     }
   }
@@ -116,7 +115,7 @@ impl Interpreter {
       |action| {
         match action {
           MemAction::DMA(transfer) => {
-            println!("{:#x?}", transfer);
+            //println!("{:#x?}", transfer);
             self.handle_dma(transfer);
           },
           MemAction::GpuGp0(value) => {
@@ -125,10 +124,6 @@ impl Interpreter {
           MemAction::GpuGp1(value) => {
             self.gpu.write_to_gp1(value);
           }
-          MemAction::Debug => {
-            println!("{:#x?} {}", self.r3000, self.i);
-            panic!("")
-          },
         }
       }
     );
@@ -146,6 +141,7 @@ impl Interpreter {
                            .map_or_else(|| self.r3000.pc().wrapping_add(4),
                                         |next_pc| next_pc);
     self.next_pc = self.execute_opcode(op, logging);
+    self.gpu.exec_next_gp0_command();
   }
 }
 

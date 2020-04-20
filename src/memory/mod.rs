@@ -20,7 +20,6 @@ pub enum MemAction {
   DMA(Transfer),
   GpuGp0(Register),
   GpuGp1(Register),
-  Debug,
 }
 
 pub enum MemResponse {

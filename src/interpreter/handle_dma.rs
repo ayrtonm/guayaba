@@ -91,7 +91,7 @@ impl Interpreter{
               self.memory.write_word(0x1f80_1080 + (transfer.channel_num() * 0x10), 0x00ff_ffff);
             },
           }
-          println!("sending {:#x?} through a DMA", buffer);
+          //println!("sending {:#x?} through a DMA", buffer);
           self.get_dma_channel(transfer.channel_num())
               .map(|channel| channel.send(buffer));
         }

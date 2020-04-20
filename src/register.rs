@@ -12,7 +12,9 @@ pub trait Parts {
 
 pub trait BitManipulation {
   fn set(&self, n: Register) -> Register;
+  fn set_mask(&mut self, mask: Register) -> &mut Self;
   fn clear(&self, n: Register) -> Register;
+  fn clear_mask(&mut self, mask: Register) -> &mut Self;
 }
 
 pub trait Aliases {
@@ -49,8 +51,16 @@ impl BitManipulation for Register {
   fn set(&self, n: Register) -> Register {
     *self | (1 << n)
   }
+  fn set_mask(&mut self, mask: Register) -> &mut Self {
+    *self |= mask;
+    self
+  }
   fn clear(&self, n: Register) -> Register {
     *self & !(1 << n)
+  }
+  fn clear_mask(&mut self, mask: Register) -> &mut Self {
+    *self &= !mask;
+    self
   }
 }
 
