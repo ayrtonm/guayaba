@@ -3,6 +3,7 @@ use crate::memory::MB;
 use crate::register::Register;
 use crate::dma::DMAChannel;
 
+#[derive(Debug)]
 struct Command {
   id: u8,
   parameters: Vec<u8>,

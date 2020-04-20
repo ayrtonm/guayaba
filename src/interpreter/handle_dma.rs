@@ -33,7 +33,6 @@ impl Interpreter{
                   self.memory.write_word(addr, data);
                   addr = step(addr);
                 }
-                self.memory.reset_dma_channel(6);
               },
               _ => {
                 todo!("implement DMA {:#x?}", transfer)
@@ -79,6 +78,7 @@ impl Interpreter{
         }
       },
     }
+    self.memory.reset_dma_channel(transfer.channel());
   }
   fn get_dma_channel(&mut self, channel: u32) -> Option<&mut dyn DMAChannel> {
     match channel {
