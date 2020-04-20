@@ -155,6 +155,7 @@ impl GPU {
     }
   }
   pub fn write_to_gp0(&mut self, value: Register) {
+    println!("GP0 received {:#x}", value);
     if self.waiting_for_parameters {
       let mut cmd = self.partial_command.take().unwrap();
       cmd.append_parameters(value);

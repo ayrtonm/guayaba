@@ -102,7 +102,7 @@ impl Memory {
     let sync_mode = control_register.sync_mode();
     let new_register = match sync_mode {
       0 => {
-        control_register.clear(28)
+        control_register.clear(28).clear(24)
       },
       1 | 2 => {
         control_register.clear(24)

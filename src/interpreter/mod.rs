@@ -106,7 +106,7 @@ impl Interpreter {
     maybe_action.map(
       |action| {
         match action {
-          MemAction::DMA(transfer) => self.handle_dma(transfer),
+          MemAction::DMA(transfer) => {self.handle_dma(transfer);},
           MemAction::GpuGp0(value) => self.gpu.write_to_gp0(value),
           MemAction::GpuGp1(value) => self.gpu.write_to_gp1(value),
           MemAction::Debug => {println!("{:#x?} {}", self.r3000, self.i); panic!("")},

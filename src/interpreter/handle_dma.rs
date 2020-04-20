@@ -1,4 +1,5 @@
 use crate::interpreter::Interpreter;
+use crate::register::Register;
 use crate::dma::Transfer;
 use crate::dma::Direction;
 use crate::dma::Chunks;
@@ -8,9 +9,11 @@ use crate::dma::DMAChannel;
 
 impl Interpreter{
   pub(super) fn handle_dma(&mut self, transfer: Transfer) {
-    let next_address = |increment| match transfer.step() {
-      Step::Forward => transfer.start_address().wrapping_add(increment * 4),
-      Step::Backward => transfer.start_address().wrapping_sub(increment * 4),
+    let step = |address: Register| {
+      match transfer.step() {
+        Step::Forward => address.wrapping_add(4) & 0x001f_fffc,
+        Step::Backward => address.wrapping_sub(4) & 0x001f_fffc,
+      }
     };
     let mut addr = transfer.start_address() & 0x001f_fffc;
     match transfer.direction() {
@@ -25,8 +28,10 @@ impl Interpreter{
                     0 => 0x00ff_ffff,
                     _ => addr.wrapping_sub(4) & 0x001f_fffc,
                   };
+                  //technically we should call resolve_memaction() here
+                  //but the BIOS probably isn't doing anything tricky that would require this
                   self.memory.write_word(addr, data);
-                  addr = next_address(i) & 0x001f_fffc;
+                  addr = step(addr);
                 }
                 self.memory.reset_dma_channel(6);
               },
@@ -41,7 +46,37 @@ impl Interpreter{
         }
       },
       Direction::FromRAM => {
-        todo!("implement DMA from RAM {:#x?}", transfer)
+        match transfer.channel() {
+          2 => {
+            match transfer.chunks() {
+              Chunks::LinkedList => {
+                let mut buffer = Vec::new();
+                let mut header = self.resolve_memresponse(self.memory.read_word(addr));
+                loop {
+                  let packet_size = header >> 24;
+                  for i in 1..=packet_size {
+                    addr = step(addr);
+                    let data = self.resolve_memresponse(self.memory.read_word(addr));
+                    buffer.push(data);
+                  }
+                  let next_packet = header & 0x00ff_ffff;
+                  if next_packet == 0x00ff_ffff {
+                    break
+                  } else {
+                    header = next_packet & 0x001f_fffc;
+                  }
+                }
+                self.get_dma_channel(transfer.channel()).map(|channel| channel.send(buffer));
+              },
+              _ => {
+                todo!("implement DMA {:#x?}", transfer)
+              },
+            }
+          },
+          _ => {
+            todo!("implement DMA {:#x?}", transfer)
+          },
+        }
       },
     }
   }
