@@ -106,7 +106,7 @@ impl Command {
         self.parameters.len() == 15
       },
       _ => {
-        todo!("implement this GPU command {}", self.id)
+        todo!("implement this GPU command {:x}", self.id)
       },
     }
   }

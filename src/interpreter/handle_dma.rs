@@ -49,10 +49,22 @@ impl Interpreter{
           let mut buffer = Vec::new();
           match transfer.chunks() {
             Chunks::NumWords(num) => {
-              todo!("implement DMA word copy {:#x?}", transfer)
+              for _ in 1..=*num {
+                let data = self.resolve_memresponse(self.memory.read_word(addr));
+                buffer.push(data);
+                addr = step(addr);
+              }
             },
             Chunks::Blocks(blocks) => {
-              todo!("implement DMA block copy {:#x?}", transfer)
+              let packet_size = blocks.num_blocks() *  blocks.block_size();
+              for _ in 1..=packet_size {
+                let data = self.resolve_memresponse(self.memory.read_word(addr));
+                buffer.push(data);
+                addr = step(addr);
+              }
+              //I don't think we should be doing the last address step in the
+              //previous loop
+              self.memory.write_word(0x1f80_1080 + (transfer.channel() * 0x10), addr);
             },
             Chunks::LinkedList => {
               let mut header_address = addr;
