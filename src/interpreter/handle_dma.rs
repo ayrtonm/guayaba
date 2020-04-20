@@ -9,19 +9,20 @@ use crate::dma::DMAChannel;
 
 impl Interpreter{
   pub(super) fn handle_dma(&mut self, transfer: Transfer) {
+    let addr_mask = 0x00ff_fffc;
     let step = |address: Register| {
       match transfer.step() {
-        Step::Forward => address.wrapping_add(4) & 0x001f_fffc,
-        Step::Backward => address.wrapping_sub(4) & 0x001f_fffc,
+        Step::Forward => address.wrapping_add(4) & addr_mask,
+        Step::Backward => address.wrapping_sub(4) & addr_mask,
       }
     };
     let undo_step = |address: Register| {
       match transfer.step() {
-        Step::Forward => address.wrapping_sub(4) & 0x001f_fffc,
-        Step::Backward => address.wrapping_add(4) & 0x001f_fffc,
+        Step::Forward => address.wrapping_sub(4) & addr_mask,
+        Step::Backward => address.wrapping_add(4) & addr_mask,
       }
     };
-    let mut addr = transfer.start_address() & 0x001f_fffc;
+    let mut addr = transfer.start_address() & addr_mask;
     match transfer.direction() {
       Direction::ToRAM => {
         match transfer.channel() {
@@ -32,11 +33,10 @@ impl Interpreter{
                   let remaining = *num - i;
                   let data = match remaining {
                     0 => 0x00ff_ffff,
-                    _ => addr.wrapping_sub(4) & 0x001f_fffc,
+                    _ => addr.wrapping_sub(4) & addr_mask,
                   };
-                  let action = self.memory.write_word(addr, data);
-                  self.resolve_memaction(action);
-                  addr = step(addr);
+                  self.memory.write_word(addr, data);
+                  addr = addr.wrapping_add(4) & addr_mask;
                 }
               },
               _ => {
@@ -85,7 +85,7 @@ impl Interpreter{
                 if next_packet == 0x00ff_ffff {
                   break
                 } else {
-                  header_address = next_packet & 0x001f_fffc;
+                  header_address = next_packet & addr_mask;
                 }
               }
               self.memory.write_word(0x1f80_1080 + (transfer.channel() * 0x10), 0x00ff_ffff);

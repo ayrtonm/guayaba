@@ -78,6 +78,9 @@ impl Interpreter {
       || {
         println!("started in free-running mode");
         loop {
+          //if self.i > 19318600 {
+          //  logging = true;
+          //}
           if logging {
             println!("  ");
             println!("{} ----------------------", self.i);
@@ -98,8 +101,16 @@ impl Interpreter {
   fn resolve_memresponse(&mut self, response: MemResponse) -> Register {
     match response {
       MemResponse::Value(value) => value,
-      MemResponse::GPUREAD => 0,
-      MemResponse::GPUSTAT => 0x1c00_0000,
+      MemResponse::GPUREAD => {
+        let ret = 0;
+        println!("GPUREAD contained {:#x}", ret);
+        ret
+      },
+      MemResponse::GPUSTAT => {
+        let ret = 0x1c00_0000;
+        println!("GPUSTAT contained {:#x}", ret);
+        ret
+      },
     }
   }
   fn resolve_memaction(&mut self, maybe_action: Option<MemAction>) {
@@ -110,8 +121,14 @@ impl Interpreter {
             println!("{:#x?}", transfer);
             self.handle_dma(transfer);
           },
-          MemAction::GpuGp0(value) => self.gpu.write_to_gp0(value),
-          MemAction::GpuGp1(value) => self.gpu.write_to_gp1(value),
+          MemAction::GpuGp0(value) => {
+            println!("GP0 received {:#x}", value);
+            self.gpu.write_to_gp0(value);
+          },
+          MemAction::GpuGp1(value) => {
+            println!("GP1 received {:#x}", value);
+            self.gpu.write_to_gp1(value);
+          }
           MemAction::Debug => {
             println!("{:#x?} {}", self.r3000, self.i);
             panic!("")
