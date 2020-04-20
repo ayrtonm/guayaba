@@ -93,11 +93,20 @@ impl Command {
       },
       0xa0..=0xbf => {
         //this is some function of the parameters
-        true
+        if self.parameters.len() < 11 {
+          false
+        } else {
+          //xsize and ysize are measured in halfwords
+          let xsize = (self.parameters[10] as u32) + ((self.parameters[9] as u32) << 8);
+          let ysize = (self.parameters[8] as u32) + ((self.parameters[7] as u32) << 8);
+          //paramter length is in bytes
+          let num_words = ((xsize as u64) * (ysize as u64)) << 1;
+          self.parameters.len() >= num_words as usize
+        }
       },
       0xc0..=0xdf => {
         //this is some function of the parameters
-        true
+        todo!("implement this GPU command {:x}", self.id)
       },
       0x1f => {
         self.parameters.len() == 3
