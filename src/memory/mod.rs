@@ -131,9 +131,10 @@ pub struct Memory {
 
 impl DMAChannel for Memory {
   fn send(&mut self, data: Vec<Register>) {
+    todo!("implement DMAChannel for Memory")
   }
   fn receive(&self) -> Register {
-    0
+    todo!("implement DMAChannel for Memory")
   }
 }
 

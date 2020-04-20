@@ -15,6 +15,12 @@ impl Interpreter{
         Step::Backward => address.wrapping_sub(4) & 0x001f_fffc,
       }
     };
+    let undo_step = |address: Register| {
+      match transfer.step() {
+        Step::Forward => address.wrapping_sub(4) & 0x001f_fffc,
+        Step::Backward => address.wrapping_add(4) & 0x001f_fffc,
+      }
+    };
     let mut addr = transfer.start_address() & 0x001f_fffc;
     match transfer.direction() {
       Direction::ToRAM => {
@@ -62,8 +68,7 @@ impl Interpreter{
                 buffer.push(data);
                 addr = step(addr);
               }
-              //I don't think we should be doing the last address step in the
-              //previous loop
+              addr = undo_step(addr);
               self.memory.write_word(0x1f80_1080 + (transfer.channel() * 0x10), addr);
             },
             Chunks::LinkedList => {

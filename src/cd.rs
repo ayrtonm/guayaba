@@ -24,8 +24,9 @@ impl CD {
 
 impl DMAChannel for CD {
   fn send(&mut self, data: Vec<Register>) {
+    todo!("implement DMAChannel for CD")
   }
   fn receive(&self) -> Register {
-    0
+    todo!("implement DMAChannel for CD")
   }
 }
