@@ -58,7 +58,7 @@ impl Command {
       0x40 | 0x42 => {
         self.parameters.len() == 11
       },
-      0x48 | 0x4a => {
+      0x48 | 0x4a | 0x58 | 0x5a => {
         (self.parameters.len() >= 15) &&
         self.parameters.iter()
                        .rev()
@@ -99,9 +99,12 @@ impl Command {
       0x1f => {
         self.parameters.len() == 3
       },
-      0x00 => {
+      0x00 | 04..=0x1e | 0xe0 | 0xe7..=0xef => {
         true
-      }
+      },
+      0x50 | 0x52 => {
+        self.parameters.len() == 15
+      },
       _ => {
         todo!("implement this GPU command {}", self.id)
       },

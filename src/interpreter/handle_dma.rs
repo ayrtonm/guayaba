@@ -28,9 +28,8 @@ impl Interpreter{
                     0 => 0x00ff_ffff,
                     _ => addr.wrapping_sub(4) & 0x001f_fffc,
                   };
-                  //technically we should call resolve_memaction() here
-                  //but the BIOS probably isn't doing anything tricky that would require this
-                  self.memory.write_word(addr, data);
+                  let action = self.memory.write_word(addr, data);
+                  self.resolve_memaction(action);
                   addr = step(addr);
                 }
               },
