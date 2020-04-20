@@ -19,6 +19,9 @@ impl Command {
       parameters: vec![param1, param2, param3],
     }
   }
+  pub fn id(&self) -> u8 {
+    self.id
+  }
   pub fn append_parameters(&mut self, param: u32) {
     let param1 = (param >> 24) as u8;
     let param2 = ((param >> 16) & 0x0000_00ff) as u8;
@@ -159,9 +162,11 @@ impl GPU {
     }
   }
   pub fn write_to_gp0(&mut self, value: Register) {
+    //println!("GP0 received {:#x}", value);
     if !self.waiting_for_parameters {
       let cmd = Command::new(value);
       if cmd.completed() {
+        println!("GP0 received command {:#x}", cmd.id());
         self.command_buffer.push_back(cmd);
       } else {
         self.partial_command = Some(cmd);
@@ -171,6 +176,7 @@ impl GPU {
       let mut cmd = self.partial_command.take().expect("Expected a partial command in the GPU");
       cmd.append_parameters(value);
       if cmd.completed() {
+        println!("GP0 received command {:#x}", cmd.id());
         self.command_buffer.push_back(cmd);
         self.waiting_for_parameters = false;
       } else {
@@ -179,6 +185,7 @@ impl GPU {
     }
   }
   pub fn write_to_gp1(&mut self, value: Register) {
+    //println!("GP1 received {:#x}", value);
     let id = ((value >> 24) & 0x3f) as u8;
     match id {
       0x00 => {

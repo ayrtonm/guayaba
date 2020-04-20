@@ -103,12 +103,10 @@ impl Interpreter {
       MemResponse::Value(value) => value,
       MemResponse::GPUREAD => {
         let ret = 0;
-        println!("GPUREAD contained {:#x}", ret);
         ret
       },
       MemResponse::GPUSTAT => {
-        let ret = 0x1c00_0000;
-        println!("GPUSTAT contained {:#x}", ret);
+        let ret: Register = 0x1c00_0000;
         ret
       },
     }
@@ -122,11 +120,9 @@ impl Interpreter {
             self.handle_dma(transfer);
           },
           MemAction::GpuGp0(value) => {
-            println!("GP0 received {:#x}", value);
             self.gpu.write_to_gp0(value);
           },
           MemAction::GpuGp1(value) => {
-            println!("GP1 received {:#x}", value);
             self.gpu.write_to_gp1(value);
           }
           MemAction::Debug => {

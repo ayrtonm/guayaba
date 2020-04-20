@@ -25,7 +25,7 @@ impl Interpreter{
     let mut addr = transfer.start_address() & addr_mask;
     match transfer.direction() {
       Direction::ToRAM => {
-        match transfer.channel() {
+        match transfer.channel_num() {
           6 => {
             match transfer.chunks() {
               Chunks::NumWords(num) => {
@@ -36,7 +36,7 @@ impl Interpreter{
                     _ => addr.wrapping_sub(4) & addr_mask,
                   };
                   self.memory.write_word(addr, data);
-                  addr = addr.wrapping_add(4) & addr_mask;
+                  addr = step(addr);
                 }
               },
               _ => {
@@ -50,7 +50,7 @@ impl Interpreter{
         }
       },
       Direction::FromRAM => {
-        let channel_available = self.get_dma_channel(transfer.channel()).is_some();
+        let channel_available = self.get_dma_channel(transfer.channel_num()).is_some();
         if channel_available {
           let mut buffer = Vec::new();
           match transfer.chunks() {
@@ -69,7 +69,7 @@ impl Interpreter{
                 addr = step(addr);
               }
               addr = undo_step(addr);
-              self.memory.write_word(0x1f80_1080 + (transfer.channel() * 0x10), addr);
+              self.memory.write_word(0x1f80_1080 + (transfer.channel_num() * 0x10), addr);
             },
             Chunks::LinkedList => {
               let mut header_address = addr;
@@ -88,18 +88,18 @@ impl Interpreter{
                   header_address = next_packet & addr_mask;
                 }
               }
-              self.memory.write_word(0x1f80_1080 + (transfer.channel() * 0x10), 0x00ff_ffff);
+              self.memory.write_word(0x1f80_1080 + (transfer.channel_num() * 0x10), 0x00ff_ffff);
             },
           }
-          self.get_dma_channel(transfer.channel())
+          self.get_dma_channel(transfer.channel_num())
               .map(|channel| channel.send(buffer));
         }
       },
     }
-    self.memory.reset_dma_channel(transfer.channel());
+    self.memory.reset_dma_channel(transfer.channel_num());
   }
-  fn get_dma_channel(&mut self, channel: u32) -> Option<&mut dyn DMAChannel> {
-    match channel {
+  fn get_dma_channel(&mut self, channel_num: u32) -> Option<&mut dyn DMAChannel> {
+    match channel_num {
       2 => {
         Some(&mut self.gpu)
       },
@@ -110,7 +110,7 @@ impl Interpreter{
         Some(&mut self.memory)
       },
       _ => {
-        todo!("implement get_dma_channel() for channel {}", channel)
+        todo!("implement get_dma_channel() for channel num {}", channel_num)
       },
     }
   }
