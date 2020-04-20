@@ -1,8 +1,6 @@
 use crate::common::ReadArray;
 use crate::common::WriteArray;
 use crate::memory::Memory;
-use crate::memory::MemAction;
-use crate::memory::MemResponse;
 use crate::register::Register;
 use crate::register::Aliases;
 use crate::register::BitManipulation;

@@ -47,13 +47,19 @@ impl Interpreter{
         match transfer.channel() {
           2 => {
             match transfer.chunks() {
+              Chunks::NumWords(num) => {
+                todo!("implement DMA word copy {:#x?}", num)
+              },
+              Chunks::Blocks(blocks) => {
+                todo!("implement DMA block copy {:#x?}", blocks)
+              },
               Chunks::LinkedList => {
                 let mut buffer = Vec::new();
                 let mut header_address = addr;
                 loop {
                   let header = self.resolve_memresponse(self.memory.read_word(header_address));
                   let packet_size = header >> 24;
-                  for i in 1..=packet_size {
+                  for _ in 1..=packet_size {
                     addr = step(addr);
                     let data = self.resolve_memresponse(self.memory.read_word(addr));
                     buffer.push(data);
@@ -68,9 +74,6 @@ impl Interpreter{
                 self.memory.write_word(0x1f80_1080 + (transfer.channel() * 0x10), 0x00ff_ffff);
                 self.get_dma_channel(transfer.channel())
                     .map(|channel| channel.send(buffer));
-              },
-              _ => {
-                todo!("implement DMA {:#x?}", transfer)
               },
             }
           },
