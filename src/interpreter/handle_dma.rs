@@ -50,8 +50,9 @@ impl Interpreter{
             match transfer.chunks() {
               Chunks::LinkedList => {
                 let mut buffer = Vec::new();
-                let mut header = self.resolve_memresponse(self.memory.read_word(addr));
+                let mut header_address = addr;
                 loop {
+                  let header = self.resolve_memresponse(self.memory.read_word(header_address));
                   let packet_size = header >> 24;
                   for i in 1..=packet_size {
                     addr = step(addr);
@@ -62,10 +63,12 @@ impl Interpreter{
                   if next_packet == 0x00ff_ffff {
                     break
                   } else {
-                    header = next_packet & 0x001f_fffc;
+                    header_address = next_packet & 0x001f_fffc;
                   }
                 }
-                self.get_dma_channel(transfer.channel()).map(|channel| channel.send(buffer));
+                self.memory.write_word(0x1f80_1080 + (transfer.channel() * 0x10), 0x00ff_ffff);
+                self.get_dma_channel(transfer.channel())
+                    .map(|channel| channel.send(buffer));
               },
               _ => {
                 todo!("implement DMA {:#x?}", transfer)

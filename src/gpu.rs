@@ -103,7 +103,7 @@ impl Command {
         true
       }
       _ => {
-        todo!("implement this")
+        todo!("implement this GPU command {}", self.id)
       },
     }
   }
