@@ -1,9 +1,11 @@
 use crate::common::ReadArray;
+use crate::common::WriteArray;
 use crate::memory::Memory;
 use crate::memory::MemAction;
 use crate::memory::MemResponse;
 use crate::register::Register;
 use crate::register::Aliases;
+use crate::register::BitManipulation;
 use crate::dma::Transfer;
 use crate::dma::Chunks;
 use crate::dma::Blocks;
@@ -62,23 +64,23 @@ macro_rules! get_io_action {
           let channel_num = (aligned_address - 0x1f80_1088) >> 4;
           let control_register = $self.io_ports.as_ref()
                                                .read_word(aligned_offset);
-          let sync_mode = (control_register >> 9) & 3;
-          match sync_mode {
-            0 => {
-              if control_register.nth_bit_bool(28) {
+          let sync_mode = control_register.sync_mode();
+          if control_register.nth_bit_bool(24) {
+            match sync_mode {
+              0 => {
+                if control_register.nth_bit_bool(28) {
+                  Some(MemAction::DMA($self.create_dma_transfer(channel_num)))
+                } else {
+                  None
+                }
+              },
+              1 | 2 => {
                 Some(MemAction::DMA($self.create_dma_transfer(channel_num)))
-              } else {
-                None
-              }
-            },
-            1 | 2 => {
-              if control_register.nth_bit_bool(24) {
-                Some(MemAction::DMA($self.create_dma_transfer(channel_num)))
-              } else {
-                None
-              }
-            },
-            _ => unreachable!("DMA channel {} is not configured properly", channel_num),
+              },
+              _ => unreachable!("DMA channel {} is not configured properly", channel_num),
+            }
+          } else {
+            None
           }
         },
         //DMA interrupt register
@@ -94,6 +96,21 @@ macro_rules! get_io_action {
 }
 
 impl Memory {
+  pub fn reset_dma_channel(&mut self, channel: u32) {
+    let address = 0x1f80_1088 + (channel * 0x10) - Memory::IO_PORTS;
+    let control_register = self.io_ports.as_ref().read_word(address);
+    let sync_mode = control_register.sync_mode();
+    let new_register = match sync_mode {
+      0 => {
+        control_register.clear(28)
+      },
+      1 | 2 => {
+        control_register.clear(24)
+      },
+      _ => unreachable!("DMA channel {} is not configured properly", channel),
+    };
+    self.io_ports.as_mut().write_word(address, new_register);
+  }
   //pack the current state of I/O ports into a Transfer struct for a given channel
   pub(super) fn create_dma_transfer(&mut self, channel: u32) -> Transfer {
     assert!(channel < 7);
@@ -105,7 +122,7 @@ impl Memory {
     //these are the values of locations in memory
     let start_address = self.io_ports.as_ref().read_word(base_addr) & 0x00ff_fffc;
     let block_control = self.io_ports.as_ref().read_word(block_control);
-    let sync_mode = (self.io_ports.as_ref().read_word(channel_control) >> 9) & 3;
+    let sync_mode = self.io_ports.as_ref().read_word(channel_control).sync_mode();
     let direction = match self.io_ports.as_ref().read_word(channel_control).nth_bit_bool(0) {
       false => Direction::ToRAM,
       true => Direction::FromRAM,
@@ -148,5 +165,15 @@ impl Memory {
       _ => unreachable!("DMA channel {} is not configured properly", channel),
     };
     Transfer::new(channel, start_address, chunks, direction, step, sync_mode)
+  }
+}
+
+pub trait DMAControl {
+  fn sync_mode(&self) -> u32;
+}
+
+impl DMAControl for Register {
+  fn sync_mode(&self) -> u32 {
+    (self >> 9) & (3 as u32)
   }
 }

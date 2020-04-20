@@ -8,38 +8,40 @@ use crate::dma::DMAChannel;
 
 impl Interpreter{
   pub(super) fn handle_dma(&mut self, transfer: Transfer) {
-    match transfer.chunks() {
-      Chunks::NumWords(num) => {
-      },
-      Chunks::Blocks(blocks) => {
-      },
-      Chunks::LinkedList => {
-        let mut buffer = Vec::new();
-        let mut current_address = transfer.start_address();
-        loop {
-          let header = self.resolve_memresponse(self.memory.read_word(current_address));
-          let packet_size = header >> 24;
-          let operation = |addr| match transfer.step() {
-            Step::Forward => current_address.wrapping_add(addr),
-            Step::Backward => current_address.wrapping_sub(addr),
-          };
-          for i in 1..=packet_size {
-            let next_addr = operation(i *  4) & 0x001f_fffc;
-            let data = self.resolve_memresponse(self.memory.read_word(next_addr));
-            buffer.push(data);
-          }
-          let next_header_addr = header & 0x00ff_ffff;
-          if next_header_addr == 0x00ff_ffff {
-            break
-          } else {
-            current_address = next_header_addr & 0x001f_fffc;
-          }
+    let next_address = |increment| match transfer.step() {
+      Step::Forward => transfer.start_address().wrapping_add(increment * 4),
+      Step::Backward => transfer.start_address().wrapping_sub(increment * 4),
+    };
+    let mut addr = transfer.start_address() & 0x001f_fffc;
+    match transfer.direction() {
+      Direction::ToRAM => {
+        match transfer.channel() {
+          6 => {
+            match transfer.chunks() {
+              Chunks::NumWords(num) => {
+                for i in 1..=*num {
+                  let remaining = *num - i;
+                  let data = match remaining {
+                    0 => 0x00ff_ffff,
+                    _ => addr.wrapping_sub(4) & 0x001f_fffc,
+                  };
+                  self.memory.write_word(addr, data);
+                  addr = next_address(i) & 0x001f_fffc;
+                }
+                self.memory.reset_dma_channel(6);
+              },
+              _ => {
+                todo!("implement DMA {:#x?}", transfer)
+              },
+            }
+          },
+          _ => {
+            todo!("implement DMA {:#x?}", transfer)
+          },
         }
-        let mut channel = self.get_dma_channel(transfer.channel());
-        channel.map(|channel| channel.send(buffer));
-        println!("sent data on DMA channel {}", transfer.channel());
       },
-      _ => {
+      Direction::FromRAM => {
+        todo!("implement DMA from RAM {:#x?}", transfer)
       },
     }
   }

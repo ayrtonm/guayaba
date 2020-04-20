@@ -14,6 +14,7 @@ use crate::dma::DMAChannel;
 
 #[macro_use]
 mod ioports;
+use ioports::DMAControl;
 
 pub enum MemAction {
   DMA(Transfer),

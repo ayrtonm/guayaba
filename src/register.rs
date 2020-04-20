@@ -10,6 +10,11 @@ pub trait Parts {
   fn byte_sign_extended(&self) -> Register;
 }
 
+pub trait BitManipulation {
+  fn set(&self, n: Register) -> Register;
+  fn clear(&self, n: Register) -> Register;
+}
+
 pub trait Aliases {
   fn sra(&self, rhs: Register) -> Register;
   fn and(&self, rhs: Register) -> Register;
@@ -37,6 +42,15 @@ impl Parts for Register{
   }
   fn byte_sign_extended(&self) -> Register {
     (self.byte() as i8) as Register
+  }
+}
+
+impl BitManipulation for Register {
+  fn set(&self, n: Register) -> Register {
+    *self | (1 << n)
+  }
+  fn clear(&self, n: Register) -> Register {
+    *self & !(1 << n)
   }
 }
 
