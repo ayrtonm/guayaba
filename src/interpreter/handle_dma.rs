@@ -44,35 +44,38 @@ impl Interpreter{
         }
       },
       Direction::FromRAM => {
-        match transfer.chunks() {
-          Chunks::NumWords(num) => {
-            todo!("implement DMA word copy {:#x?}", num)
-          },
-          Chunks::Blocks(blocks) => {
-            todo!("implement DMA block copy {:#x?}", blocks)
-          },
-          Chunks::LinkedList => {
-            let mut buffer = Vec::new();
-            let mut header_address = addr;
-            loop {
-              let header = self.resolve_memresponse(self.memory.read_word(header_address));
-              let packet_size = header >> 24;
-              for _ in 1..=packet_size {
-                addr = step(addr);
-                let data = self.resolve_memresponse(self.memory.read_word(addr));
-                buffer.push(data);
+        let channel_available = self.get_dma_channel(transfer.channel()).is_some();
+        if channel_available {
+          let mut buffer = Vec::new();
+          match transfer.chunks() {
+            Chunks::NumWords(num) => {
+              todo!("implement DMA word copy {:#x?}", transfer)
+            },
+            Chunks::Blocks(blocks) => {
+              todo!("implement DMA block copy {:#x?}", transfer)
+            },
+            Chunks::LinkedList => {
+              let mut header_address = addr;
+              loop {
+                let header = self.resolve_memresponse(self.memory.read_word(header_address));
+                let packet_size = header >> 24;
+                for _ in 1..=packet_size {
+                  addr = step(addr);
+                  let data = self.resolve_memresponse(self.memory.read_word(addr));
+                  buffer.push(data);
+                }
+                let next_packet = header & 0x00ff_ffff;
+                if next_packet == 0x00ff_ffff {
+                  break
+                } else {
+                  header_address = next_packet & 0x001f_fffc;
+                }
               }
-              let next_packet = header & 0x00ff_ffff;
-              if next_packet == 0x00ff_ffff {
-                break
-              } else {
-                header_address = next_packet & 0x001f_fffc;
-              }
-            }
-            self.memory.write_word(0x1f80_1080 + (transfer.channel() * 0x10), 0x00ff_ffff);
-            self.get_dma_channel(transfer.channel())
-                .map(|channel| channel.send(buffer));
-          },
+              self.memory.write_word(0x1f80_1080 + (transfer.channel() * 0x10), 0x00ff_ffff);
+            },
+          }
+          self.get_dma_channel(transfer.channel())
+              .map(|channel| channel.send(buffer));
         }
       },
     }
