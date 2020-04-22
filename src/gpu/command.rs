@@ -69,8 +69,8 @@ impl Command {
           let ysize = self.0[2] >> 16;
           let xsize = self.0[2].lowest_bits(16);
           //paramter length is in bytes
-          let num_words = ((xsize as u64) * (ysize as u64)) >> 1;
-          self.num_words() >= num_words as usize
+          let num_words = *((xsize * ysize) + 1).clear(0) >> 1;
+          self.num_words() == 3 + num_words as usize
         }
       },
       0xc0..=0xdf => {
@@ -81,7 +81,7 @@ impl Command {
         true
       },
       _ => {
-        todo!("implement this GPU command {:x}", self.id())
+        todo!("implement this GP0 command {:x}", self.id())
       },
     }
   }
