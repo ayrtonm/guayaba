@@ -106,33 +106,33 @@ impl GPU {
           },
           0xe1 => {
             let mask = 0x0000_83ff;
-            let command = command.serialize() & mask;
+            let command = command.as_ref(0) & mask;
             self.gpustat.as_mut().clear_mask(mask).set_mask(command);
           },
           0xe2 => {
-            let command = command.serialize();
+            let command = command.as_ref(0);
             self.texture_mask_x = command.lowest_bits(5);
             self.texture_mask_y = (command >> 5).lowest_bits(5);
             self.texture_offset_x = (command >> 10).lowest_bits(5);
             self.texture_offset_y = (command >> 15).lowest_bits(5);
           },
           0xe3 => {
-            let command = command.serialize();
+            let command = command.as_ref(0);
             self.drawing_min_x = command.lowest_bits(10);
             self.drawing_min_y = (command >> 10).lowest_bits(9);
           },
           0xe4 => {
-            let command = command.serialize();
+            let command = command.as_ref(0);
             self.drawing_max_x = command.lowest_bits(10);
             self.drawing_max_y = (command >> 10).lowest_bits(9);
           },
           0xe5 => {
-            let command = command.serialize();
+            let command = command.as_ref(0);
             self.drawing_offset_x = command.lowest_bits(11);
             self.drawing_offset_y = (command >> 11).lowest_bits(11);
           },
           0xe6 => {
-            let command = command.serialize();
+            let command = command.as_ref(0);
             let mask = command.lowest_bits(2) << 11;
             self.gpustat.as_mut().clear(11).clear(12).set_mask(mask);
           },
@@ -201,8 +201,5 @@ impl GPU {
         todo!("implement this GP1 command {:#x}", command);
       },
     }
-  }
-  fn num_bytes(&self) -> usize {
-    self.command_buffer.iter().fold(0, |acc, cmd| acc + cmd.num_bytes())
   }
 }
