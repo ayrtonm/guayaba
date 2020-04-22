@@ -86,7 +86,8 @@ impl GPU {
     }
   }
   pub fn gpustat(&self) -> Register {
-    self.gpustat.0
+    //this is a dirty hack
+    *self.gpustat.0.clone().clear(19)
   }
   pub fn exec_next_gp0_command(&mut self) {
     let command = self.command_buffer.pop_front();
@@ -96,6 +97,12 @@ impl GPU {
           0x00 => {
           },
           0x04..=0x1e | 0xe0 | 0xe7..=0xef => {
+          },
+          0x28 => {
+            println!("rendered an opaque monochrome four-point polygon");
+          },
+          0xa0 => {
+            println!("copy rectangle to VRAM");
           },
           0xe1 => {
             let mask = 0x0000_83ff;

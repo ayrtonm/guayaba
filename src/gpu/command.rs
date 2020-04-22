@@ -16,6 +16,9 @@ impl Command {
       parameters: vec![param1, param2, param3],
     }
   }
+  pub fn parameters(&self) -> &Vec<u8> {
+    &self.parameters
+  }
   pub fn serialize(&self) -> Register {
     assert!(self.parameters.len() == 3, "{:#x?}", self);
     ((self.id as Register) << 24) |
