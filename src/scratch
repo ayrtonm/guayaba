@@ -11,10 +11,10 @@ pub trait Parts {
 }
 
 pub trait BitManipulation {
-  fn set(&mut self, n: Register) -> &mut Self;
-  fn set_mask(&mut self, mask: Register) -> &mut Self;
-  fn clear(&mut self, n: Register) -> &mut Self;
-  fn clear_mask(&mut self, mask: Register) -> &mut Self;
+  fn set(&self, n: Register) -> Register;
+  fn set_mask(&self, mask: Register) -> Register;
+  fn clear(&self, n: Register) -> Register;
+  fn clear_mask(&self, mask: Register) -> Register;
   fn lowest_bits(&self, n: Register) -> Register;
 }
 
@@ -49,21 +49,17 @@ impl Parts for Register{
 }
 
 impl BitManipulation for Register {
-  fn set(&mut self, n: Register) -> &mut Self {
-    *self |= (1 << n);
-    self
+  fn set(&self, n: Register) -> Register {
+    *self | (1 << n)
   }
-  fn set_mask(&mut self, mask: Register) -> &mut Self {
-    *self |= mask;
-    self
+  fn set_mask(&self, mask: Register) -> Register {
+    *self | mask
   }
-  fn clear(&mut self, n: Register) -> &mut Self {
-    *self &= !(1 << n);
-    self
+  fn clear(&self, n: Register) -> Register {
+    *self & !(1 << n)
   }
-  fn clear_mask(&mut self, mask: Register) -> &mut Self {
-    *self &= !mask;
-    self
+  fn clear_mask(&self, mask: Register) -> Register {
+    *self & !mask
   }
   fn lowest_bits(&self, n: Register) -> Register {
     *self & ((1 << n) - 1)

@@ -1,8 +1,4 @@
-use std::collections::VecDeque;
-use crate::memory::MB;
 use crate::register::Register;
-use crate::register::BitManipulation;
-use crate::dma::DMAChannel;
 
 #[derive(Debug)]
 pub struct Command {
@@ -21,7 +17,7 @@ impl Command {
     }
   }
   pub fn serialize(&self) -> Register {
-    assert!(self.parameters.len() == 3);
+    assert!(self.parameters.len() == 3, "{:#x?}", self);
     ((self.id as Register) << 24) |
     ((self.parameters[0] as Register) << 16) |
     ((self.parameters[1] as Register) << 8) |
@@ -39,6 +35,9 @@ impl Command {
     self.parameters.push(param2);
     self.parameters.push(param3);
     self.parameters.push(param4);
+  }
+  pub fn num_bytes(&self) -> usize {
+    1 + self.parameters.len()
   }
   pub fn completed(&self) -> bool {
     match self.id {
@@ -132,137 +131,4 @@ impl Command {
   }
 }
 
-trait Size {
-  fn num_bytes(&self) -> usize;
-}
 
-impl Size for Command {
-  fn num_bytes(&self) -> usize {
-    1 + self.parameters.len()
-  }
-}
-
-impl Size for VecDeque<Command> {
-  fn num_bytes(&self) -> usize {
-    self.iter().fold(0, |acc, cmd| acc + cmd.num_bytes())
-  }
-}
-
-pub struct GPU {
-  gpustat: GPUStatus,
-  gpuread: Register,
-  vram: Box<[u8]>,
-  command_buffer: VecDeque<Command>,
-  waiting_for_parameters: bool,
-  partial_command: Option<Command>,
-}
-
-impl DMAChannel for GPU {
-  fn send(&mut self, data: Vec<Register>) {
-    data.iter().for_each(|&word| self.write_to_gp0(word))
-  }
-  fn receive(&self) -> Register {
-    self.gpuread
-  }
-}
-
-struct GPUStatus(Register);
-
-impl GPUStatus {
-  fn new() -> Self {
-    GPUStatus(0x1c00_0000)
-  }
-  fn as_mut(&mut self) -> &mut Register {
-    &mut self.0
-  }
-  fn texture_page_x(&self) -> Register {
-    self.0 & 0x0f
-  }
-  fn set_texture_page_x(&mut self, value: Register) {
-    assert!(value < 0x10);
-    self.0 = (self.0 & 0xffff_fff0) | value;
-  }
-}
-
-impl GPU {
-  pub fn new() -> Self {
-    let command_buffer = VecDeque::new();
-    GPU {
-      gpustat: GPUStatus::new(),
-      gpuread: 0,
-      vram: vec![0; MB].into_boxed_slice(),
-      command_buffer,
-      waiting_for_parameters: false,
-      partial_command: None,
-    }
-  }
-  pub fn gpustat(&self) -> Register {
-    self.gpustat.0
-  }
-  pub fn exec_next_gp0_command(&mut self) {
-    let command = self.command_buffer.pop_front();
-    match command {
-      Some(command) => {
-        match command.id() {
-          0x00 => {
-          },
-          0xe1 => {
-            let mask = 0x0000_83ff;
-            let command = command.serialize() & mask;
-            self.gpustat.as_mut().clear_mask(mask).set_mask(command);
-          },
-          _ => {
-            todo!("implement this GP0 command {:#x}", command.id());
-          },
-        }
-      },
-      None => {
-      },
-    }
-  }
-  pub fn write_to_gp0(&mut self, value: Register) {
-    //println!("GP0 received {:#x}", value);
-    if !self.waiting_for_parameters {
-      let cmd = Command::new(value);
-      if cmd.completed() {
-        println!("GP0 received command {:#x?}", cmd);
-        self.command_buffer.push_back(cmd);
-      } else {
-        self.partial_command = Some(cmd);
-        self.waiting_for_parameters = true;
-      }
-    } else {
-      let mut cmd = self.partial_command.take().expect("Expected a partial command in the GPU");
-      cmd.append_parameters(value);
-      if cmd.completed() {
-        println!("GP0 received command {:#x?}", cmd);
-        self.command_buffer.push_back(cmd);
-        self.waiting_for_parameters = false;
-      } else {
-        self.partial_command = Some(cmd);
-      }
-    }
-  }
-  pub fn write_to_gp1(&mut self, value: Register) {
-    println!("GP1 received {:#x}", value);
-    let command = value >> 24;
-    match command {
-      0x00 => {
-        *self.gpustat.as_mut() = 0x1480_2000;
-      },
-      0x04 => {
-        let mask = 0x6000_0000;
-        let new_values = (value & 3) << 29;
-        self.gpustat.as_mut().clear_mask(mask).set_mask(new_values);
-      },
-      0x08 => {
-        let mask = 0x003f_4000;
-        let new_values = ((value & 0x3f) << 17) | (value & 0x40) << 16 | (value & 0x80) << 14;
-        self.gpustat.as_mut().clear_mask(mask).set_mask(new_values);
-      },
-      _ => {
-        todo!("implement this GP1 command {:#x}", command);
-      },
-    }
-  }
-}

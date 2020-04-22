@@ -96,17 +96,8 @@ macro_rules! get_io_action {
 impl Memory {
   pub fn reset_dma_channel(&mut self, channel: u32) {
     let address = 0x1f80_1088 + (channel * 0x10) - Memory::IO_PORTS;
-    let control_register = self.io_ports.as_ref().read_word(address);
-    let sync_mode = control_register.sync_mode();
-    let new_register = match sync_mode {
-      0 => {
-        control_register.clear(28).clear(24)
-      },
-      1 | 2 => {
-        control_register.clear(28).clear(24)
-      },
-      _ => unreachable!("DMA channel {} is not configured properly", channel),
-    };
+    let mut control_register = self.io_ports.as_ref().read_word(address);
+    let new_register = *control_register.clear(28).clear(24);
     self.io_ports.as_mut().write_word(address, new_register);
   }
   //pack the current state of I/O ports into a Transfer struct for a given channel
