@@ -96,6 +96,9 @@ impl GPU {
         match command.id() {
           0x00 => {
           },
+          0x01 => {
+            self.gpustat.as_mut().set(24);
+          },
           0x04..=0x1e | 0xe0 | 0xe7..=0xef => {
           },
           0x28 => {
