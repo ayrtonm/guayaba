@@ -72,7 +72,10 @@ impl Interpreter{
           let rs = self.r3000.nth_reg(get_rs(op));
           let imm16 = get_imm16(op).half_sign_extended();
           let rt_idx = get_rt(op);
-          let rt = self.r3000.nth_reg(rt_idx);
+          let rt = self.delayed_writes.iter()
+                                      .rev()
+                                      .find(|write| *write.name() == Name::Rn(rt_idx))
+                                      .map_or(self.r3000.nth_reg(rt_idx),|write| write.value());
           let address = rs.wrapping_add(imm16);
           let aligned_address = *address.clone().clear(0).clear(1);
           let aligned_word = self.resolve_memresponse(self.memory.read_word(aligned_address));

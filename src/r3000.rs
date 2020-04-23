@@ -25,6 +25,12 @@ impl DelayedWrite {
       value,
     }
   }
+  pub fn name(&self) -> &Name {
+    &self.register_name
+  }
+  pub fn value(&self) -> Register {
+    self.value
+  }
 }
 
 pub struct MutRegister<'a> {
