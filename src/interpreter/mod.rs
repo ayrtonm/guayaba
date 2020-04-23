@@ -102,29 +102,17 @@ impl Interpreter {
   fn resolve_memresponse(&mut self, response: MemResponse) -> Register {
     match response {
       MemResponse::Value(value) => value,
-      MemResponse::GPUREAD => {
-        let ret = 0;
-        ret
-      },
-      MemResponse::GPUSTAT => {
-        self.gpu.gpustat()
-      },
+      MemResponse::GPUREAD => 0,
+      MemResponse::GPUSTAT => self.gpu.gpustat(),
     }
   }
   fn resolve_memaction(&mut self, maybe_action: Option<MemAction>) {
     maybe_action.map(
       |action| {
         match action {
-          MemAction::DMA(transfer) => {
-            //println!("{:#x?}", transfer);
-            self.handle_dma(transfer);
-          },
-          MemAction::GpuGp0(value) => {
-            self.gpu.write_to_gp0(value);
-          },
-          MemAction::GpuGp1(value) => {
-            self.gpu.write_to_gp1(value);
-          }
+          MemAction::DMA(transfer) => self.handle_dma(transfer),
+          MemAction::GpuGp0(value) => self.gpu.write_to_gp0(value),
+          MemAction::GpuGp1(value) => self.gpu.write_to_gp1(value),
         }
       }
     );

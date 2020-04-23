@@ -100,12 +100,12 @@ impl Interpreter{
       };
       ([rs + imm16] = rt left) => {
         {
-          mov!([rs + imm16] = rt 24_u32, sub lowest_bits shl)
+          mov!([rs + imm16] = rt 24_u32, sub upper_bits shr)
         }
       };
       ([rs + imm16] = rt right) => {
         {
-          mov!([rs + imm16] = rt 0_u32, add upper_bits shr)
+          mov!([rs + imm16] = rt 0_u32, add lowest_bits shl)
         }
       };
       ([rs + imm16] = rt $offset:expr, $operator:ident $mask:ident $shift:ident) => {
@@ -118,7 +118,7 @@ impl Interpreter{
             let aligned_address = *address.clone().clear_mask(3);
             let aligned_word = self.resolve_memresponse(self.memory.read_word(aligned_address));
             let num_bits = $offset.$operator(8*address.lowest_bits(2));
-            let result = rt.$mask(num_bits) | aligned_word.$shift(num_bits);
+            let result = rt.$shift(num_bits) | aligned_word.$mask(num_bits);
             let maybe_action = self.memory.write_word(aligned_address, result);
             self.resolve_memaction(maybe_action);
           } else {

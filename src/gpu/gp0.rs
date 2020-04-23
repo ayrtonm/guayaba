@@ -22,6 +22,9 @@ impl GPU {
           0xa0 => {
             println!("copy rectangle to VRAM");
           },
+          0xc0 => {
+            println!("copy rectangle from VRAM");
+          },
           0xe1 => {
             let mask = 0x0000_83ff;
             let command = command.as_ref(0) & mask;

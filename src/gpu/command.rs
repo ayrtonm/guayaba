@@ -61,7 +61,6 @@ impl Command {
               .all(|&p| p == 0x55555555)
       },
       0xa0..=0xbf => {
-        //this is some function of the parameters
         if self.num_words() < 3 {
           false
         } else {
@@ -74,8 +73,7 @@ impl Command {
         }
       },
       0xc0..=0xdf => {
-        //this is some function of the parameters
-        todo!("implement this GPU command {:x}", self.id())
+        self.num_words() == 3
       },
       0x00 | 04..=0x1e | 0xe0 | 0xe7..=0xef => {
         true

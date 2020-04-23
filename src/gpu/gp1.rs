@@ -11,6 +11,9 @@ impl GPU {
       0x00 => {
         *self.gpustat.as_mut() = 0x1480_2000;
       },
+      0x03 => {
+        *self.gpustat.as_mut().clear(23).set_mask(command.lowest_bits(1) << 23);
+      },
       0x04 => {
         let mask = 0x6000_0000;
         let new_values = (value & 3) << 29;
