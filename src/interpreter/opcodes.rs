@@ -67,7 +67,7 @@ impl Interpreter{
           mov!(rt = [rs + imm16] 0_u32, add upper_bits shr) 
         }
       };
-      (rt = [rs + imm16] $offset:expr, $offset_operator:ident $mask_operator:ident $shift_operator:ident) => {
+      (rt = [rs + imm16] $offset:expr, $operator:ident $mask:ident $shift:ident) => {
         {
           let rs = self.r3000.nth_reg(get_rs(op));
           let imm16 = get_imm16(op).half_sign_extended();
@@ -77,10 +77,10 @@ impl Interpreter{
                                       .find(|write| *write.name() == Name::Rn(rt_idx))
                                       .map_or(self.r3000.nth_reg(rt_idx),|write| write.value());
           let address = rs.wrapping_add(imm16);
-          let aligned_address = *address.clone().clear(0).clear(1);
+          let aligned_address = *address.clone().clear_mask(3);
           let aligned_word = self.resolve_memresponse(self.memory.read_word(aligned_address));
-          let num_bits = $offset.$offset_operator(8*address.lowest_bits(2));
-          let result = rt.$mask_operator(num_bits) | (aligned_word.$shift_operator(num_bits));
+          let num_bits = $offset.$operator(8*address.lowest_bits(2));
+          let result = rt.$mask(num_bits) | aligned_word.$shift(num_bits);
           self.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt_idx), result));
           None
         }
@@ -95,6 +95,35 @@ impl Interpreter{
           self.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt), result));
           log!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x} {}",
                     rt, rs, imm16, rs.wrapping_add(imm16), result, stringify!($method));
+          None
+        }
+      };
+      ([rs + imm16] = rt left) => {
+        {
+          mov!([rs + imm16] = rt 24_u32, sub lowest_bits shl)
+        }
+      };
+      ([rs + imm16] = rt right) => {
+        {
+          mov!([rs + imm16] = rt 0_u32, add upper_bits shr)
+        }
+      };
+      ([rs + imm16] = rt $offset:expr, $operator:ident $mask:ident $shift:ident) => {
+        {
+          let rs = self.r3000.nth_reg(get_rs(op));
+          let rt = self.r3000.nth_reg(get_rt(op));
+          let imm16 = get_imm16(op).half_sign_extended();
+          if !self.cop0.cache_isolated() {
+            let address = rs.wrapping_add(imm16);
+            let aligned_address = *address.clone().clear_mask(3);
+            let aligned_word = self.resolve_memresponse(self.memory.read_word(aligned_address));
+            let num_bits = $offset.$operator(8*address.lowest_bits(2));
+            let result = rt.$mask(num_bits) | aligned_word.$shift(num_bits);
+            let maybe_action = self.memory.write_word(aligned_address, result);
+            self.resolve_memaction(maybe_action);
+          } else {
+            log!("ignoring write while cache is isolated");
+          }
           None
         }
       };
@@ -892,7 +921,7 @@ impl Interpreter{
       0x2A => {
         //SWL
         log!("> SWL");
-        todo!("swl")
+        mov!([rs + imm16] = rt left)
       },
       0x2B => {
         //SW
@@ -902,7 +931,7 @@ impl Interpreter{
       0x2E => {
         //SWR
         log!("> SWR");
-        todo!("swr")
+        mov!([rs + imm16] = rt right)
       },
       0x30 => {
         //LWC0
