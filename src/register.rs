@@ -16,6 +16,7 @@ pub trait BitManipulation {
   fn clear(&mut self, n: Register) -> &mut Self;
   fn clear_mask(&mut self, mask: Register) -> &mut Self;
   fn lowest_bits(&self, n: Register) -> Register;
+  fn upper_bits(&self, n: Register) -> Register;
 }
 
 pub trait Aliases {
@@ -66,7 +67,10 @@ impl BitManipulation for Register {
     self
   }
   fn lowest_bits(&self, n: Register) -> Register {
-    *self & ((1 << n) - 1)
+    *self & (((1 as u64) << n) - 1) as u32
+  }
+  fn upper_bits(&self, n: Register) -> Register {
+    *self & !(((1 as u64) << (32 - n)) - 1) as u32
   }
 }
 

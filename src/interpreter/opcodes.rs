@@ -1,8 +1,11 @@
+use std::ops::Add;
 use std::ops::Shl;
 use std::ops::Shr;
+use std::ops::Sub;
 use crate::register::Register;
 use crate::register::Parts;
 use crate::register::Aliases;
+use crate::register::BitManipulation;
 use crate::r3000::MaybeSet;
 use crate::r3000::DelayedWrite;
 use crate::r3000::Name;
@@ -54,6 +57,31 @@ impl Interpreter{
     //symbolic and only used to improve readability. This macro should be able to
     //handle all loads in the MIPS instructions set so there's no point to generalizing it
     macro_rules! mov {
+      (rt = [rs + imm16] left) => {
+        {
+          mov!(rt = [rs + imm16] 24_u32, sub lowest_bits shl) 
+        }
+      };
+      (rt = [rs + imm16] right) => {
+        {
+          mov!(rt = [rs + imm16] 0_u32, add upper_bits shr) 
+        }
+      };
+      (rt = [rs + imm16] $offset:expr, $offset_operator:ident $mask_operator:ident $shift_operator:ident) => {
+        {
+          let rs = self.r3000.nth_reg(get_rs(op));
+          let imm16 = get_imm16(op).half_sign_extended();
+          let rt_idx = get_rt(op);
+          let rt = self.r3000.nth_reg(rt_idx);
+          let address = rs.wrapping_add(imm16);
+          let aligned_address = *address.clone().clear(0).clear(1);
+          let aligned_word = self.resolve_memresponse(self.memory.read_word(aligned_address));
+          let num_bits = $offset.$offset_operator(8*address.lowest_bits(2));
+          let result = rt.$mask_operator(num_bits) | (aligned_word.$shift_operator(num_bits));
+          self.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt_idx), result));
+          None
+        }
+      };
       //delayed aligned reads
       (rt = [rs + imm16] $method:ident) => {
         {
@@ -826,7 +854,7 @@ impl Interpreter{
       0x22 => {
         //LWL
         log!("> LWL");
-        todo!("lwl")
+        mov!(rt = [rs + imm16] left)
       },
       0x23 => {
         //LW
@@ -846,7 +874,7 @@ impl Interpreter{
       0x26 => {
         //LWR
         log!("> LWR");
-        todo!("lwr")
+        mov!(rt = [rs + imm16] right)
       },
       0x28 => {
         //SB
