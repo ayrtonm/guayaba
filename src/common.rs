@@ -1,4 +1,5 @@
 use crate::register::Register;
+use crate::register::BitManipulation;
 
 pub trait ReadArray {
   fn read_byte(&self, address: Register) -> Register;
@@ -34,18 +35,18 @@ impl ReadArray for &[u8] {
 impl WriteArray for &mut [u8] {
   fn write_byte(&mut self, address: Register, value: Register) {
     let address = address as usize;
-    self[address] = (value & 0x0000_00ff) as u8;
+    self[address] = value.lowest_bits(8) as u8;
   }
   fn write_half(&mut self, address: Register, value: Register) {
     let address = address as usize;
-    self[address] = (value & 0x0000_00ff) as u8;
-    self[address + 1] = ((value >> 8) & 0x0000_00ff) as u8;
+    self[address] = value.lowest_bits(8) as u8;
+    self[address + 1] = (value >> 8).lowest_bits(8) as u8;
   }
   fn write_word(&mut self, address: Register, value: Register) {
     let address = address as usize;
-    self[address] = (value & 0x0000_00ff) as u8;
-    self[address + 1] = ((value >> 8) & 0x0000_00ff) as u8;
-    self[address + 2] = ((value >> 16) & 0x0000_00ff) as u8;
-    self[address + 3] = ((value >> 24) & 0x0000_00ff) as u8;
+    self[address] = value.lowest_bits(8) as u8;
+    self[address + 1] = (value >> 8).lowest_bits(8) as u8;
+    self[address + 2] = (value >> 16).lowest_bits(8) as u8;
+    self[address + 3] = (value >> 24).lowest_bits(8) as u8;
   }
 }
