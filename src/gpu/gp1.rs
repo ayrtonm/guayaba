@@ -13,6 +13,14 @@ impl GPU {
       0x00 => {
         *self.gpustat.as_mut() = 0x1480_2000;
       },
+      0x01 => {
+        self.command_buffer.clear();
+        self.waiting_for_parameters = false;
+        self.partial_command = None;
+      },
+      0x02 => {
+        self.gpustat.as_mut().clear(24);
+      },
       0x03 => {
         *self.gpustat.as_mut().clear(23).set_mask(command.lowest_bits(1) << 23);
       },
