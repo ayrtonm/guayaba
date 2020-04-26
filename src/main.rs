@@ -37,11 +37,13 @@ const BIOS_FLAGS: [&str;2] = ["-b", "--bios"];
 const INFILE_FLAGS: [&str;2] = ["-i", "--input"];
 const STEPS_FLAGS: [&str;2] = ["-n", "--steps"];
 const LOG_FLAGS: [&str;2] = ["-l", "--log"];
+const GPULOG_FLAGS: [&str;2] = ["-g", "--gpu"];
 const RESOLUTION_FLAGS: [&str;2] = ["-s", "--size"];
-const ALL_FLAGS: [([&str;2],Option<&str>);6] = [(HELP_FLAGS, None),
+const ALL_FLAGS: [([&str;2],Option<&str>);7] = [(HELP_FLAGS, None),
                                                 (BIOS_FLAGS, Some("BIOS")),
                                                 (INFILE_FLAGS, Some("INFILE")),
                                                 (LOG_FLAGS, None),
+                                                (GPULOG_FLAGS, None),
                                                 (RESOLUTION_FLAGS, Some("WIDTHxHEIGHT")),
                                                 (STEPS_FLAGS, Some("n"))];
 
@@ -66,6 +68,7 @@ fn main() -> io::Result<()> {
   let steps = get_arg(&args, &STEPS_FLAGS).map(|steps| steps.parse::<u32>().ok())
                                           .flatten();
   let logging = check_flag(&args, &LOG_FLAGS);
+  let gpu_logging = check_flag(&args, &GPULOG_FLAGS);
   let [wx, wy] = get_arg(&args, &RESOLUTION_FLAGS).map_or(DEFAULT_RESOLUTION,
     |resolution| {
       (*resolution.split("x")
@@ -102,7 +105,7 @@ fn main() -> io::Result<()> {
           gl::Clear(gl::COLOR_BUFFER_BIT);
         }
         window.gl_swap_window();
-        Interpreter::new(bios_filename, infile)?.run(steps, logging, &mut event_pump);
+        Interpreter::new(bios_filename, infile, gpu_logging)?.run(steps, logging, &mut event_pump);
       },
       None => {
         print_help();

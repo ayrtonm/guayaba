@@ -10,6 +10,7 @@ mod gp1;
 use command::Command;
 
 pub struct GPU {
+  logging: bool,
   gpustat: GPUStatus,
   gpuread: Register,
   vram: Box<[u8]>,
@@ -59,9 +60,10 @@ impl GPUStatus {
 }
 
 impl GPU {
-  pub fn new() -> Self {
+  pub fn new(logging: bool) -> Self {
     let command_buffer = VecDeque::new();
     GPU {
+      logging,
       gpustat: GPUStatus::new(),
       gpuread: 0,
       vram: vec![0; MB].into_boxed_slice(),
@@ -89,6 +91,6 @@ impl GPU {
   }
   pub fn gpustat(&self) -> Register {
     //this is a dirty hack
-    *self.gpustat.0.clone().clear(19)
+    *self.gpustat.0.clone().clear(19).clear(31).set(26).set(27).set(28)
   }
 }

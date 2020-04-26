@@ -34,11 +34,11 @@ pub struct Interpreter {
 }
 
 impl Interpreter {
-  pub fn new(bios_filename: &String, infile: Option<&String>) -> io::Result<Self> {
+  pub fn new(bios_filename: &String, infile: Option<&String>, gpu_logging: bool) -> io::Result<Self> {
     let r3000 = R3000::new();
     let cop0 = Default::default();
     let memory = Memory::new(bios_filename)?;
-    let gpu = GPU::new();
+    let gpu = GPU::new(gpu_logging);
     let gte = Default::default();
     let cd = infile.and_then(|f| CD::new(f).ok());
     let delayed_writes = VecDeque::new();

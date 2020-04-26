@@ -12,18 +12,26 @@ impl GPU {
           0x00 => {
           },
           0x01 => {
-            self.gpustat.as_mut().set(24);
           },
           0x04..=0x1e | 0xe0 | 0xe7..=0xef => {
           },
           0x28 => {
-            println!("rendered an opaque monochrome four-point polygon");
+            if self.logging {
+              println!("rendered an opaque monochrome four-point polygon");
+            }
+          },
+          0x38 => {
+            panic!("got here");
           },
           0xa0 => {
-            println!("copy rectangle to VRAM");
+            if self.logging {
+              println!("copy rectangle to VRAM");
+            }
           },
           0xc0 => {
-            println!("copy rectangle from VRAM");
+            if self.logging {
+              println!("copy rectangle from VRAM");
+            }
           },
           0xe1 => {
             let mask = 0x0000_83ff;
@@ -71,7 +79,9 @@ impl GPU {
     if !self.waiting_for_parameters {
       let cmd = Command::new(value);
       if cmd.completed() {
-        println!("GP0 received command {:#x?}", cmd);
+        if self.logging {
+          println!("GP0 received command {:#x?}", cmd);
+        }
         self.command_buffer.push_back(cmd);
       } else {
         self.partial_command = Some(cmd);
@@ -81,12 +91,17 @@ impl GPU {
       let mut cmd = self.partial_command.take().expect("Expected a partial command in the GPU");
       cmd.append_parameters(value);
       if cmd.completed() {
-        println!("GP0 received command {:#x?}", cmd);
+        if self.logging {
+          println!("GP0 received command {:#x?}", cmd);
+        }
         self.command_buffer.push_back(cmd);
         self.waiting_for_parameters = false;
       } else {
         self.partial_command = Some(cmd);
       }
     }
+  }
+  fn filled_buffer(&self) -> usize {
+    self.command_buffer.iter().fold(0, |acc, command| acc + command.num_words())
   }
 }

@@ -5,7 +5,9 @@ use crate::register::BitManipulation;
 
 impl GPU {
   pub fn write_to_gp1(&mut self, value: Register) {
-    println!("GP1 received {:#x}", value);
+    if self.logging {
+      println!("GP1 received {:#x}", value);
+    }
     let command = value >> 24;
     match command {
       0x00 => {
@@ -20,7 +22,7 @@ impl GPU {
         self.gpustat.as_mut().clear_mask(mask).set_mask(new_values);
       },
       0x05 => {
-        self.display_x = command.lowest_bits(10);
+        self.display_x = *command.lowest_bits(10).clone().clear(0);
         self.display_y = (command >> 10).lowest_bits(9);
       },
       0x06 => {
