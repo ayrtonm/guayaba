@@ -1,5 +1,6 @@
 use crate::register::Register;
 use crate::register::BitManipulation;
+use crate::screen::Drawable;
 
 #[derive(Debug)]
 pub struct Command(Vec<Register>);
@@ -7,6 +8,16 @@ pub struct Command(Vec<Register>);
 impl Command {
   pub fn new(cmd: Register) -> Self {
     Command(vec![cmd])
+  }
+  pub fn to_line(&self) -> Drawable {
+    Drawable::Line
+  }
+  pub fn to_rectangle(&self) -> Drawable {
+    Drawable::Rectangle
+  }
+  pub fn to_polygon(&self) -> Drawable {
+    assert!(self.id() == 0x28);
+    Drawable::Polygon
   }
   pub fn id(&self) -> u8 {
     (self.0[0] >> 24) as u8

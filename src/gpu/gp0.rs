@@ -20,7 +20,7 @@ impl GPU {
             if self.logging {
               println!("rendered an opaque monochrome four-point polygon");
             }
-            return Some(Drawable::Polygon);
+            return Some(command.to_polygon());
           },
           0x38 => {
             panic!("got here");
