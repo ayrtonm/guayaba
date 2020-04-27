@@ -90,15 +90,18 @@ impl GPU {
     self.try_push_command(cmd);
   }
   fn try_push_command(&mut self, cmd: Command) {
-    if cmd.completed() {
-      if self.logging {
-        println!("GP0 received command {:#x?}", cmd);
-      }
-      self.command_buffer.push_back(cmd);
-      self.waiting_for_parameters = false;
-    } else {
-      self.partial_command = Some(cmd);
-      self.waiting_for_parameters = true;
+    match cmd.completed() {
+      true => {
+        if self.logging {
+          println!("GP0 received command {:#x?}", cmd);
+        }
+        self.command_buffer.push_back(cmd);
+        self.waiting_for_parameters = false;
+      },
+      false => {
+        self.partial_command = Some(cmd);
+        self.waiting_for_parameters = true;
+      },
     }
   }
   fn filled_buffer(&self) -> usize {
