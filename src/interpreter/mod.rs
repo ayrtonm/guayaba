@@ -11,6 +11,7 @@ use crate::memory::MemResponse;
 use crate::cd::CD;
 use crate::gpu::GPU;
 use crate::gte::GTE;
+use crate::screen::Screen;
 
 mod opcodes;
 mod handle_dma;
@@ -23,8 +24,9 @@ pub struct Interpreter {
   gpu: GPU,
   gte: GTE,
   cd: Option<CD>,
+  screen: Screen,
 
-  //regular members of interpreter
+  //other members of interpreter
   next_pc: Option<Register>,
   //these are register writes due to memory loads which happen after one cycle
   delayed_writes: VecDeque<DelayedWrite>,
@@ -33,13 +35,15 @@ pub struct Interpreter {
 }
 
 impl Interpreter {
-  pub fn new(bios_filename: &String, infile: Option<&String>, gpu_logging: bool) -> io::Result<Self> {
+  pub fn new(bios_filename: &String, infile: Option<&String>, gpu_logging: bool,
+             wx: u32, wy: u32) -> io::Result<Self> {
     let r3000 = R3000::new();
     let cop0 = Default::default();
     let memory = Memory::new(bios_filename)?;
     let gpu = GPU::new(gpu_logging);
     let gte = Default::default();
     let cd = infile.and_then(|f| CD::new(f).ok());
+    let screen = Screen::new(wx, wy);
     let delayed_writes = VecDeque::new();
     Ok(Interpreter {
       r3000,
@@ -48,55 +52,64 @@ impl Interpreter {
       gpu,
       gte,
       cd,
+      screen,
       next_pc: None,
       delayed_writes,
       modified_register: None,
       i: 0,
     })
   }
-  pub fn run(&mut self, n: Option<u32>, logging: bool, event_pump: &mut sdl2::EventPump) {
-    let event_rate: u32 = 1_00_000;
-    n.map(
-      |n| {
-        println!("started in test mode");
-        for i in 1..=n {
+  pub fn run(&mut self, n: Option<u32>, logging: bool) {
+    match n {
+      Some(n) => {
+        for _ in 1..=n {
           if logging {
             println!("  ");
-            println!("{} ----------------------", i);
+            println!("{} ----------------------", self.i);
           }
           self.step(logging);
-          if i % event_rate == 0 {
-            for event in event_pump.poll_iter() {
-              match event {
-                sdl2::event::Event::Quit {..} => panic!(""),
-                _ => {},
-              }
-            }
-          }
+          self.handle_events();
         }
-    }).or_else(
-      || {
-        println!("started in free-running mode");
+      },
+      None => {
         loop {
-          //if self.i > 19318600 {
-          //  logging = true;
-          //}
           if logging {
             println!("  ");
             println!("{} ----------------------", self.i);
           }
           self.step(logging);
           self.i += 1;
-          if self.i % event_rate == 0 {
-            for event in event_pump.poll_iter() {
-              match event {
-                sdl2::event::Event::Quit {..} => panic!(""),
-                _ => {},
-              }
-            }
-          }
+          self.handle_events();
         }
-      });
+      },
+    }
+  }
+  fn handle_events(&mut self) {
+    let event_rate: u32 = 100_000;
+    if self.i % event_rate == 0 {
+      for event in self.screen.event_pump().poll_iter() {
+        match event {
+          sdl2::event::Event::Quit {..} => panic!(""),
+          _ => {},
+        }
+      }
+    }
+  }
+  //this steps through the logic pertaining to the physical components of the playstation
+  fn step(&mut self, logging: bool) {
+    //get opcode from memory at program counter
+    let op = self.resolve_memresponse(self.memory.read_word(self.r3000.pc()));
+    if logging {
+      println!("read opcode {:#x} from [{:#x}]", op, self.r3000.pc());
+    }
+    //the instruction following each jump is always executed before updating the pc
+    //increment the program counter
+    *self.r3000.pc_mut() = self.next_pc
+                           .take()
+                           .map_or_else(|| self.r3000.pc().wrapping_add(4),
+                                        |next_pc| next_pc);
+    self.next_pc = self.execute_opcode(op, logging);
+    self.gpu.exec_next_gp0_command();
   }
   fn resolve_memresponse(&mut self, response: MemResponse) -> Register {
     match response {
@@ -115,21 +128,6 @@ impl Interpreter {
         }
       }
     );
-  }
-  fn step(&mut self, logging: bool) {
-    //get opcode from memory at program counter
-    let op = self.resolve_memresponse(self.memory.read_word(self.r3000.pc()));
-    if logging {
-      println!("read opcode {:#x} from [{:#x}]", op, self.r3000.pc());
-    }
-    //the instruction following each jump is always executed before updating the pc
-    //increment the program counter
-    *self.r3000.pc_mut() = self.next_pc
-                           .take()
-                           .map_or_else(|| self.r3000.pc().wrapping_add(4),
-                                        |next_pc| next_pc);
-    self.next_pc = self.execute_opcode(op, logging);
-    self.gpu.exec_next_gp0_command();
   }
 }
 

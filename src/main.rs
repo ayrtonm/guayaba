@@ -3,9 +3,6 @@ use std::env;
 use std::convert::TryInto;
 use interpreter::Interpreter;
 
-extern crate sdl2;
-extern crate gl;
-
 mod common;
 mod interpreter;
 mod r3000;
@@ -16,6 +13,7 @@ mod cd;
 mod dma;
 mod gte;
 mod gpu;
+mod screen;
 
 fn get_arg<'a>(args: &'a Vec<String>, flags: &[&str]) -> Option<&'a String> {
   args.iter()
@@ -29,8 +27,8 @@ fn check_flag(args: &Vec<String>, flags: &[&str]) -> bool {
       .any(|s| flags.iter().any(|t| *t == *s))
 }
 
-const DEFAULT_X: u32 = 640;
-const DEFAULT_Y: u32 = 480;
+const DEFAULT_X: u32 = 1024;
+const DEFAULT_Y: u32 = 512;
 const DEFAULT_RESOLUTION: [u32; 2] = [DEFAULT_X, DEFAULT_Y];
 const HELP_FLAGS: [&str;2] = ["-h", "--help"];
 const BIOS_FLAGS: [&str;2] = ["-b", "--bios"];
@@ -87,25 +85,8 @@ fn main() -> io::Result<()> {
   } else {
     match bios {
       Some(bios_filename) => {
-        let sdl = sdl2::init().unwrap();
-        let video_subsystem = sdl.video().unwrap();
-        let window = video_subsystem.window("RSX", wx, wy)
-                                    .opengl()
-                                    .resizable()
-                                    .build()
-                                    .unwrap();
-        let mut event_pump = sdl.event_pump().unwrap();
-        let gl_context = window.gl_create_context().unwrap();
-        let gl = gl::load_with(
-          |s| {
-            video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void
-          });
-        unsafe {
-          gl::ClearColor(0.3, 0.3, 0.5, 1.0);
-          gl::Clear(gl::COLOR_BUFFER_BIT);
-        }
-        window.gl_swap_window();
-        Interpreter::new(bios_filename, infile, gpu_logging)?.run(steps, logging, &mut event_pump);
+        Interpreter::new(bios_filename, infile, gpu_logging, wx, wy)?
+                    .run(steps, logging);
       },
       None => {
         print_help();
