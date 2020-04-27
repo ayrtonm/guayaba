@@ -1,7 +1,6 @@
 use std::io;
 use std::collections::VecDeque;
 use crate::register::Register;
-use crate::register::BitManipulation;
 use crate::r3000::R3000;
 use crate::r3000::DelayedWrite;
 use crate::r3000::Name;

@@ -1,5 +1,4 @@
 use crate::gpu::GPU;
-use crate::gpu::Command;
 use crate::register::Register;
 use crate::register::BitManipulation;
 
