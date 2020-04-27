@@ -44,6 +44,8 @@ impl Screen {
     }
      
   }
+  pub fn draw(&mut self, object: Drawable) {
+  }
   pub fn event_pump(&mut self) -> &mut sdl2::EventPump {
     &mut self.event_pump
   }

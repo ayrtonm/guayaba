@@ -61,28 +61,15 @@ impl Interpreter {
     })
   }
   pub fn run(&mut self, n: Option<u32>, logging: bool) {
-    match n {
-      Some(n) => {
-        for _ in 1..=n {
-          if logging {
-            println!("  ");
-            println!("{} ----------------------", self.i);
-          }
-          self.step(logging);
-          self.handle_events();
-        }
-      },
-      None => {
-        loop {
-          if logging {
-            println!("  ");
-            println!("{} ----------------------", self.i);
-          }
-          self.step(logging);
-          self.i += 1;
-          self.handle_events();
-        }
-      },
+    loop {
+      if logging {
+        println!("  ");
+        println!("{} ----------------------", self.i);
+      }
+      self.step(logging);
+      self.i += 1;
+      n.map(|n| if self.i == n { panic!("Executed {} steps", self.i); });
+      self.handle_events();
     }
   }
   fn handle_events(&mut self) {
@@ -110,16 +97,7 @@ impl Interpreter {
                            .map_or_else(|| self.r3000.pc().wrapping_add(4),
                                         |next_pc| next_pc);
     self.next_pc = self.execute_opcode(op, logging);
-    match self.gpu.exec_next_gp0_command() {
-      Some(Drawable::Line) => {
-      },
-      Some(Drawable::Rectangle) => {
-      },
-      Some(Drawable::Polygon) => {
-      },
-      None => {
-      },
-    }
+    self.gpu.exec_next_gp0_command().map(|object| self.screen.draw(object));
   }
   fn resolve_memresponse(&mut self, response: MemResponse) -> Register {
     match response {
