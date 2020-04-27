@@ -11,6 +11,9 @@ impl GPU {
     let command = value >> 24;
     match command {
       0x00 => {
+        self.command_buffer.clear();
+        self.waiting_for_parameters = false;
+        self.partial_command = None;
         *self.gpustat.as_mut() = 0x1480_2000;
       },
       0x01 => {
@@ -22,7 +25,7 @@ impl GPU {
         self.gpustat.as_mut().clear(24);
       },
       0x03 => {
-        *self.gpustat.as_mut().clear(23).set_mask(command.lowest_bits(1) << 23);
+        self.gpustat.as_mut().clear(23).set_mask(command.lowest_bits(1) << 23);
       },
       0x04 => {
         let mask = 0x6000_0000;

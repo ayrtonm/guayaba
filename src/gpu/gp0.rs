@@ -76,29 +76,29 @@ impl GPU {
   }
   pub fn write_to_gp0(&mut self, value: Register) {
     //println!("GP0 received {:#x}", value);
-    if !self.waiting_for_parameters {
-      let cmd = Command::new(value);
-      if cmd.completed() {
-        if self.logging {
-          println!("GP0 received command {:#x?}", cmd);
-        }
-        self.command_buffer.push_back(cmd);
-      } else {
-        self.partial_command = Some(cmd);
-        self.waiting_for_parameters = true;
+    let cmd = match self.waiting_for_parameters {
+      true => {
+        let mut cmd = self.partial_command.take()
+                                          .expect("Expected a partial command in the GPU");
+        cmd.append_parameters(value);
+        cmd
+      },
+      false => {
+        Command::new(value)
+      },
+    };
+    self.try_push_command(cmd);
+  }
+  fn try_push_command(&mut self, cmd: Command) {
+    if cmd.completed() {
+      if self.logging {
+        println!("GP0 received command {:#x?}", cmd);
       }
+      self.command_buffer.push_back(cmd);
+      self.waiting_for_parameters = false;
     } else {
-      let mut cmd = self.partial_command.take().expect("Expected a partial command in the GPU");
-      cmd.append_parameters(value);
-      if cmd.completed() {
-        if self.logging {
-          println!("GP0 received command {:#x?}", cmd);
-        }
-        self.command_buffer.push_back(cmd);
-        self.waiting_for_parameters = false;
-      } else {
-        self.partial_command = Some(cmd);
-      }
+      self.partial_command = Some(cmd);
+      self.waiting_for_parameters = true;
     }
   }
   fn filled_buffer(&self) -> usize {

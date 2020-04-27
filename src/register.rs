@@ -66,9 +66,11 @@ impl BitManipulation for Register {
     *self &= !mask;
     self
   }
+  //ands self with the lowest n bits
   fn lowest_bits(&self, n: Register) -> Register {
     *self & (((1 as u64) << n) - 1) as u32
   }
+  //ands self with the highest n bits
   fn upper_bits(&self, n: Register) -> Register {
     *self & !(((1 as u64) << (32 - n)) - 1) as u32
   }

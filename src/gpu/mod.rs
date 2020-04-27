@@ -91,6 +91,6 @@ impl GPU {
   }
   pub fn gpustat(&self) -> Register {
     //this is a dirty hack
-    *self.gpustat.0.clone().clear(19).clear(31).set(26).set(27).set(28)
+    *self.gpustat.0.clone().clear(19).clear(14).clear(31).set(26).set(27).set(28)
   }
 }
