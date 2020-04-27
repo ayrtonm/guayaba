@@ -2,9 +2,10 @@ use crate::gpu::GPU;
 use crate::gpu::Command;
 use crate::register::Register;
 use crate::register::BitManipulation;
+use crate::screen::Drawable;
 
 impl GPU {
-  pub fn exec_next_gp0_command(&mut self) {
+  pub fn exec_next_gp0_command(&mut self) -> Option<Drawable> {
     let command = self.command_buffer.pop_front();
     match command {
       Some(command) => {
@@ -19,6 +20,7 @@ impl GPU {
             if self.logging {
               println!("rendered an opaque monochrome four-point polygon");
             }
+            return Some(Drawable::Polygon);
           },
           0x38 => {
             panic!("got here");
@@ -73,6 +75,7 @@ impl GPU {
       None => {
       },
     }
+    None
   }
   pub fn write_to_gp0(&mut self, value: Register) {
     //println!("GP0 received {:#x}", value);

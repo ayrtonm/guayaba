@@ -12,6 +12,7 @@ use crate::cd::CD;
 use crate::gpu::GPU;
 use crate::gte::GTE;
 use crate::screen::Screen;
+use crate::screen::Drawable;
 
 mod opcodes;
 mod handle_dma;
@@ -109,7 +110,16 @@ impl Interpreter {
                            .map_or_else(|| self.r3000.pc().wrapping_add(4),
                                         |next_pc| next_pc);
     self.next_pc = self.execute_opcode(op, logging);
-    self.gpu.exec_next_gp0_command();
+    match self.gpu.exec_next_gp0_command() {
+      Some(Drawable::Line) => {
+      },
+      Some(Drawable::Rectangle) => {
+      },
+      Some(Drawable::Polygon) => {
+      },
+      None => {
+      },
+    }
   }
   fn resolve_memresponse(&mut self, response: MemResponse) -> Register {
     match response {

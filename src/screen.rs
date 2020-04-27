@@ -1,6 +1,12 @@
 extern crate sdl2;
 extern crate gl;
 
+pub enum Drawable {
+  Line,
+  Rectangle,
+  Polygon,
+}
+
 pub struct Screen {
   sdl: sdl2::Sdl,
   video_subsystem: sdl2::VideoSubsystem,
