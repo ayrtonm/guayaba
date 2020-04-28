@@ -40,10 +40,9 @@ impl Screen {
       |s| {
         video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void
       });
-
-    let vertex_source = CString::new(include_str!("vert.glsl"))
+    let vertex_source = CString::new(include_str!("triangle.vert"))
                                 .expect("Could not turn vertex shader into a CString");
-    let fragment_source = CString::new(include_str!("frag.glsl"))
+    let fragment_source = CString::new(include_str!("triangle.frag"))
                                   .expect("Could not turn fragment shader into a CString");
     let vertex_shader = Shader::new_vertex_shader(&vertex_source);
     let fragment_shader = Shader::new_fragment_shader(&fragment_source);
@@ -63,16 +62,19 @@ impl Screen {
       gl::Clear(gl::COLOR_BUFFER_BIT);
     }
     ////////////////////////////////////////////////////////////
-    let vertices: Vec<u32> = vec![256, 128,  255, 0, 0,
-                                  768, 128,  0, 255, 0,
-                                  512, 384,  0, 0, 255];
+    //let vertices: Vec<u32> = vec![256, 128,  255, 0, 0,
+    //                              768, 128,  0, 255, 0,
+    //                              512, 256,  0, 0, 255];
+    let vertices: Vec<f32> = vec![-0.5, -0.5, 0.0,  1.0, 0.0, 0.0,
+                                  0.5, -0.5, 0.0,   0.0, 1.0, 0.0,
+                                 0.0, 0.5, 0.0,    0.0, 0.0, 1.0];
     let mut vbo: gl::types::GLuint = 0;
     unsafe {
       gl::GenBuffers(1, &mut vbo);
       gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
       gl::BufferData(
         gl::ARRAY_BUFFER,
-        (vertices.len() * std::mem::size_of::<u32>()) as gl::types::GLsizeiptr,
+        (vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
         vertices.as_ptr() as *const gl::types::GLvoid,
         gl::STATIC_DRAW);
       gl::BindBuffer(gl::ARRAY_BUFFER, 0);
@@ -84,13 +86,13 @@ impl Screen {
       gl::BindVertexArray(vao);
       gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
       gl::EnableVertexAttribArray(0);
-      gl::VertexAttribPointer(0, 2, gl::INT, gl::FALSE,
-        (5 * std::mem::size_of::<u32>()) as gl::types::GLint,
+      gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE,
+        (6 * std::mem::size_of::<f32>()) as gl::types::GLint,
         std::ptr::null());
       gl::EnableVertexAttribArray(1);
-      gl::VertexAttribPointer(1, 3, gl::INT, gl::FALSE,
-        (5 * std::mem::size_of::<u32>()) as gl::types::GLint,
-        (2 * std::mem::size_of::<u32>()) as *const gl::types::GLvoid);
+      gl::VertexAttribPointer(1, 3, gl::FLOAT, gl::FALSE,
+        (6 * std::mem::size_of::<f32>()) as gl::types::GLint,
+        (3 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid);
       gl::BindBuffer(gl::ARRAY_BUFFER, 0);
       gl::BindVertexArray(0);
     }
