@@ -1,5 +1,10 @@
+use std::ffi::CString;
+use std::ffi::CStr;
 extern crate sdl2;
 extern crate gl;
+
+mod shader;
+use shader::Shader;
 
 pub enum Drawable {
   Line,
@@ -13,6 +18,8 @@ pub struct Screen {
   window: sdl2::video::Window,
   gl_context: sdl2::video::GLContext,
   event_pump: sdl2::EventPump,
+  vertex_shader: Shader,
+  fragment_shader: Shader,
 }
 
 impl Screen {
@@ -26,6 +33,10 @@ impl Screen {
                                 .unwrap();
     let mut event_pump = sdl.event_pump().unwrap();
     let gl_context = window.gl_create_context().unwrap();
+    let vertex_source = CString::new(include_str!("vert.glsl")).expect("");
+    let fragment_source = CString::new(include_str!("frag.glsl")).expect("");
+    let vertex_shader = Shader::new_vertex_shader(&vertex_source);
+    let fragment_shader = Shader::new_fragment_shader(&fragment_source);
     let gl = gl::load_with(
       |s| {
         video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void
@@ -41,6 +52,8 @@ impl Screen {
       window,
       gl_context,
       event_pump,
+      vertex_shader,
+      fragment_shader,
     }
      
   }
