@@ -30,7 +30,7 @@ impl Cop0 {
         self.r14
       },
       _ => {
-        println!("tried reading from commonly unused COP0 data register R{}", idx);
+        //println!("tried reading from commonly unused COP0 data register R{}", idx);
         0
       },
     }
@@ -47,7 +47,7 @@ impl Cop0 {
         Some(&mut self.r14)
       },
       _ => {
-        println!("tried writing to commonly unused COP0 data register R{}", idx);
+        //println!("tried writing to commonly unused COP0 data register R{}", idx);
         None
       },
     }

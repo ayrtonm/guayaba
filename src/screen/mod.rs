@@ -119,9 +119,6 @@ impl Screen {
       gl::VertexAttribPointer(1, 3, gl::SHORT, gl::FALSE,
         (3 * std::mem::size_of::<i16>()) as gl::types::GLint,
         (2 * vertices.len()/5 * std::mem::size_of::<i16>()) as *const gl::types::GLvoid);
-      //gl::VertexAttribPointer(1, 3, gl::SHORT, gl::FALSE,
-      //  (5 * std::mem::size_of::<i16>()) as gl::types::GLint,
-      //  (2 * std::mem::size_of::<i16>()) as *const gl::types::GLvoid);
       gl::BindBuffer(gl::ARRAY_BUFFER, 0);
       gl::BindVertexArray(0);
     }
