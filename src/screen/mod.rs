@@ -42,7 +42,7 @@ impl Screen {
       });
     let vertex_source = CString::new(include_str!("vert.glsl"))
                                 .expect("Could not turn vertex shader into a CString");
-    let fragment_source = CString::new(include_str!("triangle.frag"))
+    let fragment_source = CString::new(include_str!("frag.glsl"))
                                   .expect("Could not turn fragment shader into a CString");
     let vertex_shader = Shader::new_vertex_shader(&vertex_source);
     let fragment_shader = Shader::new_fragment_shader(&fragment_source);
@@ -62,9 +62,6 @@ impl Screen {
       gl::Clear(gl::COLOR_BUFFER_BIT);
     }
     ////////////////////////////////////////////////////////////
-    //let vertices: Vec<u32> = vec![256, 128,  255, 0, 0,
-    //                              768, 128,  0, 255, 0,
-    //                              512, 256,  0, 0, 255];
     let vertices: Vec<f32> = vec![256.0, 384.0,     255.0, 0.0,   0.0,
                                   768.0, 384.0,    0.0,   255.0, 0.0,
                                   512.0, 256.0,    0.0,   0.0, 255.0];
