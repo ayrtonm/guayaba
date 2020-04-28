@@ -9,20 +9,10 @@ impl Command {
   pub fn new(cmd: Register) -> Self {
     Command(vec![cmd])
   }
-  pub fn to_line(&self) -> Drawable {
-    Drawable::Line
-  }
-  pub fn to_rectangle(&self) -> Drawable {
-    Drawable::Rectangle
-  }
-  pub fn to_polygon(&self) -> Drawable {
-    assert!(self.id() == 0x28);
-    Drawable::Polygon
-  }
   pub fn id(&self) -> u8 {
     (self.0[0] >> 24) as u8
   }
-  pub fn as_ref(&self, n: usize) -> Register {
+  pub fn idx(&self, n: usize) -> Register {
     self.0[n]
   }
   pub fn num_words(&self) -> usize {

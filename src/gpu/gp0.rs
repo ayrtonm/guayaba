@@ -20,7 +20,16 @@ impl GPU {
             if self.logging {
               println!("rendered an opaque monochrome four-point polygon");
             }
-            return Some(command.to_polygon());
+            let monochrome = [command.idx(0)].iter()
+                                             .enumerate()
+                                             .map(|(i, v)| v >> (8 * i))
+                                             .map(|c| c.lowest_bits(8) as i16)
+                                             .cycle()
+                                             .take(4)
+                                             .collect::<Vec<i16>>();
+            let positions = [command.idx(1), command.idx(1) >> 16, command.idx(2), command.idx(2) >> 16,
+                             command.idx(3), command.idx(3) >> 16, command.idx(4), command.idx(4) >> 16].iter().map(|p| p.lowest_bits(11) as i16).collect::<Vec<i16>>();
+            return Some(Drawable::new(positions, monochrome));
           },
           0x38 => {
             panic!("got here");
@@ -37,33 +46,33 @@ impl GPU {
           },
           0xe1 => {
             let mask = 0x0000_83ff;
-            let command = command.as_ref(0) & mask;
+            let command = command.idx(0) & mask;
             self.gpustat.as_mut().clear_mask(mask).set_mask(command);
           },
           0xe2 => {
-            let command = command.as_ref(0);
+            let command = command.idx(0);
             self.texture_mask_x = command.lowest_bits(5);
             self.texture_mask_y = (command >> 5).lowest_bits(5);
             self.texture_offset_x = (command >> 10).lowest_bits(5);
             self.texture_offset_y = (command >> 15).lowest_bits(5);
           },
           0xe3 => {
-            let command = command.as_ref(0);
+            let command = command.idx(0);
             self.drawing_min_x = command.lowest_bits(10);
             self.drawing_min_y = (command >> 10).lowest_bits(9);
           },
           0xe4 => {
-            let command = command.as_ref(0);
+            let command = command.idx(0);
             self.drawing_max_x = command.lowest_bits(10);
             self.drawing_max_y = (command >> 10).lowest_bits(9);
           },
           0xe5 => {
-            let command = command.as_ref(0);
+            let command = command.idx(0);
             self.drawing_offset_x = command.lowest_bits(11);
             self.drawing_offset_y = (command >> 11).lowest_bits(11);
           },
           0xe6 => {
-            let command = command.as_ref(0);
+            let command = command.idx(0);
             let mask = command.lowest_bits(2) << 11;
             self.gpustat.as_mut().clear(11).clear(12).set_mask(mask);
           },

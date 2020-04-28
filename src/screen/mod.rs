@@ -7,10 +7,24 @@ extern crate gl;
 mod shader;
 use shader::Shader;
 
-pub enum Drawable {
-  Line,
-  Rectangle,
-  Polygon,
+pub struct Drawable {
+  positions: Vec<i16>,
+  colors: Vec<i16>,
+}
+
+impl Drawable {
+  pub fn new(positions: Vec<i16>, colors: Vec<i16>) -> Self {
+    Drawable {
+      positions,
+      colors,
+    }
+  }
+  pub fn positions(&self) -> &Vec<i16> {
+    &self.positions
+  }
+  pub fn colors(&self) -> &Vec<i16> {
+    &self.colors
+  }
 }
 
 pub struct Screen {
@@ -75,18 +89,18 @@ impl Screen {
      
   }
   pub fn draw(&mut self, object: Drawable) {
-    let positions = vec![256, 384, 768, 384, 512, 256];
-    let colors = vec![255, 0, 0, 0, 255, 0, 0, 0, 255];
-    let vertices = vec![positions, colors].into_iter()
-                                          .flatten()
-                                          .collect::<Vec<u16>>();
+    let pos_t1 = object.positions().clone().into_iter().skip(2).cycle().take(3 * 2);
+    let pos_t2 = object.positions().clone().into_iter().skip(3).cycle().take(3 * 2);
+    let col_t1 = object.colors().clone().into_iter().skip(2).cycle().take(3 * 3);
+    let col_t2 = object.colors().clone().into_iter().skip(3).cycle().take(3 * 3);
+    let vertices = vec![pos_t1, pos_t2, col_t1, col_t2].into_iter().flatten().collect::<Vec<i16>>();
     let mut vbo: gl::types::GLuint = 0;
     unsafe {
       gl::GenBuffers(1, &mut vbo);
       gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
       gl::BufferData(
         gl::ARRAY_BUFFER,
-        (vertices.len() * std::mem::size_of::<u16>()) as gl::types::GLsizeiptr,
+        (vertices.len() * std::mem::size_of::<i16>()) as gl::types::GLsizeiptr,
         vertices.as_ptr() as *const gl::types::GLvoid,
         gl::STATIC_DRAW);
       gl::BindBuffer(gl::ARRAY_BUFFER, 0);
@@ -99,24 +113,21 @@ impl Screen {
       gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
       gl::EnableVertexAttribArray(0);
       gl::VertexAttribPointer(0, 2, gl::SHORT, gl::FALSE,
-        (2 * std::mem::size_of::<u16>()) as gl::types::GLint,
+        (2 * std::mem::size_of::<i16>()) as gl::types::GLint,
         std::ptr::null());
-      //gl::VertexAttribPointer(0, 2, gl::SHORT, gl::FALSE,
-      //  (5 * std::mem::size_of::<u16>()) as gl::types::GLint,
-      //  std::ptr::null());
       gl::EnableVertexAttribArray(1);
       gl::VertexAttribPointer(1, 3, gl::SHORT, gl::FALSE,
-        (3 * std::mem::size_of::<u16>()) as gl::types::GLint,
-        (2 * 3 * std::mem::size_of::<u16>()) as *const gl::types::GLvoid);
+        (3 * std::mem::size_of::<i16>()) as gl::types::GLint,
+        (2 * vertices.len()/5 * std::mem::size_of::<i16>()) as *const gl::types::GLvoid);
       //gl::VertexAttribPointer(1, 3, gl::SHORT, gl::FALSE,
-      //  (5 * std::mem::size_of::<u16>()) as gl::types::GLint,
-      //  (2 * std::mem::size_of::<u16>()) as *const gl::types::GLvoid);
+      //  (5 * std::mem::size_of::<i16>()) as gl::types::GLint,
+      //  (2 * std::mem::size_of::<i16>()) as *const gl::types::GLvoid);
       gl::BindBuffer(gl::ARRAY_BUFFER, 0);
       gl::BindVertexArray(0);
     }
     unsafe {
       gl::BindVertexArray(vao);
-      gl::DrawArrays(gl::TRIANGLES, 0, 3);
+      gl::DrawArrays(gl::TRIANGLES, 0, 6);
     }
     self.window.gl_swap_window();
   }
