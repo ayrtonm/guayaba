@@ -9,5 +9,7 @@ out VS_OUTPUT {
 
 void main() {
   gl_Position = vec4(Position, 1.0);
-  OUT.Color = Color;
+  OUT.Color = vec3(float(Color.r) / 255,
+               float(Color.g) / 255,
+               float(Color.b) / 255);
 }

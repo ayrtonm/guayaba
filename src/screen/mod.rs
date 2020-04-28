@@ -40,7 +40,7 @@ impl Screen {
       |s| {
         video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void
       });
-    let vertex_source = CString::new(include_str!("triangle.vert"))
+    let vertex_source = CString::new(include_str!("vert.glsl"))
                                 .expect("Could not turn vertex shader into a CString");
     let fragment_source = CString::new(include_str!("triangle.frag"))
                                   .expect("Could not turn fragment shader into a CString");
@@ -65,9 +65,9 @@ impl Screen {
     //let vertices: Vec<u32> = vec![256, 128,  255, 0, 0,
     //                              768, 128,  0, 255, 0,
     //                              512, 256,  0, 0, 255];
-    let vertices: Vec<f32> = vec![-0.5, -0.5,  1.0, 0.0, 0.0,
-                                  0.5, -0.5,   0.0, 1.0, 0.0,
-                                 0.0, 0.5,    0.0, 0.0, 1.0];
+    let vertices: Vec<f32> = vec![256.0, 384.0,     255.0, 0.0,   0.0,
+                                  768.0, 384.0,    0.0,   255.0, 0.0,
+                                  512.0, 256.0,    0.0,   0.0, 255.0];
     let mut vbo: gl::types::GLuint = 0;
     unsafe {
       gl::GenBuffers(1, &mut vbo);
