@@ -13,12 +13,12 @@ impl Shader {
   }
   pub fn new_vertex_shader(source: &CStr) -> Shader {
     Shader {
-      id: Shader::from_source(source, gl::VERTEX_SHADER).expect("Expected a shader ID")
+      id: Shader::from_source(source, gl::VERTEX_SHADER).expect("Vertex shader has no ID")
     }
   }
   pub fn new_fragment_shader(source: &CStr) -> Shader {
     Shader {
-      id: Shader::from_source(source, gl::FRAGMENT_SHADER).expect("Expected a shader ID")
+      id: Shader::from_source(source, gl::FRAGMENT_SHADER).expect("Fragment shader has no ID")
     }
   }
   fn from_source(source: &CStr, kind: GLenum) -> Option<GLuint> {
@@ -33,6 +33,14 @@ impl Shader {
       } else {
         Some(id)
       }
+    }
+  }
+}
+
+impl Drop for Shader {
+  fn drop(&mut self) {
+    unsafe {
+      gl::DeleteShader(self.id);
     }
   }
 }

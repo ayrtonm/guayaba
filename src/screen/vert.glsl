@@ -1,7 +1,7 @@
 #version 330 core
 
-in ivec2 vert_pos;
-in uvec3 vert_color;
+layout (location = 0) in uvec2 vert_pos;
+layout (location = 1) in uvec3 vert_color;
 
 out vec3 color;
 
