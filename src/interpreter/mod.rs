@@ -13,6 +13,8 @@ use crate::gpu::GPU;
 use crate::gte::GTE;
 use crate::screen::Screen;
 use crate::screen::Drawable;
+use sdl2::event::Event;
+use sdl2::keyboard::Keycode;
 
 mod opcodes;
 mod handle_dma;
@@ -77,7 +79,10 @@ impl Interpreter {
     if self.i % event_rate == 0 {
       for event in self.screen.event_pump().poll_iter() {
         match event {
-          sdl2::event::Event::Quit {..} => panic!(""),
+          Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
+            panic!("Executed {} steps", self.i);
+          },
+          Event::Quit {..} => panic!(""),
           _ => {},
         }
       }

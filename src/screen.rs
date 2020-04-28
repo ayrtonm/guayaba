@@ -50,6 +50,3 @@ impl Screen {
     &mut self.event_pump
   }
 }
-
-
-
