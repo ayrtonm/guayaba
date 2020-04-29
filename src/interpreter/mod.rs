@@ -116,7 +116,6 @@ impl Interpreter {
       |action| {
         match action {
           MemAction::DMA(transfer) => {
-            println!("{:#x?}", transfer);
             self.handle_dma(transfer);
           },
 

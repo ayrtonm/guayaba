@@ -15,6 +15,9 @@ impl Command {
   pub fn idx(&self, n: usize) -> Register {
     self.0[n]
   }
+  pub fn as_ref(&self) -> &Vec<Register> {
+    &self.0
+  }
   pub fn num_words(&self) -> usize {
     self.0.len()
   }

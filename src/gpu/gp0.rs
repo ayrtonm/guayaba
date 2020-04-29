@@ -20,31 +20,30 @@ impl GPU {
             if self.logging {
               println!("rendered an opaque monochrome four-point polygon");
             }
-            let xpos = [&command].iter()
-                                .cycle()
-                                .enumerate()
-                                .map(|(i, v)| v.idx(i + 1).lowest_bits(16) as i16)
-                                .take(4)
-                                .collect::<Vec<i16>>();
-            let ypos = [&command].iter()
-                                .cycle()
-                                .enumerate()
-                                .map(|(i, v)| v.idx(i + 1) >> 16)
-                                .map(|v| v.lowest_bits(16) as i16)
-                                .take(4)
-                                .collect::<Vec<i16>>();
+            let xpos = command.as_ref()
+                              .iter()
+                              .skip(1)
+                              .map(|yx| yx.lowest_bits(16) as i16)
+                              .collect::<Vec<i16>>();
+            let ypos = command.as_ref()
+                              .iter()
+                              .skip(1)
+                              .map(|yx| (yx >> 16) as i16)
+                              .collect::<Vec<i16>>();
             let xmax = 1023;
             let ymax = 511;
             let xdiff = xpos.iter().max().unwrap() - xpos.iter().min().unwrap();
             let ydiff = ypos.iter().max().unwrap() - ypos.iter().min().unwrap();
             if xdiff < xmax && ydiff < ymax {
-              let monochrome = [command.idx(0)].iter()
-                                               .enumerate()
-                                               .map(|(i, v)| v >> (8 * i))
-                                               .map(|c| c.lowest_bits(8) as i16)
-                                               .cycle()
-                                               .take(4)
-                                               .collect::<Vec<i16>>();
+              let monochrome = command.as_ref()
+                                      .iter()
+                                      .take(1)
+                                      .enumerate()
+                                      .map(|(i, v)| v >> (8 * i))
+                                      .map(|c| c.lowest_bits(8) as i16)
+                                      .cycle()
+                                      .take(4)
+                                      .collect::<Vec<i16>>();
               let positions = xpos.into_iter()
                                   .zip(ypos.into_iter())
                                   .map(|(a,b)| vec![a,b])
@@ -53,8 +52,50 @@ impl GPU {
               return Some(Drawable::new(positions, monochrome));
             }
           },
+          0x30 => {
+          },
           0x38 => {
-            panic!("got here");
+            if self.logging {
+              println!("rendered an shaded four-point polygon");
+            }
+            let xpos = command.as_ref()
+                              .iter()
+                              .skip(1)
+                              .step_by(2)
+                              .map(|yx| yx.lowest_bits(16) as i16)
+                              .collect::<Vec<i16>>();
+            let ypos = command.as_ref()
+                              .iter()
+                              .skip(1)
+                              .step_by(2)
+                              .map(|yx| (yx >> 16) as i16)
+                              .collect::<Vec<i16>>();
+            let xmax = 1023;
+            let ymax = 511;
+            let xdiff = xpos.iter().max().unwrap() - xpos.iter().min().unwrap();
+            let ydiff = ypos.iter().max().unwrap() - ypos.iter().min().unwrap();
+            if xdiff < xmax && ydiff < ymax {
+              let cols = command.as_ref()
+                                .iter()
+                                .step_by(2)
+                                .map(|col| {
+                                  vec![col].into_iter()
+                                           .cycle()
+                                           .take(3)
+                                           .enumerate()
+                                           .map(|(i, c)| c >> (8 * i))
+                                           .map(|c| c.lowest_bits(8) as i16)
+                                           .collect::<Vec<i16>>()
+                                })
+                                .flatten()
+                                .collect::<Vec<i16>>();
+              let positions = xpos.into_iter()
+                                  .zip(ypos.into_iter())
+                                  .map(|(a,b)| vec![a,b])
+                                  .flatten()
+                                  .collect();
+              return Some(Drawable::new(positions, cols));
+            }
           },
           0xa0 => {
             if self.logging {
