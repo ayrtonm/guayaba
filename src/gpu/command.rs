@@ -24,6 +24,63 @@ impl Command {
   pub fn append_parameters(&mut self, parameters: Register) {
     self.0.push(parameters);
   }
+  pub fn get_monochrome(&self) -> Vec<i16> {
+    self.as_ref()
+        .iter()
+        .take(1)
+        .enumerate()
+        .map(|(i, v)| v >> (8 * i))
+        .map(|c| c.lowest_bits(8) as i16)
+        .cycle()
+        .take(4)
+        .collect()
+  }
+  pub fn get_colors(&self) -> Vec<i16> {
+    self.as_ref()
+        .iter()
+        .step_by(2)
+        .map(|col| {
+          vec![col].into_iter()
+                   .cycle()
+                   .take(3)
+                   .enumerate()
+                   .map(|(i, c)| c >> (8 * i))
+                   .map(|c| c.lowest_bits(8) as i16)
+                   .collect::<Vec<i16>>()
+        })
+        .flatten()
+        .collect()
+  }
+  pub fn get_xpos_consecutive(&self) -> Vec<i16> {
+    self.as_ref()
+        .iter()
+        .skip(1)
+        .map(|yx| yx.lowest_bits(16) as i16)
+        .collect()
+  }
+  pub fn get_ypos_consecutive(&self) -> Vec<i16> {
+    self.as_ref()
+        .iter()
+        .skip(1)
+        .map(|yx| (yx >> 16) as i16)
+        .collect()
+  }
+  pub fn get_xpos_every_other(&self) -> Vec<i16> {
+    self.as_ref()
+        .iter()
+        .skip(1)
+        .step_by(2)
+        .map(|yx| yx.lowest_bits(16) as i16)
+        .collect()
+  }
+  pub fn get_ypos_every_other(&self) -> Vec<i16> {
+    self.as_ref()
+        .iter()
+        .skip(1)
+        .step_by(2)
+        .map(|yx| (yx >> 16) as i16)
+        .collect()
+  }
   pub fn completed(&self) -> bool {
     match self.id() {
       0xe1 | 0xe2 | 0xe3 | 0xe4 | 0xe5 | 0xe6 | 0x01 | 0x1f => {

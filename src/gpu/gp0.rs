@@ -5,6 +5,20 @@ use crate::register::BitManipulation;
 use crate::screen::Drawable;
 
 impl GPU {
+  fn object_within_limits(xpos: &Vec<i16>, ypos: &Vec<i16>) -> bool {
+    let xmax = 1023;
+    let ymax = 511;
+    let xdiff = xpos.iter().max().unwrap() - xpos.iter().min().unwrap();
+    let ydiff = ypos.iter().max().unwrap() - ypos.iter().min().unwrap();
+    xdiff < xmax && ydiff < ymax
+  }
+  fn zip_positions(xpos: Vec<i16>, ypos: Vec<i16>) -> Vec<i16> {
+    xpos.into_iter()
+        .zip(ypos.into_iter())
+        .map(|(a,b)| vec![a,b])
+        .flatten()
+        .collect()
+  }
   pub fn exec_next_gp0_command(&mut self) -> Option<Drawable> {
     let command = self.command_buffer.pop_front();
     match command {
@@ -20,80 +34,34 @@ impl GPU {
             if self.logging {
               println!("rendered an opaque monochrome four-point polygon");
             }
-            let xpos = command.as_ref()
-                              .iter()
-                              .skip(1)
-                              .map(|yx| yx.lowest_bits(16) as i16)
-                              .collect::<Vec<i16>>();
-            let ypos = command.as_ref()
-                              .iter()
-                              .skip(1)
-                              .map(|yx| (yx >> 16) as i16)
-                              .collect::<Vec<i16>>();
-            let xmax = 1023;
-            let ymax = 511;
-            let xdiff = xpos.iter().max().unwrap() - xpos.iter().min().unwrap();
-            let ydiff = ypos.iter().max().unwrap() - ypos.iter().min().unwrap();
-            if xdiff < xmax && ydiff < ymax {
-              let monochrome = command.as_ref()
-                                      .iter()
-                                      .take(1)
-                                      .enumerate()
-                                      .map(|(i, v)| v >> (8 * i))
-                                      .map(|c| c.lowest_bits(8) as i16)
-                                      .cycle()
-                                      .take(4)
-                                      .collect::<Vec<i16>>();
-              let positions = xpos.into_iter()
-                                  .zip(ypos.into_iter())
-                                  .map(|(a,b)| vec![a,b])
-                                  .flatten()
-                                  .collect();
+            let xpos = command.get_xpos_consecutive();
+            let ypos = command.get_ypos_consecutive();
+            if GPU::object_within_limits(&xpos, &ypos) {
+              let positions = GPU::zip_positions(xpos, ypos);
+              let monochrome = command.get_monochrome();
               return Some(Drawable::new(positions, monochrome));
             }
           },
+          0x2c => {
+          },
           0x30 => {
+            let xpos = command.get_xpos_every_other();
+            let ypos = command.get_ypos_every_other();
+            if GPU::object_within_limits(&xpos, &ypos) {
+              let positions = GPU::zip_positions(xpos, ypos);
+              let cols = command.get_colors();
+              return Some(Drawable::new(positions, cols));
+            }
           },
           0x38 => {
             if self.logging {
               println!("rendered an shaded four-point polygon");
             }
-            let xpos = command.as_ref()
-                              .iter()
-                              .skip(1)
-                              .step_by(2)
-                              .map(|yx| yx.lowest_bits(16) as i16)
-                              .collect::<Vec<i16>>();
-            let ypos = command.as_ref()
-                              .iter()
-                              .skip(1)
-                              .step_by(2)
-                              .map(|yx| (yx >> 16) as i16)
-                              .collect::<Vec<i16>>();
-            let xmax = 1023;
-            let ymax = 511;
-            let xdiff = xpos.iter().max().unwrap() - xpos.iter().min().unwrap();
-            let ydiff = ypos.iter().max().unwrap() - ypos.iter().min().unwrap();
-            if xdiff < xmax && ydiff < ymax {
-              let cols = command.as_ref()
-                                .iter()
-                                .step_by(2)
-                                .map(|col| {
-                                  vec![col].into_iter()
-                                           .cycle()
-                                           .take(3)
-                                           .enumerate()
-                                           .map(|(i, c)| c >> (8 * i))
-                                           .map(|c| c.lowest_bits(8) as i16)
-                                           .collect::<Vec<i16>>()
-                                })
-                                .flatten()
-                                .collect::<Vec<i16>>();
-              let positions = xpos.into_iter()
-                                  .zip(ypos.into_iter())
-                                  .map(|(a,b)| vec![a,b])
-                                  .flatten()
-                                  .collect();
+            let xpos = command.get_xpos_every_other();
+            let ypos = command.get_ypos_every_other();
+            if GPU::object_within_limits(&xpos, &ypos) {
+              let positions = GPU::zip_positions(xpos, ypos);
+              let cols = command.get_colors();
               return Some(Drawable::new(positions, cols));
             }
           },
