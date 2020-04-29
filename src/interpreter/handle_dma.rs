@@ -1,5 +1,6 @@
 use crate::interpreter::Interpreter;
 use crate::register::Register;
+use crate::register::BitManipulation;
 use crate::dma::Transfer;
 use crate::dma::Direction;
 use crate::dma::Chunks;
@@ -76,12 +77,12 @@ impl Interpreter{
               loop {
                 let header = self.resolve_memresponse(self.memory.read_word(header_address));
                 let packet_size = header >> 24;
-                for _ in 1..=packet_size {
+                for _ in 0..=packet_size {
                   addr = step(addr);
                   let data = self.resolve_memresponse(self.memory.read_word(addr));
                   buffer.push(data);
                 }
-                let next_packet = header & 0x00ff_ffff;
+                let next_packet = header.lowest_bits(24);
                 if next_packet == 0x00ff_ffff {
                   break
                 } else {
