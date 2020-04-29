@@ -87,6 +87,7 @@ impl Interpreter{
                   break
                 } else {
                   header_address = next_packet & addr_mask;
+                  addr = header_address;
                 }
               }
               self.memory.write_word(0x1f80_1080 + (transfer.channel_num() * 0x10), 0x00ff_ffff);
