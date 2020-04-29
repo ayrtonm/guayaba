@@ -7,6 +7,7 @@ extern crate gl;
 mod shader;
 use shader::Shader;
 
+#[derive(Debug)]
 pub struct Drawable {
   positions: Vec<i16>,
   colors: Vec<i16>,
@@ -18,6 +19,9 @@ impl Drawable {
       positions,
       colors,
     }
+  }
+  pub fn n_points(&self) -> i32 {
+    (self.positions.len() as i32)/2
   }
   pub fn positions(&self) -> &Vec<i16> {
     &self.positions
@@ -89,11 +93,22 @@ impl Screen {
      
   }
   pub fn draw(&mut self, object: Drawable) {
-    let pos_t1 = object.positions().clone().into_iter().skip(0).cycle().take(3 * 2);
-    let pos_t2 = object.positions().clone().into_iter().skip(2).cycle().take(3 * 2);
-    let col_t1 = object.colors().clone().into_iter().skip(0).cycle().take(3 * 3);
-    let col_t2 = object.colors().clone().into_iter().skip(3).cycle().take(3 * 3);
-    let vertices = vec![pos_t1, pos_t2, col_t1, col_t2].into_iter().flatten().collect::<Vec<i16>>();
+    let vertices: Vec<i16> = match object.n_points() {
+      3 => {
+        vec![object.positions().clone(), object.colors().clone()].into_iter().flatten().collect()
+      },
+      4 => {
+        let pos_t1 = object.positions().clone().into_iter().skip(0).cycle().take(3 * 2);
+        let pos_t2 = object.positions().clone().into_iter().skip(2).cycle().take(3 * 2);
+        let col_t1 = object.colors().clone().into_iter().skip(0).cycle().take(3 * 3);
+        let col_t2 = object.colors().clone().into_iter().skip(3).cycle().take(3 * 3);
+        vec![pos_t1, pos_t2, col_t1, col_t2].into_iter().flatten().collect()
+      },
+      _ => {
+        panic!("drawing this object is not implemented {:?}", object);
+      },
+    };
+    let n_vertices = vertices.len()/5;
     let mut vbo: gl::types::GLuint = 0;
     unsafe {
       gl::GenBuffers(1, &mut vbo);
@@ -118,13 +133,13 @@ impl Screen {
       gl::EnableVertexAttribArray(1);
       gl::VertexAttribPointer(1, 3, gl::SHORT, gl::FALSE,
         (3 * std::mem::size_of::<i16>()) as gl::types::GLint,
-        (2 * vertices.len()/5 * std::mem::size_of::<i16>()) as *const gl::types::GLvoid);
+        (2 * n_vertices * std::mem::size_of::<i16>()) as *const gl::types::GLvoid);
       gl::BindBuffer(gl::ARRAY_BUFFER, 0);
       gl::BindVertexArray(0);
     }
     unsafe {
       gl::BindVertexArray(vao);
-      gl::DrawArrays(gl::TRIANGLES, 0, 6);
+      gl::DrawArrays(gl::TRIANGLES, 0, n_vertices as i32);
     }
     self.window.gl_swap_window();
   }
