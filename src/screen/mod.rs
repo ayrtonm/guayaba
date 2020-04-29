@@ -89,10 +89,10 @@ impl Screen {
      
   }
   pub fn draw(&mut self, object: Drawable) {
-    let pos_t1 = object.positions().clone().into_iter().skip(2).cycle().take(3 * 2);
-    let pos_t2 = object.positions().clone().into_iter().skip(3).cycle().take(3 * 2);
-    let col_t1 = object.colors().clone().into_iter().skip(2).cycle().take(3 * 3);
-    let col_t2 = object.colors().clone().into_iter().skip(3).cycle().take(3 * 3);
+    let pos_t1 = object.positions().clone().into_iter().skip(0).cycle().take(3 * 2);
+    let pos_t2 = object.positions().clone().into_iter().skip(2).cycle().take(3 * 2);
+    let col_t1 = object.colors().clone().into_iter().skip(0).cycle().take(3 * 3);
+    let col_t2 = object.colors().clone().into_iter().skip(2).cycle().take(3 * 3);
     let vertices = vec![pos_t1, pos_t2, col_t1, col_t2].into_iter().flatten().collect::<Vec<i16>>();
     let mut vbo: gl::types::GLuint = 0;
     unsafe {
