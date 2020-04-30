@@ -456,7 +456,7 @@ impl Interpreter{
                       imm16, pc, inc, dest, get_rs(op), stringify!($cmp), get_rt(op), rs, stringify!($cmp), rt);
             Some(dest)
           } else {
-            log!("skipping jump since R{} {} R{} -> {:#x} {} {:#x}",
+            log!("skipping jump since R{} {} R{} -> {:#x} {} {:#x} is false",
                       get_rs(op), stringify!($cmp), get_rt(op), rs, stringify!($cmp), rt);
             None
           }

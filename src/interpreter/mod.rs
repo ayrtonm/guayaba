@@ -62,8 +62,16 @@ impl Interpreter {
       i: 0,
     })
   }
-  pub fn run(&mut self, n: Option<u32>, logging: bool) {
+  pub fn run(&mut self, n: Option<u32>, mut logging: bool) {
     loop {
+      if self.i > 19722989 {
+        logging = false;
+      //} else if self.i > 19722989 - 36 {
+      } else if self.i > 19300000 {
+        logging = true;
+      } else {
+        logging = false;
+      }
       if logging {
         println!("  ");
         println!("{} ----------------------", self.i);
@@ -116,6 +124,26 @@ impl Interpreter {
   fn step(&mut self, logging: bool) {
     //get opcode from memory at program counter
     let op = self.resolve_memresponse(self.memory.read_word(self.r3000.pc()));
+    //if self.r3000.pc() == 0x80059ddc ||
+    //   self.r3000.pc() == 0x80059dc8 ||
+    //   self.r3000.pc() == 0x80059dcc ||
+    //   self.r3000.pc() == 0x80059dd0 ||
+    //   self.r3000.pc() == 0x80059dd4 ||
+    //   self.r3000.pc() == 0x80059dd8 ||
+    //   self.r3000.pc() == 0x80059ddc ||
+    //   self.r3000.pc() == 0x80059dfc ||
+    //   self.r3000.pc() == 0x80059e00 ||
+    //   self.r3000.pc() == 0x80059e04 ||
+    //   self.r3000.pc() == 0x80059e08 ||
+    //   self.r3000.pc() == 0x80059e0c ||
+    //   self.r3000.pc() == 0x80059e10 {
+    //  panic!("cycle start {}", self.i);
+    //}
+    //if (self.r3000.pc() == 0x80059e14 ||
+    //   self.r3000.pc() == 0x80059de0) &&
+    //   self.i > 19329763 {
+    //  panic!("cycle end {}", self.i);
+    //}
     if logging {
       println!("read opcode {:#x} from [{:#x}]", op, self.r3000.pc());
     }
@@ -140,6 +168,9 @@ impl Interpreter {
       |action| {
         match action {
           MemAction::DMA(transfer) => {
+            if self.i < 19722989 && self.i > 19722989 - 24 {
+              println!("sent {:x?} through DMA", transfer);
+            }
             self.handle_dma(transfer);
           },
 
