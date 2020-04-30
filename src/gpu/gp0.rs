@@ -43,6 +43,13 @@ impl GPU {
             }
           },
           0x2c => {
+            let xpos = command.get_xpos_every_other();
+            let ypos = command.get_ypos_every_other();
+            if GPU::object_within_limits(&xpos, &ypos) {
+              let positions = GPU::zip_positions(xpos, ypos);
+              let cols = command.get_monochrome();
+              return Some(Drawable::new(positions, cols));
+            }
           },
           0x30 => {
             let xpos = command.get_xpos_every_other();
