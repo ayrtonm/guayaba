@@ -1,4 +1,5 @@
 use crate::interpreter::Interpreter;
+use crate::memory::Memory;
 use crate::register::Register;
 use crate::register::BitBang;
 use crate::dma::Transfer;
@@ -70,7 +71,7 @@ impl Interpreter{
                 addr = step(addr);
               }
               addr = undo_step(addr);
-              self.memory.write_word(0x1f80_1080 + (transfer.channel_num() * 0x10), addr);
+              self.memory.write_word(Memory::DMA_ADDRESS_0 + (transfer.channel_num() * 0x10), addr);
             },
             Chunks::LinkedList => {
               let mut header_address = addr;
@@ -90,7 +91,7 @@ impl Interpreter{
                   addr = header_address;
                 }
               }
-              self.memory.write_word(0x1f80_1080 + (transfer.channel_num() * 0x10), 0x00ff_ffff);
+              self.memory.write_word(Memory::DMA_ADDRESS_0 + (transfer.channel_num() * 0x10), 0x00ff_ffff);
             },
           }
           //println!("sending {:#x?} through a DMA", buffer);

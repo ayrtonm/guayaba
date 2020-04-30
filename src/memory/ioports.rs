@@ -15,11 +15,18 @@ macro_rules! get_io_response {
     {
       let aligned_address = $address & 0xffff_fffc;
       match aligned_address {
+        //CD registesrs
+        Memory::CD_PORT => {
+          let offset = $address - Memory::IO_PORTS;
+          let value = $self.io_ports.as_ref().$function(offset);
+          println!("CD read {:#x} from {:#x}", value, $address);
+          MemResponse::Value(value)
+        },
         //GPU registers
-        0x1f80_1810 => {
+        Memory::GPU_GP0 => {
           MemResponse::GPUREAD
         },
-        0x1f80_1814 => {
+        Memory::GPU_GP1 => {
           MemResponse::GPUSTAT
         },
         _ => {
@@ -38,28 +45,33 @@ macro_rules! get_io_action {
       let aligned_address = $address & 0xffff_fffc;
       let aligned_offset = aligned_address - Memory::IO_PORTS;
       match aligned_address {
+        //CD registesrs
+        Memory::CD_PORT => {
+          println!("CD wrote {:#x} to {:#x}", $value, $address);
+          None
+        },
         //GPU registers
-        0x1f80_1810 => {
+        Memory::GPU_GP0 => {
           Some(
             MemAction::GpuGp0(
               $self.io_ports.as_ref()
                             .read_word(aligned_offset)))
         },
-        0x1f80_1814 => {
+        Memory::GPU_GP1 => {
           Some(
             MemAction::GpuGp1(
               $self.io_ports.as_ref()
                             .read_word(aligned_offset)))
         },
         //DMA channel controls
-        0x1f80_1088 |
-        0x1f80_1098 |
-        0x1f80_10a8 |
-        0x1f80_10b8 |
-        0x1f80_10c8 |
-        0x1f80_10d8 |
-        0x1f80_10e8 => {
-          let channel_num = (aligned_address - 0x1f80_1088) >> 4;
+        Memory::DMA_CHANNEL_0 |
+        Memory::DMA_CHANNEL_1 |
+        Memory::DMA_CHANNEL_2 |
+        Memory::DMA_CHANNEL_3 |
+        Memory::DMA_CHANNEL_4 |
+        Memory::DMA_CHANNEL_5 |
+        Memory::DMA_CHANNEL_6 => {
+          let channel_num = (aligned_address - Memory::DMA_CHANNEL_0) >> 4;
           let control_register = $self.io_ports.as_ref()
                                                .read_word(aligned_offset);
           let sync_mode = control_register.sync_mode();
@@ -95,7 +107,7 @@ macro_rules! get_io_action {
 
 impl Memory {
   pub fn reset_dma_channel(&mut self, channel: u32) {
-    let address = 0x1f80_1088 + (channel * 0x10) - Memory::IO_PORTS;
+    let address = Memory::DMA_CHANNEL_0 + (channel * 0x10) - Memory::IO_PORTS;
     let mut control_register = self.io_ports.as_ref().read_word(address);
     let new_register = *control_register.clear(28).clear(24);
     self.io_ports.as_mut().write_word(address, new_register);

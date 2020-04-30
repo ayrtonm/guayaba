@@ -159,6 +159,21 @@ impl Memory {
       cache_control: [0; 512],
     })
   }
+  const CD_PORT: Register = 0x1f80_1800;
+  const GPU_GP0: Register = 0x1f80_1810;
+  const GPU_GP1: Register = 0x1f80_1814;
+  pub const DMA_ADDRESS_0: Register = 0x1f80_1080;
+  const DMA_BLOCKS_0: Register = 0x1f80_1084;
+  const DMA_CHANNEL_0: Register = 0x1f80_1088;
+  const DMA_CHANNEL_1: Register = 0x1f80_1098;
+  const DMA_CHANNEL_2: Register = 0x1f80_10a8;
+  const DMA_CHANNEL_3: Register = 0x1f80_10b8;
+  const DMA_CHANNEL_4: Register = 0x1f80_10c8;
+  const DMA_CHANNEL_5: Register = 0x1f80_10d8;
+  const DMA_CHANNEL_6: Register = 0x1f80_10e8;
+  const DMA_CONTROL: Register = 0x1f80_10f0;
+  const DMA_INTERRUPT: Register = 0x1f80_10f4;
+
   const MAIN_RAM: Register = 0;
   const MAIN_RAM_END: Register = Memory::MAIN_RAM + (2 * MB as Register) - 1;
 
