@@ -2,8 +2,7 @@ use crate::common::ReadArray;
 use crate::common::WriteArray;
 use crate::memory::Memory;
 use crate::register::Register;
-use crate::register::Aliases;
-use crate::register::BitManipulation;
+use crate::register::BitBang;
 use crate::dma::Transfer;
 use crate::dma::Chunks;
 use crate::dma::Blocks;
@@ -16,6 +15,7 @@ macro_rules! get_io_response {
     {
       let aligned_address = $address & 0xffff_fffc;
       match aligned_address {
+        //GPU registers
         0x1f80_1810 => {
           MemResponse::GPUREAD
         },

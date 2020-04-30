@@ -7,8 +7,7 @@ use std::fs::File;
 use crate::common::ReadArray;
 use crate::common::WriteArray;
 use crate::register::Register;
-use crate::register::Parts;
-use crate::register::Aliases;
+use crate::register::BitBang;
 use crate::dma::Transfer;
 use crate::dma::DMAChannel;
 

@@ -1,5 +1,5 @@
 use crate::register::Register;
-use crate::register::BitManipulation;
+use crate::register::BitBang;
 use crate::screen::Drawable;
 
 #[derive(Debug)]

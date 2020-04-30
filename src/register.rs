@@ -2,24 +2,20 @@ use std::ops::*;
 
 pub type Register = u32;
 
-pub trait Parts {
+pub trait BitBang {
   fn word(&self) -> Register;
   fn half(&self) -> Register;
   fn byte(&self) -> Register;
   fn half_sign_extended(&self) -> Register;
   fn byte_sign_extended(&self) -> Register;
-}
 
-pub trait BitManipulation {
   fn set(&mut self, n: Register) -> &mut Self;
   fn set_mask(&mut self, mask: Register) -> &mut Self;
   fn clear(&mut self, n: Register) -> &mut Self;
   fn clear_mask(&mut self, mask: Register) -> &mut Self;
   fn lowest_bits(&self, n: Register) -> Register;
   fn upper_bits(&self, n: Register) -> Register;
-}
 
-pub trait Aliases {
   fn sra(&self, rhs: Register) -> Register;
   fn and(&self, rhs: Register) -> Register;
   fn or(&self, rhs: Register) -> Register;
@@ -31,7 +27,7 @@ pub trait Aliases {
   fn nth_bit_bool(&self, n: Register) -> bool;
 }
 
-impl Parts for Register{
+impl BitBang for Register{
   fn word(&self) -> Register {
     *self
   }
@@ -47,9 +43,7 @@ impl Parts for Register{
   fn byte_sign_extended(&self) -> Register {
     (self.byte() as i8) as Register
   }
-}
 
-impl BitManipulation for Register {
   fn set(&mut self, n: Register) -> &mut Self {
     *self |= (1 << n);
     self
@@ -74,9 +68,7 @@ impl BitManipulation for Register {
   fn upper_bits(&self, n: Register) -> Register {
     *self & !(((1 as u64) << (32 - n)) - 1) as u32
   }
-}
 
-impl Aliases for Register {
   fn nth_bit(&self, n: Register) -> Register {
     (self >> n) & 1
   }

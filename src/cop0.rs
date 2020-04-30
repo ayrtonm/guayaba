@@ -1,5 +1,5 @@
 use crate::register::Register;
-use crate::register::Aliases;
+use crate::register::BitBang;
 
 #[derive(Debug)]
 pub enum Cop0Exception {

@@ -1,7 +1,7 @@
 use crate::gpu::GPU;
 use crate::gpu::Command;
 use crate::register::Register;
-use crate::register::BitManipulation;
+use crate::register::BitBang;
 use crate::screen::Drawable;
 
 impl GPU {

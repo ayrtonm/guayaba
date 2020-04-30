@@ -1,6 +1,6 @@
 use crate::gpu::GPU;
 use crate::register::Register;
-use crate::register::BitManipulation;
+use crate::register::BitBang;
 
 impl GPU {
   pub fn write_to_gp1(&mut self, value: Register) {

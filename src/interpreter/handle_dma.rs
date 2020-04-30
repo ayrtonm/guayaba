@@ -1,6 +1,6 @@
 use crate::interpreter::Interpreter;
 use crate::register::Register;
-use crate::register::BitManipulation;
+use crate::register::BitBang;
 use crate::dma::Transfer;
 use crate::dma::Direction;
 use crate::dma::Chunks;

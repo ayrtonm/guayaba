@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use crate::memory::MB;
 use crate::register::Register;
-use crate::register::BitManipulation;
+use crate::register::BitBang;
 use crate::dma::DMAChannel;
 
 mod command;
