@@ -82,6 +82,30 @@ impl Interpreter {
           Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
             panic!("Executed {} steps", self.i);
           },
+          Event::KeyDown { keycode: Some(Keycode::S), .. } => {
+            println!("You pressed X");
+          },
+          Event::KeyDown { keycode: Some(Keycode::D), .. } => {
+            println!("You pressed ◯");
+          },
+          Event::KeyDown { keycode: Some(Keycode::A), .. } => {
+            println!("You pressed □");
+          },
+          Event::KeyDown { keycode: Some(Keycode::W), .. } => {
+            println!("You pressed △");
+          },
+          Event::KeyDown { keycode: Some(Keycode::K), .. } => {
+            println!("You pressed down");
+          },
+          Event::KeyDown { keycode: Some(Keycode::L), .. } => {
+            println!("You pressed right");
+          },
+          Event::KeyDown { keycode: Some(Keycode::J), .. } => {
+            println!("You pressed left");
+          },
+          Event::KeyDown { keycode: Some(Keycode::I), .. } => {
+            println!("You pressed up");
+          },
           Event::Quit {..} => panic!(""),
           _ => {},
         }
