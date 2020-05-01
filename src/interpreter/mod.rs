@@ -153,6 +153,9 @@ impl Interpreter {
           MemAction::CDCmd(value) => {
             self.cd.send_command(value);
           },
+          MemAction::CDParam(value) => {
+            self.cd.send_parameter(value);
+          },
         }
       }
     );

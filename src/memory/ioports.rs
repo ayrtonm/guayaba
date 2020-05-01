@@ -74,7 +74,11 @@ macro_rules! get_io_action {
                   Some(
                     MemAction::CDCmd(
                       $self.io_ports.as_ref()
-                                    .read_byte(aligned_offset + 1) as u8))
+                                    .read_byte(aligned_offset + 1) as u8));
+              Some(
+                MemAction::CDParam(
+                  $self.io_ports.as_ref()
+                                .read_byte(aligned_offset + 2) as u8))
                 },
                 SizeIdentifier::Half => {
                   Some(
@@ -96,7 +100,10 @@ macro_rules! get_io_action {
             },
             //could write half or byte
             2 => {
-              None
+              Some(
+                MemAction::CDParam(
+                  $self.io_ports.as_ref()
+                                .read_byte(aligned_offset + 2) as u8))
             },
             //could write byte
             3 => {

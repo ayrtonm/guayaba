@@ -10,6 +10,7 @@ use crate::dma::DMAChannel;
 pub struct CD {
   contents: Option<Box<[u8]>>,
   command_buffer: VecDeque<u8>,
+  parameter_buffer: VecDeque<u8>,
 }
 
 impl CD {
@@ -26,10 +27,15 @@ impl CD {
     CD {
       contents,
       command_buffer: VecDeque::new(),
+      parameter_buffer: VecDeque::new(),
     }
   }
+  pub fn send_parameter(&mut self, val: u8) {
+    println!("CD received parameter {:#x}", val);
+    self.parameter_buffer.push_back(val);
+  }
   pub fn send_command(&mut self, cmd: u8) {
-    println!("CD received {:#x}", cmd);
+    println!("CD received command {:#x}", cmd);
     self.command_buffer.push_back(cmd);
   }
   pub fn exec_command(&mut self) {

@@ -20,6 +20,7 @@ pub enum MemAction {
   GpuGp0(Register),
   GpuGp1(Register),
   CDCmd(u8),
+  CDParam(u8),
 }
 
 pub enum MemResponse {
