@@ -8,14 +8,16 @@ pub trait BitBang {
   fn byte(&self) -> Register;
   fn half_sign_extended(&self) -> Register;
   fn byte_sign_extended(&self) -> Register;
+  fn word_align(&self) -> Register;
+  fn half_align(&self) -> Register;
+  fn lowest_bits(&self, n: Register) -> Register;
+  fn upper_bits(&self, n: Register) -> Register;
+  fn upper_bits_in_place(&self, n: Register) -> Register;
 
   fn set(&mut self, n: Register) -> &mut Self;
   fn set_mask(&mut self, mask: Register) -> &mut Self;
   fn clear(&mut self, n: Register) -> &mut Self;
   fn clear_mask(&mut self, mask: Register) -> &mut Self;
-  fn lowest_bits(&self, n: Register) -> Register;
-  fn upper_bits(&self, n: Register) -> Register;
-  fn upper_bits_in_place(&self, n: Register) -> Register;
 
   fn sra(&self, rhs: Register) -> Register;
   fn and(&self, rhs: Register) -> Register;
@@ -44,6 +46,24 @@ impl BitBang for Register{
   fn byte_sign_extended(&self) -> Register {
     (self.byte() as i8) as Register
   }
+  fn word_align(&self) -> Register {
+    self & 0xffff_fffc
+  }
+  fn half_align(&self) -> Register {
+    self & 0xffff_fffe
+  }
+  //ands self with the lowest n bits
+  fn lowest_bits(&self, n: Register) -> Register {
+    *self & (((1 as u64) << n) - 1) as u32
+  }
+  fn upper_bits(&self, n: Register) -> Register {
+    *self >> (32 - n)
+  }
+  //ands self with the highest n bits
+  fn upper_bits_in_place(&self, n: Register) -> Register {
+    *self & !(((1 as u64) << (32 - n)) - 1) as u32
+  }
+
 
   fn set(&mut self, n: Register) -> &mut Self {
     *self |= (1 << n);
@@ -61,18 +81,6 @@ impl BitBang for Register{
     *self &= !mask;
     self
   }
-  //ands self with the lowest n bits
-  fn lowest_bits(&self, n: Register) -> Register {
-    *self & (((1 as u64) << n) - 1) as u32
-  }
-  fn upper_bits(&self, n: Register) -> Register {
-    *self >> (32 - n)
-  }
-  //ands self with the highest n bits
-  fn upper_bits_in_place(&self, n: Register) -> Register {
-    *self & !(((1 as u64) << (32 - n)) - 1) as u32
-  }
-
   fn nth_bit(&self, n: Register) -> Register {
     (self >> n) & 1
   }

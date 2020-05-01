@@ -55,7 +55,7 @@ impl Command {
     self.as_ref()
         .iter()
         .skip(1)
-        .map(|yx| yx.lowest_bits(16) as i16)
+        .map(|yx| yx.half() as i16)
         .collect()
   }
   pub fn get_ypos_consecutive(&self) -> Vec<i16> {
@@ -70,7 +70,7 @@ impl Command {
         .iter()
         .skip(1)
         .step_by(2)
-        .map(|yx| yx.lowest_bits(16) as i16)
+        .map(|yx| yx.half() as i16)
         .collect()
   }
   pub fn get_ypos_every_other(&self) -> Vec<i16> {
@@ -82,13 +82,13 @@ impl Command {
         .collect()
   }
   pub fn get_xpos_copy(&self, idx: usize) -> Register {
-    self.idx(idx).lowest_bits(16) & 0x3ff
+    self.idx(idx).half() & 0x3ff
   }
   pub fn get_ypos_copy(&self, idx: usize) -> Register {
-    (self.idx(idx) >> 16) & 0x1ff
+    self.idx(idx).upper_bits(16) & 0x1ff
   }
   pub fn get_xsize_copy(&self, idx: usize) -> Register {
-    ((self.idx(idx).lowest_bits(16) - 1) & 0x3ff) + 1
+    ((self.idx(idx).half() - 1) & 0x3ff) + 1
   }
   pub fn get_ysize_copy(&self, idx: usize) -> Register {
     (((self.idx(idx) >> 16) - 1) & 0x3ff) + 1
@@ -138,8 +138,8 @@ impl Command {
           false
         } else {
           //xsize and ysize are measured in halfwords
-          let ysize = self.0[2] >> 16;
-          let xsize = self.0[2].lowest_bits(16);
+          let ysize = self.0[2].upper_bits(16);
+          let xsize = self.0[2].half();
           //paramter length is in bytes
           let num_words = *((xsize * ysize) + 1).clear(0) >> 1;
           self.num_words() == 3 + num_words as usize

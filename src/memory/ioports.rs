@@ -9,36 +9,22 @@ use crate::dma::Blocks;
 use crate::dma::Direction;
 use crate::dma::Step;
 
-#[macro_export]
-macro_rules! get_io_response {
-  ($address:expr, $function:ident, $self:expr) => {
+macro_rules! identifier_size {
+  (read_word) => {
     {
-      let aligned_address = $address & 0xffff_fffc;
-      match aligned_address {
-        //CD registers
-        Memory::CD_PORT => {
-          let offset = $address - Memory::IO_PORTS;
-          let value = $self.io_ports.as_ref().$function(offset);
-          println!("CD read {:#x} from {:#x}", value, $address);
-          MemResponse::Value(value)
-        },
-        //GPU registers
-        Memory::GPU_GP0 => {
-          MemResponse::GPUREAD
-        },
-        Memory::GPU_GP1 => {
-          MemResponse::GPUSTAT
-        },
-        _ => {
-          let offset = $address - Memory::IO_PORTS;
-          MemResponse::Value($self.io_ports.as_ref().$function(offset))
-        },
-      }
+      SizeIdentifier::Word
     }
   };
-}
-
-macro_rules! identifier_size {
+  (read_half) => {
+    {
+      SizeIdentifier::Half
+    }
+  };
+  (read_byte) => {
+    {
+      SizeIdentifier::Byte
+    }
+  };
   (write_word) => {
     {
       SizeIdentifier::Word
@@ -52,6 +38,64 @@ macro_rules! identifier_size {
   (write_byte) => {
     {
       SizeIdentifier::Byte
+    }
+  };
+}
+
+#[macro_export]
+macro_rules! get_io_response {
+  ($address:expr, $function:ident, $self:expr) => {
+    {
+      let aligned_address = $address & 0xffff_fffc;
+      let aligned_offset = aligned_address - Memory::IO_PORTS;
+      match aligned_address {
+        //CD registers
+        Memory::CD_PORT => {
+          let mut value = $self.io_ports.as_ref().$function($address - Memory::IO_PORTS);
+          println!("CD read {:#x} from {:#x}", value, $address);
+          let index = $self.io_ports.as_ref().read_byte(aligned_offset).lowest_bits(2);
+          match $address.lowest_bits(2) {
+            //could read word, half, byte
+            0 => {
+              MemResponse::Value(*value.clear_mask(0x0000_00fc).set(3).set(4))
+              //match identifier_size!($function) {
+              //  SizeIdentifier::Word => {
+              //  },
+              //  SizeIdentifier::Half => {
+              //  },
+              //  SizeIdentifier::Byte => {
+              //  },
+              //}
+            },
+            //could read byte
+            1 => {
+              MemResponse::Value(value)
+            },
+            //could read half, byte
+            2 => {
+              MemResponse::Value(value)
+            },
+            //could read byte
+            3 => {
+              MemResponse::Value(value)
+            },
+            _ => {
+              unreachable!("");
+            },
+          }
+        },
+        //GPU registers
+        Memory::GPU_GP0 => {
+          MemResponse::GPUREAD
+        },
+        Memory::GPU_GP1 => {
+          MemResponse::GPUSTAT
+        },
+        _ => {
+          let offset = $address - Memory::IO_PORTS;
+          MemResponse::Value($self.io_ports.as_ref().$function(offset))
+        },
+      }
     }
   };
 }

@@ -35,18 +35,18 @@ impl ReadArray for &[u8] {
 impl WriteArray for &mut [u8] {
   fn write_byte(&mut self, address: Register, value: Register) {
     let address = address as usize;
-    self[address] = value.lowest_bits(8) as u8;
+    self[address] = value.byte() as u8;
   }
   fn write_half(&mut self, address: Register, value: Register) {
     let address = address as usize;
-    self[address] = value.lowest_bits(8) as u8;
-    self[address + 1] = value.upper_bits(24).lowest_bits(8) as u8;
+    self[address] = value.byte() as u8;
+    self[address + 1] = value.upper_bits(24).byte() as u8;
   }
   fn write_word(&mut self, address: Register, value: Register) {
     let address = address as usize;
-    self[address] = value.lowest_bits(8) as u8;
-    self[address + 1] = value.upper_bits(24).lowest_bits(8) as u8;
-    self[address + 2] = value.upper_bits(16).lowest_bits(8) as u8;
-    self[address + 3] = value.upper_bits(8).lowest_bits(8) as u8;
+    self[address] = value.byte() as u8;
+    self[address + 1] = value.upper_bits(24).byte() as u8;
+    self[address + 2] = value.upper_bits(16).byte() as u8;
+    self[address + 3] = value.upper_bits(8).byte() as u8;
   }
 }
