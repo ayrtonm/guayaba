@@ -140,23 +140,26 @@ impl Interpreter {
       MemResponse::GPUSTAT => self.gpu.gpustat(),
     }
   }
-  fn resolve_memaction(&mut self, maybe_action: Option<MemAction>) {
+  fn resolve_memactions(&mut self, maybe_action: Option<Vec<MemAction>>) {
     maybe_action.map(
-      |action| {
-        match action {
-          MemAction::DMA(transfer) => {
-            self.handle_dma(transfer);
-          },
+      |actions| {
+        actions.into_iter().for_each(
+          |action| {
+            match action {
+              MemAction::DMA(transfer) => {
+                self.handle_dma(transfer);
+              },
 
-          MemAction::GpuGp0(value) => self.gpu.write_to_gp0(value),
-          MemAction::GpuGp1(value) => self.gpu.write_to_gp1(value),
-          MemAction::CDCmd(value) => {
-            self.cd.send_command(value);
-          },
-          MemAction::CDParam(value) => {
-            self.cd.send_parameter(value);
-          },
-        }
+              MemAction::GpuGp0(value) => self.gpu.write_to_gp0(value),
+              MemAction::GpuGp1(value) => self.gpu.write_to_gp1(value),
+              MemAction::CDCmd(value) => {
+                self.cd.send_command(value);
+              },
+              MemAction::CDParam(value) => {
+                self.cd.send_parameter(value);
+              },
+            }
+          })
       }
     );
   }

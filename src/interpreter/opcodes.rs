@@ -118,7 +118,7 @@ impl Interpreter{
             let num_bits = $offset.$operator(8*address.lowest_bits(2));
             let result = rt.$shift(num_bits) | aligned_word.$mask(num_bits);
             let maybe_action = self.memory.write_word(aligned_address, result);
-            self.resolve_memaction(maybe_action);
+            self.resolve_memactions(maybe_action);
           } else {
             log!("ignoring write while cache is isolated");
           }
@@ -135,7 +135,7 @@ impl Interpreter{
                     rs, imm16, rs.wrapping_add(imm16), get_rt(op), rt, stringify!($method));
           if !self.cop0.cache_isolated() {
             let maybe_action = self.memory.$method(rs.wrapping_add(imm16), rt);
-            self.resolve_memaction(maybe_action);
+            self.resolve_memactions(maybe_action);
           } else {
             log!("ignoring write while cache is isolated");
           }

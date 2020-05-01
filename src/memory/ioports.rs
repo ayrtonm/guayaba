@@ -66,25 +66,27 @@ macro_rules! get_io_action {
         //CD registers
         Memory::CD_PORT => {
           println!("CD wrote {:#x} to {:#x}", $value, $address);
+          let index = $self.io_ports.as_ref().read_byte(aligned_offset).lowest_bits(2);
           match $address.lowest_bits(2) {
             //could write word, half or byte
+            //1800, 1801, 1802, 1803
             0 => {
               match identifier_size!($function) {
                 SizeIdentifier::Word => {
-                  Some(
+                  Some(vec![
                     MemAction::CDCmd(
-                      $self.io_ports.as_ref()
-                                    .read_byte(aligned_offset + 1) as u8));
-              Some(
-                MemAction::CDParam(
-                  $self.io_ports.as_ref()
-                                .read_byte(aligned_offset + 2) as u8))
+                      $self.io_ports.as_ref().read_byte(aligned_offset + 1) as u8),
+                    MemAction::CDParam(
+                      $self.io_ports.as_ref().read_byte(aligned_offset + 2) as u8)
+                    ]
+                  )
                 },
                 SizeIdentifier::Half => {
-                  Some(
+                  Some(vec![
                     MemAction::CDCmd(
-                      $self.io_ports.as_ref()
-                                    .read_byte(aligned_offset + 1) as u8))
+                      $self.io_ports.as_ref().read_byte(aligned_offset + 1) as u8)
+                    ]
+                  )
                 },
                 SizeIdentifier::Byte => {
                   None
@@ -93,21 +95,73 @@ macro_rules! get_io_action {
             },
             //could write byte
             1 => {
-              Some(
-                MemAction::CDCmd(
-                  $self.io_ports.as_ref()
-                                .read_byte(aligned_offset + 1) as u8))
+              match index {
+                0 => {
+                  Some(vec![
+                    MemAction::CDCmd(
+                      $self.io_ports.as_ref().read_byte(aligned_offset + 1) as u8)
+                    ]
+                  )
+                },
+                1 => {
+                  None
+                },
+                2 => {
+                  None
+                },
+                3 => {
+                  None
+                },
+                _ => {
+                  unreachable!("");
+                },
+              }
             },
             //could write half or byte
+            //1802, 1803
             2 => {
-              Some(
-                MemAction::CDParam(
-                  $self.io_ports.as_ref()
-                                .read_byte(aligned_offset + 2) as u8))
+              match index {
+                0 => {
+                  Some(vec![
+                    MemAction::CDParam(
+                      $self.io_ports.as_ref().read_byte(aligned_offset + 2) as u8)
+                    ]
+                  )
+                },
+                1 => {
+                  None
+                },
+                2 => {
+                  None
+                },
+                3 => {
+                  None
+                },
+                _ => {
+                  unreachable!("");
+                },
+              }
             },
             //could write byte
+            //1803
             3 => {
-              None
+              match index {
+                0 => {
+                  None
+                },
+                1 => {
+                  None
+                },
+                2 => {
+                  None
+                },
+                3 => {
+                  None
+                },
+                _ => {
+                  unreachable!("");
+                },
+              }
             },
             _ => {
               unreachable!("");
@@ -116,16 +170,18 @@ macro_rules! get_io_action {
         },
         //GPU registers
         Memory::GPU_GP0 => {
-          Some(
+          Some(vec![
             MemAction::GpuGp0(
-              $self.io_ports.as_ref()
-                            .read_word(aligned_offset)))
+              $self.io_ports.as_ref().read_word(aligned_offset))
+            ]
+          )
         },
         Memory::GPU_GP1 => {
-          Some(
+          Some(vec![
             MemAction::GpuGp1(
-              $self.io_ports.as_ref()
-                            .read_word(aligned_offset)))
+              $self.io_ports.as_ref().read_word(aligned_offset))
+            ]
+          )
         },
         //DMA channel controls
         Memory::DMA_CHANNEL_0 |
@@ -143,13 +199,19 @@ macro_rules! get_io_action {
             match sync_mode {
               0 => {
                 if control_register.nth_bit_bool(28) {
-                  Some(MemAction::DMA($self.create_dma_transfer(channel_num)))
+                  Some(vec![
+                    MemAction::DMA($self.create_dma_transfer(channel_num))
+                    ]
+                  )
                 } else {
                   None
                 }
               },
               1 | 2 => {
-                Some(MemAction::DMA($self.create_dma_transfer(channel_num)))
+                Some(vec![
+                  MemAction::DMA($self.create_dma_transfer(channel_num))
+                  ]
+                )
               },
               _ => unreachable!("DMA channel {} is not configured properly", channel_num),
             }
