@@ -3,6 +3,7 @@ use crate::gpu::Command;
 use crate::common::ReadArray;
 use crate::common::WriteArray;
 use crate::memory::KB;
+use crate::memory::MB;
 use crate::register::Register;
 use crate::register::BitBang;
 use crate::screen::Drawable;
@@ -46,6 +47,7 @@ impl GPU {
             }
           },
           0x2c => {
+            //TODO: add texturing
             let xpos = command.get_xpos_every_other();
             let ypos = command.get_ypos_every_other();
             if GPU::object_within_limits(&xpos, &ypos) {
@@ -76,24 +78,24 @@ impl GPU {
             }
           },
           0xa0 => {
-            let xpos = command.get_xpos_copy(1) as u16;
-            let ypos = command.get_ypos_copy(1) as u16;
-            let width = command.get_xsize_copy(2) as u16;
-            let height = command.get_ysize_copy(2) as u16;
-            command.as_ref()
+            let xpos = command.get_xpos_copy(1);
+            let ypos = command.get_ypos_copy(1);
+            let width = command.get_xsize_copy(2);
+            let height = command.get_ysize_copy(2);
+            let count = command.as_ref()
                    .into_iter()
                    .skip(3)
                    .enumerate()
-                   .for_each(
+                   .map(
                      |(i, &word)| {
-                       let i = i as u16;
+                       let i = i as u32;
                        let xoffset = i % width;
                        let yoffset = i / width;
                        let x = (xpos + xoffset) % 2048;
                        let y = (ypos + yoffset) % 512;
-                       let idx = x + (y * 2 * KB as u16);
-                       self.vram.as_mut().write_word(idx as Register, word);
-                     });
+                       let idx = x + (y * 2 * KB as u32);
+                       self.vram.as_mut().write_word(idx, word);
+                     }).count();
           },
           0xc0 => {
             let xpos = command.get_xpos_copy(1) as usize;
@@ -101,14 +103,20 @@ impl GPU {
             let width = command.get_xsize_copy(2) as usize;
             let height = command.get_ysize_copy(2) as usize;
             let start_idx = xpos + (ypos * 2 * KB);
+            println!("skipping {}, taking {}, total {}",
+                     start_idx / 2,
+                     ((width * height) + 1) / 2,
+                     MB);
             let vram_data = self.vram.chunks(4)
-                                     .skip(start_idx / 2)
-                                     .take(((width * height) + 1) / 2)
+                                     .skip(start_idx / 8)
+                                     .take(((width * height) + 1) / 8)
                                      .map(|chunk| chunk.read_word(0))
                                      .collect::<Vec<Register>>();
-            println!("got here {}x{} {}", xpos, ypos, start_idx);
-            vram_data.iter()
-                     .for_each(|&word| self.gpuread.push_back(word));
+            println!("{:x?}", vram_data);
+            let count = vram_data.iter()
+                                 .map(|&word| self.gpuread.push_back(word))
+                                 .count();
+            println!("GP0(C0h) {} written", count);
           },
           0xe1 => {
             let mask = 0x0000_83ff;
