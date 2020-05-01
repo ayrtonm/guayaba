@@ -15,7 +15,7 @@ macro_rules! get_io_response {
     {
       let aligned_address = $address & 0xffff_fffc;
       match aligned_address {
-        //CD registesrs
+        //CD registers
         Memory::CD_PORT => {
           let offset = $address - Memory::IO_PORTS;
           let value = $self.io_ports.as_ref().$function(offset);
@@ -45,7 +45,7 @@ macro_rules! get_io_action {
       let aligned_address = $address & 0xffff_fffc;
       let aligned_offset = aligned_address - Memory::IO_PORTS;
       match aligned_address {
-        //CD registesrs
+        //CD registers
         Memory::CD_PORT => {
           println!("CD wrote {:#x} to {:#x}", $value, $address);
           None

@@ -1,5 +1,7 @@
 use crate::gpu::GPU;
 use crate::gpu::Command;
+use crate::common::WriteArray;
+use crate::memory::KB;
 use crate::register::Register;
 use crate::register::BitBang;
 use crate::screen::Drawable;
@@ -76,11 +78,31 @@ impl GPU {
             if self.logging {
               println!("copy rectangle to VRAM");
             }
+            let xpos = command.get_xpos_copy(1) as u16;
+            let ypos = command.get_ypos_copy(1) as u16;
+            let width = command.get_xsize_copy(2) as u16;
+            let height = command.get_ysize_copy(2) as u16;
+            let vram_data = command.as_ref()
+                                   .into_iter()
+                                   .skip(3)
+                                   .map(|&word| word)
+                                   .collect::<Vec<Register>>();
+            vram_data.iter().enumerate().for_each(
+              |(i, &word)| {
+                let i = i as u16;
+                let x = xpos + (i % width);
+                let y = ypos + (i / width);
+                let idx = x + (y * 2 * KB as u16);
+                self.vram.as_mut().write_word(idx as Register, word)
+              }
+            );
           },
           0xc0 => {
             if self.logging {
               println!("copy rectangle from VRAM");
             }
+            let vram_data = vec![0xdead_beef];
+            vram_data.iter().for_each(|&word| self.gpuread.push_back(word));
           },
           0xe1 => {
             let mask = 0x0000_83ff;

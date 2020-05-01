@@ -81,6 +81,18 @@ impl Command {
         .map(|yx| (yx >> 16) as i16)
         .collect()
   }
+  pub fn get_xpos_copy(&self, idx: usize) -> Register {
+    self.idx(idx).lowest_bits(16) & 0x3ff
+  }
+  pub fn get_ypos_copy(&self, idx: usize) -> Register {
+    (self.idx(idx) >> 16) & 0x1ff
+  }
+  pub fn get_xsize_copy(&self, idx: usize) -> Register {
+    ((self.idx(idx).lowest_bits(16) - 1) & 0x3ff) + 1
+  }
+  pub fn get_ysize_copy(&self, idx: usize) -> Register {
+    (((self.idx(idx) >> 16) - 1) & 0x3ff) + 1
+  }
   pub fn completed(&self) -> bool {
     match self.id() {
       0xe1 | 0xe2 | 0xe3 | 0xe4 | 0xe5 | 0xe6 | 0x01 | 0x1f => {

@@ -12,7 +12,7 @@ use command::Command;
 pub struct GPU {
   logging: bool,
   gpustat: GPUStatus,
-  gpuread: Register,
+  gpuread: VecDeque<Register>,
   vram: Box<[u8]>,
   command_buffer: VecDeque<Command>,
   waiting_for_parameters: bool,
@@ -40,7 +40,8 @@ impl DMAChannel for GPU {
     data.iter().for_each(|&word| self.write_to_gp0(word))
   }
   fn receive(&self) -> Register {
-    self.gpuread
+    //self.gpuread
+    0
   }
 }
 
@@ -65,8 +66,9 @@ impl GPU {
     GPU {
       logging,
       gpustat: GPUStatus::new(),
-      gpuread: 0,
-      vram: vec![0; MB].into_boxed_slice(),
+      gpuread: VecDeque::new(),
+      //512 lines of 2048 bytes
+      vram: vec![0; 1 * MB].into_boxed_slice(),
       command_buffer,
       waiting_for_parameters: false,
       partial_command: None,
@@ -92,5 +94,11 @@ impl GPU {
   pub fn gpustat(&self) -> Register {
     //this is a dirty hack
     *self.gpustat.0.clone().clear(19).clear(14).clear(31).set(26).set(27).set(28)
+  }
+  pub fn gpuread(&mut self) -> Register {
+    match self.gpuread.pop_front() {
+      Some(value) => value,
+      None => 0,
+    }
   }
 }
