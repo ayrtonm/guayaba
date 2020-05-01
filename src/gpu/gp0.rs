@@ -119,24 +119,24 @@ impl GPU {
           0xe2 => {
             let command = command.idx(0);
             self.texture_mask_x = command.lowest_bits(5);
-            self.texture_mask_y = (command >> 5).lowest_bits(5);
-            self.texture_offset_x = (command >> 10).lowest_bits(5);
-            self.texture_offset_y = (command >> 15).lowest_bits(5);
+            self.texture_mask_y = command.upper_bits(27).lowest_bits(5);
+            self.texture_offset_x = command.upper_bits(22).lowest_bits(5);
+            self.texture_offset_y = command.upper_bits(17).lowest_bits(5);
           },
           0xe3 => {
             let command = command.idx(0);
             self.drawing_min_x = command.lowest_bits(10);
-            self.drawing_min_y = (command >> 10).lowest_bits(9);
+            self.drawing_min_y = command.upper_bits(22).lowest_bits(9);
           },
           0xe4 => {
             let command = command.idx(0);
             self.drawing_max_x = command.lowest_bits(10);
-            self.drawing_max_y = (command >> 10).lowest_bits(9);
+            self.drawing_max_y = command.upper_bits(22).lowest_bits(9);
           },
           0xe5 => {
             let command = command.idx(0);
             self.drawing_offset_x = command.lowest_bits(11);
-            self.drawing_offset_y = (command >> 11).lowest_bits(11);
+            self.drawing_offset_y = command.upper_bits(21).lowest_bits(11);
           },
           0xe6 => {
             let command = command.idx(0);

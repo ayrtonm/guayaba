@@ -57,12 +57,12 @@ impl Interpreter{
     macro_rules! mov {
       (rt = [rs + imm16] left) => {
         {
-          mov!(rt = [rs + imm16] 24_u32, sub lowest_bits shl) 
+          mov!(rt = [rs + imm16] 24_u32, sub lowest_bits shl)
         }
       };
       (rt = [rs + imm16] right) => {
         {
-          mov!(rt = [rs + imm16] 0_u32, add upper_bits shr) 
+          mov!(rt = [rs + imm16] 0_u32, add upper_bits_in_place shr)
         }
       };
       (rt = [rs + imm16] $offset:expr, $operator:ident $mask:ident $shift:ident) => {
@@ -98,7 +98,7 @@ impl Interpreter{
       };
       ([rs + imm16] = rt left) => {
         {
-          mov!([rs + imm16] = rt 24_u32, sub upper_bits shr)
+          mov!([rs + imm16] = rt 24_u32, sub upper_bits_in_place shr)
         }
       };
       ([rs + imm16] = rt right) => {
@@ -421,11 +421,11 @@ impl Interpreter{
       (imm26) => {
         {
           let imm26 = get_imm26(op);
-          let pc_upper_bits = self.r3000.pc() & 0xf000_0000;
+          let pc_hi_bits = self.r3000.pc() & 0xf000_0000;
           let shifted_imm26 = imm26 * 4;
-          let dest = pc_upper_bits + shifted_imm26;
+          let dest = pc_hi_bits + shifted_imm26;
           log!("jumping to (PC & 0xf0000000) + ({:#x} * 4)\n  = {:#x} + {:#x}\n  = {:#x} after the delay slot",
-                    imm26, pc_upper_bits, shifted_imm26, dest);
+                    imm26, pc_hi_bits, shifted_imm26, dest);
           Some(dest)
         }
       };

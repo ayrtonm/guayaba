@@ -34,7 +34,7 @@ const PHYS_MASK: [u32; 8] = [0xffff_ffff, 0xffff_ffff, 0xffff_ffff, 0xffff_ffff,
 macro_rules! read_memory {
   ($address:expr, $function:ident, $self:expr) => {
     {
-      let idx = ($address >> 29) as usize;
+      let idx = $address.upper_bits(3) as usize;
       let phys_addr = $address & PHYS_MASK[idx];
       match phys_addr {
         (Memory::MAIN_RAM..=Memory::MAIN_RAM_END) => {
@@ -72,7 +72,7 @@ macro_rules! read_memory {
 macro_rules! write_memory {
   ($address:expr, $value:expr, $function:ident, $self:expr) => {
     {
-      let idx = ($address >> 29) as usize;
+      let idx = $address.upper_bits(3) as usize;
       let phys_addr = $address & PHYS_MASK[idx];
       match phys_addr {
         (Memory::MAIN_RAM..=Memory::MAIN_RAM_END) => {

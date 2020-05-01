@@ -10,7 +10,7 @@ impl Command {
     Command(vec![cmd])
   }
   pub fn id(&self) -> u8 {
-    (self.0[0] >> 24) as u8
+    self.0[0].upper_bits(8) as u8
   }
   pub fn idx(&self, n: usize) -> Register {
     self.0[n]
@@ -62,7 +62,7 @@ impl Command {
     self.as_ref()
         .iter()
         .skip(1)
-        .map(|yx| (yx >> 16) as i16)
+        .map(|yx| yx.upper_bits(16) as i16)
         .collect()
   }
   pub fn get_xpos_every_other(&self) -> Vec<i16> {
@@ -78,7 +78,7 @@ impl Command {
         .iter()
         .skip(1)
         .step_by(2)
-        .map(|yx| (yx >> 16) as i16)
+        .map(|yx| yx.upper_bits(16) as i16)
         .collect()
   }
   pub fn get_xpos_copy(&self, idx: usize) -> Register {

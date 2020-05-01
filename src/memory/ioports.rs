@@ -176,6 +176,6 @@ pub trait DMAControl {
 
 impl DMAControl for Register {
   fn sync_mode(&self) -> u32 {
-    (self >> 9) & (3 as u32)
+    self.upper_bits(23) & (3 as u32)
   }
 }

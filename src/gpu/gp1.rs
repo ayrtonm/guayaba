@@ -33,15 +33,15 @@ impl GPU {
       },
       0x05 => {
         self.display_x = *command.lowest_bits(10).clone().clear(0);
-        self.display_y = (command >> 10).lowest_bits(9);
+        self.display_y = command.upper_bits(22).lowest_bits(9);
       },
       0x06 => {
         self.display_range_x1 = command.lowest_bits(12);
-        self.display_range_x2 = (command >> 12).lowest_bits(12);
+        self.display_range_x2 = command.upper_bits(20).lowest_bits(12);
       },
       0x07 => {
         self.display_range_y1 = command.lowest_bits(10);
-        self.display_range_y2 = (command >> 10).lowest_bits(10);
+        self.display_range_y2 = command.upper_bits(22).lowest_bits(10);
       },
       0x08 => {
         let mask = 0x003f_4000;

@@ -15,6 +15,7 @@ pub trait BitBang {
   fn clear_mask(&mut self, mask: Register) -> &mut Self;
   fn lowest_bits(&self, n: Register) -> Register;
   fn upper_bits(&self, n: Register) -> Register;
+  fn upper_bits_in_place(&self, n: Register) -> Register;
 
   fn sra(&self, rhs: Register) -> Register;
   fn and(&self, rhs: Register) -> Register;
@@ -64,8 +65,11 @@ impl BitBang for Register{
   fn lowest_bits(&self, n: Register) -> Register {
     *self & (((1 as u64) << n) - 1) as u32
   }
-  //ands self with the highest n bits
   fn upper_bits(&self, n: Register) -> Register {
+    *self >> (32 - n)
+  }
+  //ands self with the highest n bits
+  fn upper_bits_in_place(&self, n: Register) -> Register {
     *self & !(((1 as u64) << (32 - n)) - 1) as u32
   }
 
