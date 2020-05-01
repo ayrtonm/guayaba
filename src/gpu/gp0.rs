@@ -1,5 +1,6 @@
 use crate::gpu::GPU;
 use crate::gpu::Command;
+use crate::common::ReadArray;
 use crate::common::WriteArray;
 use crate::memory::KB;
 use crate::register::Register;
@@ -75,34 +76,39 @@ impl GPU {
             }
           },
           0xa0 => {
-            if self.logging {
-              println!("copy rectangle to VRAM");
-            }
             let xpos = command.get_xpos_copy(1) as u16;
             let ypos = command.get_ypos_copy(1) as u16;
             let width = command.get_xsize_copy(2) as u16;
             let height = command.get_ysize_copy(2) as u16;
-            let vram_data = command.as_ref()
-                                   .into_iter()
-                                   .skip(3)
-                                   .map(|&word| word)
-                                   .collect::<Vec<Register>>();
-            vram_data.iter().enumerate().for_each(
-              |(i, &word)| {
-                let i = i as u16;
-                let x = xpos + (i % width);
-                let y = ypos + (i / width);
-                let idx = x + (y * 2 * KB as u16);
-                self.vram.as_mut().write_word(idx as Register, word)
-              }
-            );
+            command.as_ref()
+                   .into_iter()
+                   .skip(3)
+                   .enumerate()
+                   .for_each(
+                     |(i, &word)| {
+                       let i = i as u16;
+                       let xoffset = i % width;
+                       let yoffset = i / width;
+                       let x = (xpos + xoffset) % 2048;
+                       let y = (ypos + yoffset) % 512;
+                       let idx = x + (y * 2 * KB as u16);
+                       self.vram.as_mut().write_word(idx as Register, word);
+                     });
           },
           0xc0 => {
-            if self.logging {
-              println!("copy rectangle from VRAM");
-            }
-            let vram_data = vec![0xdead_beef];
-            vram_data.iter().for_each(|&word| self.gpuread.push_back(word));
+            let xpos = command.get_xpos_copy(1) as usize;
+            let ypos = command.get_ypos_copy(1) as usize;
+            let width = command.get_xsize_copy(2) as usize;
+            let height = command.get_ysize_copy(2) as usize;
+            let start_idx = xpos + (ypos * 2 * KB);
+            let vram_data = self.vram.chunks(4)
+                                     .skip(start_idx / 2)
+                                     .take(((width * height) + 1) / 2)
+                                     .map(|chunk| chunk.read_word(0))
+                                     .collect::<Vec<Register>>();
+            println!("got here {}x{} {}", xpos, ypos, start_idx);
+            vram_data.iter()
+                     .for_each(|&word| self.gpuread.push_back(word));
           },
           0xe1 => {
             let mask = 0x0000_83ff;

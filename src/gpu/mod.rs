@@ -96,7 +96,9 @@ impl GPU {
     *self.gpustat.0.clone().clear(19).clear(14).clear(31).set(26).set(27).set(28)
   }
   pub fn gpuread(&mut self) -> Register {
-    match self.gpuread.pop_front() {
+    let maybe = self.gpuread.pop_front();
+    println!("{:x?}", maybe);
+    match maybe {
       Some(value) => value,
       None => 0,
     }
