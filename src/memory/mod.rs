@@ -19,12 +19,24 @@ pub enum MemAction {
   DMA(Transfer),
   GpuGp0(Register),
   GpuGp1(Register),
+  CDCmd(u8),
 }
 
 pub enum MemResponse {
   Value(Register),
   GPUREAD,
   GPUSTAT,
+}
+
+enum RWIdentifier {
+  Read,
+  Write,
+}
+
+enum SizeIdentifier {
+  Word,
+  Half,
+  Byte,
 }
 
 pub const KB: usize = 1024;

@@ -62,7 +62,7 @@ impl Interpreter {
       i: 0,
     })
   }
-  pub fn run(&mut self, n: Option<u32>, mut logging: bool) {
+  pub fn run(&mut self, n: Option<u32>, logging: bool) {
     loop {
       if logging {
         println!("  ");
@@ -131,6 +131,7 @@ impl Interpreter {
                                         |next_pc| next_pc);
     self.next_pc = self.execute_opcode(op, logging);
     self.gpu.exec_next_gp0_command().map(|object| self.screen.draw(object));
+    self.cd.as_mut().map(|cd| cd.exec_command());
   }
   fn resolve_memresponse(&mut self, response: MemResponse) -> Register {
     match response {
@@ -149,6 +150,9 @@ impl Interpreter {
 
           MemAction::GpuGp0(value) => self.gpu.write_to_gp0(value),
           MemAction::GpuGp1(value) => self.gpu.write_to_gp1(value),
+          MemAction::CDCmd(value) => {
+            self.cd.as_mut().map(|cd| cd.send_command(value));
+          },
         }
       }
     );

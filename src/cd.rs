@@ -3,11 +3,13 @@ use std::io::Seek;
 use std::io::SeekFrom;
 use std::io::Read;
 use std::fs::File;
+use std::collections::VecDeque;
 use crate::register::Register;
 use crate::dma::DMAChannel;
 
 pub struct CD {
   contents: Box<Vec<u8>>,
+  command_buffer: VecDeque<u8>,
 }
 
 impl CD {
@@ -18,7 +20,20 @@ impl CD {
     file.read_to_end(&mut buffer)?;
     Ok(CD {
       contents: Box::new(buffer),
+      command_buffer: VecDeque::new(),
     })
+  }
+  pub fn send_command(&mut self, cmd: u8) {
+    self.command_buffer.push_back(cmd);
+  }
+  pub fn exec_command(&mut self) {
+    match self.command_buffer.pop_front() {
+      Some(cmd) => {
+        println!("{:#x}", cmd);
+      },
+      None => {
+      },
+    }
   }
 }
 

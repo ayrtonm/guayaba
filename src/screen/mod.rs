@@ -52,7 +52,7 @@ impl Screen {
                                 .resizable()
                                 .build()
                                 .unwrap();
-    let mut event_pump = sdl.event_pump().unwrap();
+    let event_pump = sdl.event_pump().unwrap();
     let gl_context = window.gl_create_context().unwrap();
     let gl = gl::load_with(
       |s| {

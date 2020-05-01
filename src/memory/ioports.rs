@@ -38,6 +38,24 @@ macro_rules! get_io_response {
   };
 }
 
+macro_rules! identifier_size {
+  (write_word) => {
+    {
+      SizeIdentifier::Word
+    }
+  };
+  (write_half) => {
+    {
+      SizeIdentifier::Half
+    }
+  };
+  (write_byte) => {
+    {
+      SizeIdentifier::Byte
+    }
+  };
+}
+
 #[macro_export]
 macro_rules! get_io_action {
   ($address:expr, $value:expr, $function:ident, $self:expr) => {
@@ -48,7 +66,30 @@ macro_rules! get_io_action {
         //CD registers
         Memory::CD_PORT => {
           println!("CD wrote {:#x} to {:#x}", $value, $address);
-          None
+          match $address.lowest_bits(2) {
+            //could write word, half or byte
+            0 => {
+              None
+            },
+            //could write byte
+            1 => {
+              Some(
+                MemAction::CDCmd(
+                  $self.io_ports.as_ref()
+                                .read_byte(aligned_offset + 1) as u8))
+            },
+            //could write half or byte
+            2 => {
+              None
+            },
+            //could write byte
+            3 => {
+              None
+            },
+            _ => {
+              unreachable!("");
+            },
+          }
         },
         //GPU registers
         Memory::GPU_GP0 => {
