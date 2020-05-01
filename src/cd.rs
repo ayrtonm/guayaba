@@ -33,13 +33,13 @@ impl CD {
     self.command_buffer.push_back(cmd);
   }
   pub fn exec_command(&mut self) {
-    match self.command_buffer.pop_front() {
-      Some(cmd) => {
-        println!("{:#x}", cmd);
-      },
-      None => {
-      },
-    }
+    self.command_buffer.pop_front().map(|cmd| {
+      match cmd {
+        _ => {
+          println!("CD executed {:#x}", cmd);
+        },
+      }
+    });
   }
 }
 

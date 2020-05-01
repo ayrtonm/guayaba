@@ -24,9 +24,7 @@ impl GPU {
         .collect()
   }
   pub fn exec_next_gp0_command(&mut self) -> Option<Drawable> {
-    let command = self.command_buffer.pop_front();
-    match command {
-      Some(command) => {
+    self.command_buffer.pop_front().map(|command| {
         match command.id() {
           0x00 => {
           },
@@ -147,11 +145,8 @@ impl GPU {
             todo!("implement this GP0 command {:#x}", command.id());
           },
         }
-      },
-      None => {
-      },
-    }
-    None
+        None
+    }).flatten()
   }
   pub fn write_to_gp0(&mut self, value: Register) {
     //println!("GP0 received {:#x}", value);
