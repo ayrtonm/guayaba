@@ -108,7 +108,7 @@ impl Interpreter{
         Some(&mut self.gpu)
       },
       3 => {
-        self.cd.as_mut().map(|cd| cd as &mut dyn DMAChannel)
+        Some(&mut self.cd)
       },
       6 => {
         Some(&mut self.memory)

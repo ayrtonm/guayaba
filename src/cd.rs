@@ -8,20 +8,25 @@ use crate::register::Register;
 use crate::dma::DMAChannel;
 
 pub struct CD {
-  contents: Box<Vec<u8>>,
+  contents: Option<Box<[u8]>>,
   command_buffer: VecDeque<u8>,
 }
 
 impl CD {
-  pub fn new(filename: &String) -> io::Result<Self> {
-    let mut buffer = Vec::new();
-    let mut file = File::open(filename)?;
-    file.seek(SeekFrom::Start(0))?;
-    file.read_to_end(&mut buffer)?;
-    Ok(CD {
-      contents: Box::new(buffer),
+  pub fn new(filename: Option<&String>) -> Self {
+    let contents = filename.map(
+      |filename| {
+        let mut buffer = Vec::new();
+        //TODO: do proper error handling here
+        let mut file = File::open(filename).unwrap();
+        file.seek(SeekFrom::Start(0));
+        file.read_to_end(&mut buffer);
+        buffer.into_boxed_slice()
+      });
+    CD {
+      contents,
       command_buffer: VecDeque::new(),
-    })
+    }
   }
   pub fn send_command(&mut self, cmd: u8) {
     println!("CD received {:#x}", cmd);
