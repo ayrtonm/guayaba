@@ -69,7 +69,23 @@ macro_rules! get_io_action {
           match $address.lowest_bits(2) {
             //could write word, half or byte
             0 => {
-              None
+              match identifier_size!($function) {
+                SizeIdentifier::Word => {
+                  Some(
+                    MemAction::CDCmd(
+                      $self.io_ports.as_ref()
+                                    .read_byte(aligned_offset + 1) as u8))
+                },
+                SizeIdentifier::Half => {
+                  Some(
+                    MemAction::CDCmd(
+                      $self.io_ports.as_ref()
+                                    .read_byte(aligned_offset + 1) as u8))
+                },
+                SizeIdentifier::Byte => {
+                  None
+                },
+              }
             },
             //could write byte
             1 => {

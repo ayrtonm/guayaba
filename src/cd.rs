@@ -24,6 +24,7 @@ impl CD {
     })
   }
   pub fn send_command(&mut self, cmd: u8) {
+    println!("CD received {:#x}", cmd);
     self.command_buffer.push_back(cmd);
   }
   pub fn exec_command(&mut self) {
