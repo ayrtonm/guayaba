@@ -138,6 +138,7 @@ impl Interpreter {
       MemResponse::Value(value) => value,
       MemResponse::GPUREAD => self.gpu.gpuread(),
       MemResponse::GPUSTAT => self.gpu.gpustat(),
+      MemResponse::CDResponse => self.cd.read_response(),
     }
   }
   fn resolve_memactions(&mut self, maybe_action: Option<Vec<MemAction>>) {
@@ -149,7 +150,6 @@ impl Interpreter {
               MemAction::DMA(transfer) => {
                 self.handle_dma(transfer);
               },
-
               MemAction::GpuGp0(value) => self.gpu.write_to_gp0(value),
               MemAction::GpuGp1(value) => self.gpu.write_to_gp1(value),
               MemAction::CDCmd(value) => {

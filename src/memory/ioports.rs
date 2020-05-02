@@ -52,9 +52,8 @@ macro_rules! get_io_response {
         //CD registers
         Memory::CD_PORT => {
           let mut value = $self.io_ports.as_ref().$function($address - Memory::IO_PORTS);
-          println!("CD read {:#x} from {:#x}", value, $address);
           let index = $self.io_ports.as_ref().read_byte(aligned_offset).lowest_bits(2);
-          match $address.lowest_bits(2) {
+          let ret = match $address.lowest_bits(2) {
             //could read word, half, byte
             0 => {
               MemResponse::Value(*value.clear_mask(0x0000_00fc).set(3).set(4))
@@ -69,7 +68,7 @@ macro_rules! get_io_response {
             },
             //could read byte
             1 => {
-              MemResponse::Value(value)
+              MemResponse::CDResponse
             },
             //could read half, byte
             2 => {
@@ -82,7 +81,9 @@ macro_rules! get_io_response {
             _ => {
               unreachable!("");
             },
-          }
+          };
+          println!("CD {} {:x?} from {:#x}", stringify!($function), ret, $address);
+          ret
         },
         //GPU registers
         Memory::GPU_GP0 => {
@@ -109,7 +110,7 @@ macro_rules! get_io_action {
       match aligned_address {
         //CD registers
         Memory::CD_PORT => {
-          println!("CD wrote {:#x} to {:#x}", $value, $address);
+          println!("CD {} {:#x} to {:#x}", stringify!($function), $value, $address);
           let index = $self.io_ports.as_ref().read_byte(aligned_offset).lowest_bits(2);
           match $address.lowest_bits(2) {
             //could write word, half or byte

@@ -23,10 +23,12 @@ pub enum MemAction {
   CDParam(u8),
 }
 
+#[derive(Debug)]
 pub enum MemResponse {
   Value(Register),
   GPUREAD,
   GPUSTAT,
+  CDResponse,
 }
 
 enum RWIdentifier {
@@ -212,31 +214,27 @@ impl Memory {
   const CACHE_CONTROL_END: Register = Memory::CACHE_CONTROL + 512 - 1;
 
   //FIXME: fix alignment restrictions, what happens when read is misaligned?
-  //TODO: technically this doesn't sign extend the GPU response
+  //TODO: technically this doesn't sign extend the GPU response or CD response
   pub fn read_byte_sign_extended(&self, address: Register) -> MemResponse {
-    match read_memory!(address, read_byte, self) {
+    let response = read_memory!(address, read_byte, self);
+    match response {
       MemResponse::Value(value) => {
         MemResponse::Value(value.byte_sign_extended())
       },
-      MemResponse::GPUREAD => {
-        MemResponse::GPUREAD
-      },
-      MemResponse::GPUSTAT => {
-        MemResponse::GPUSTAT
+      _ => {
+        response
       },
     }
   }
   pub fn read_half_sign_extended(&self, address: Register) -> MemResponse {
     assert_eq!(address & 0x0000_0001, 0);
-    match read_memory!(address, read_half, self) {
+    let response = read_memory!(address, read_half, self);
+    match response {
       MemResponse::Value(value) => {
         MemResponse::Value(value.half_sign_extended())
       },
-      MemResponse::GPUREAD => {
-        MemResponse::GPUREAD
-      },
-      MemResponse::GPUSTAT => {
-        MemResponse::GPUSTAT
+      _ => {
+        response
       },
     }
   }

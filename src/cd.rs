@@ -11,6 +11,7 @@ pub struct CD {
   contents: Option<Box<[u8]>>,
   command_buffer: VecDeque<u8>,
   parameter_buffer: VecDeque<u8>,
+  response_buffer: VecDeque<u8>,
 }
 
 impl CD {
@@ -28,7 +29,12 @@ impl CD {
       contents,
       command_buffer: VecDeque::new(),
       parameter_buffer: VecDeque::new(),
+      response_buffer: VecDeque::new(),
     }
+  }
+  pub fn read_response(&mut self) -> Register {
+    self.response_buffer.pop_front()
+                        .map_or(0, |response| response as Register)
   }
   pub fn send_parameter(&mut self, val: u8) {
     println!("CD received parameter {:#x}", val);
@@ -41,6 +47,30 @@ impl CD {
   pub fn exec_command(&mut self) {
     self.command_buffer.pop_front().map(|cmd| {
       match cmd {
+        0x19 => {
+          let sub_function = self.parameter_buffer.pop_front();
+          match sub_function {
+            Some(sub_function) => {
+              match sub_function {
+                0x20 => {
+                  let yy = 0;
+                  let mm = 0;
+                  let dd = 0;
+                  let version = 0;
+                  self.response_buffer.push_back(yy);
+                  self.response_buffer.push_back(mm);
+                  self.response_buffer.push_back(dd);
+                  self.response_buffer.push_back(version);
+                },
+                _ => {
+                },
+              }
+            },
+            None => {
+              todo!("what happens when there is no sub command");
+            },
+          }
+        },
         _ => {
           println!("CD executed {:#x}", cmd);
         },
