@@ -140,6 +140,9 @@ pub struct Memory {
   expansion_3: Box<[u8]>,
   bios: Box<[u8; 512 * KB]>,
   cache_control: [u8; 512],
+
+  //these are copies of certain edge-triggered I/O port registers
+  interrupt_stat: Register,
 }
 
 impl DMAChannel for Memory {
@@ -162,7 +165,7 @@ impl Memory {
     let bios = Box::new(bios_contents);
     //initialize I/O ports
     let mut io_ports = [0; 8 * KB];
-    io_ports.as_mut().write_word(0x1f8010f0 - Memory::IO_PORTS, 0x0765_4321);
+    io_ports.as_mut().write_word(Memory::DMA_CONTROL - Memory::IO_PORTS, 0x0765_4321);
     Ok(Memory {
       main_ram: vec![0; 2 * MB].into_boxed_slice(),
       expansion_1: vec![0; 8 * MB].into_boxed_slice(),
@@ -172,6 +175,7 @@ impl Memory {
       expansion_3: vec![0; 2 * MB].into_boxed_slice(),
       bios,
       cache_control: [0; 512],
+      interrupt_stat: 0,
     })
   }
   const INTERRUPT_STAT: Register = 0x1f80_1070;
