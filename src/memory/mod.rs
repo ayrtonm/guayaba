@@ -174,9 +174,8 @@ impl Memory {
       cache_control: [0; 512],
     })
   }
-  const CD_PORT: Register = 0x1f80_1800;
-  const GPU_GP0: Register = 0x1f80_1810;
-  const GPU_GP1: Register = 0x1f80_1814;
+  const INTERRUPT_STAT: Register = 0x1f80_1070;
+  const INTERRUPT_MASK: Register = 0x1f80_1074;
   pub const DMA_ADDRESS_0: Register = 0x1f80_1080;
   const DMA_BLOCKS_0: Register = 0x1f80_1084;
   const DMA_CHANNEL_0: Register = 0x1f80_1088;
@@ -188,6 +187,18 @@ impl Memory {
   const DMA_CHANNEL_6: Register = 0x1f80_10e8;
   const DMA_CONTROL: Register = 0x1f80_10f0;
   const DMA_INTERRUPT: Register = 0x1f80_10f4;
+  const TIMER_VALUE_0: Register = 0x1f80_1100;
+  const TIMER_MODE_0: Register = 0x1f80_1104;
+  const TIMER_TARGET_0: Register = 0x1f80_1108;
+  const TIMER_VALUE_1: Register = 0x1f80_1110;
+  const TIMER_MODE_1: Register = 0x1f80_1114;
+  const TIMER_TARGET_1: Register = 0x1f80_1118;
+  const TIMER_VALUE_2: Register = 0x1f80_1120;
+  const TIMER_MODE_2: Register = 0x1f80_1124;
+  const TIMER_TARGET_2: Register = 0x1f80_1128;
+  const CD_PORT: Register = 0x1f80_1800;
+  const GPU_GP0: Register = 0x1f80_1810;
+  const GPU_GP1: Register = 0x1f80_1814;
 
   const MAIN_RAM: Register = 0;
   const MAIN_RAM_END: Register = Memory::MAIN_RAM + (2 * MB as Register) - 1;

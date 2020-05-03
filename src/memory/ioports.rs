@@ -48,7 +48,42 @@ macro_rules! get_io_response {
     {
       let aligned_address = $address & 0xffff_fffc;
       let aligned_offset = aligned_address - Memory::IO_PORTS;
+      let offset = $address - Memory::IO_PORTS;
+      let value = $self.io_ports.as_ref().$function(offset);
       match aligned_address {
+        Memory::INTERRUPT_STAT => {
+          panic!("read interrupt stat");
+        },
+        Memory::INTERRUPT_MASK => {
+          panic!("read interrupt mask");
+        },
+        Memory::TIMER_VALUE_0 => {
+          panic!("read timer value 0");
+        },
+        Memory::TIMER_MODE_0 => {
+          panic!("read timer mode 0");
+        },
+        Memory::TIMER_TARGET_0 => {
+          panic!("read timer target 0");
+        },
+        Memory::TIMER_VALUE_1 => {
+          panic!("read timer value 1");
+        },
+        Memory::TIMER_MODE_1 => {
+          panic!("read timemode r 1");
+        },
+        Memory::TIMER_TARGET_1 => {
+          panic!("read timer target 1");
+        },
+        Memory::TIMER_VALUE_2 => {
+          panic!("read timer value 2");
+        },
+        Memory::TIMER_MODE_2 => {
+          panic!("read timer mode 2");
+        },
+        Memory::TIMER_TARGET_2 => {
+          panic!("read timer target 2");
+        },
         //CD registers
         Memory::CD_PORT => {
           let mut value = $self.io_ports.as_ref().$function($address - Memory::IO_PORTS);
@@ -93,8 +128,7 @@ macro_rules! get_io_response {
           MemResponse::GPUSTAT
         },
         _ => {
-          let offset = $address - Memory::IO_PORTS;
-          MemResponse::Value($self.io_ports.as_ref().$function(offset))
+          MemResponse::Value(value)
         },
       }
     }
@@ -108,7 +142,39 @@ macro_rules! get_io_action {
       let aligned_address = $address & 0xffff_fffc;
       let aligned_offset = aligned_address - Memory::IO_PORTS;
       match aligned_address {
-        //CD registers
+        Memory::INTERRUPT_STAT => {
+          panic!("read interrupt stat");
+        },
+        Memory::INTERRUPT_MASK => {
+          panic!("read interrupt mask");
+        },
+        Memory::TIMER_VALUE_0 => {
+          panic!("read timer value 0");
+        },
+        Memory::TIMER_MODE_0 => {
+          panic!("read timer mode 0");
+        },
+        Memory::TIMER_TARGET_0 => {
+          panic!("read timer target 0");
+        },
+        Memory::TIMER_VALUE_1 => {
+          panic!("read timer value 1");
+        },
+        Memory::TIMER_MODE_1 => {
+          panic!("read timemode r 1");
+        },
+        Memory::TIMER_TARGET_1 => {
+          panic!("read timer target 1");
+        },
+        Memory::TIMER_VALUE_2 => {
+          panic!("read timer value 2");
+        },
+        Memory::TIMER_MODE_2 => {
+          panic!("read timer mode 2");
+        },
+        Memory::TIMER_TARGET_2 => {
+          panic!("read timer target 2");
+        },
         Memory::CD_PORT => {
           println!("CD {} {:#x} to {:#x}", stringify!($function), $value, $address);
           let index = $self.io_ports.as_ref().read_byte(aligned_offset).lowest_bits(2);
@@ -213,7 +279,6 @@ macro_rules! get_io_action {
             },
           }
         },
-        //GPU registers
         Memory::GPU_GP0 => {
           Some(vec![
             MemAction::GpuGp0(
@@ -228,13 +293,8 @@ macro_rules! get_io_action {
             ]
           )
         },
-        //DMA channel controls
-        Memory::DMA_CHANNEL_0 |
-        Memory::DMA_CHANNEL_1 |
-        Memory::DMA_CHANNEL_2 |
-        Memory::DMA_CHANNEL_3 |
-        Memory::DMA_CHANNEL_4 |
-        Memory::DMA_CHANNEL_5 |
+        Memory::DMA_CHANNEL_0 | Memory::DMA_CHANNEL_1 | Memory::DMA_CHANNEL_2 |
+        Memory::DMA_CHANNEL_3 | Memory::DMA_CHANNEL_4 | Memory::DMA_CHANNEL_5 |
         Memory::DMA_CHANNEL_6 => {
           let channel_num = (aligned_address - Memory::DMA_CHANNEL_0) >> 4;
           let control_register = $self.io_ports.as_ref()
@@ -269,6 +329,7 @@ macro_rules! get_io_action {
           None
         },
         _ => {
+          //println!("unhandled IO port {} {:#x} at {:#x}", stringify!($function), $value, $address);
           None
         },
       }
