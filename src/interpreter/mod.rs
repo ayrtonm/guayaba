@@ -158,6 +158,9 @@ impl Interpreter {
               MemAction::CDParam(value) => {
                 self.cd.send_parameter(value);
               },
+              MemAction::Interrupt(irq) => {
+                self.cop0.request_interrupt(irq);
+              },
             }
           })
       }

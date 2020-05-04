@@ -21,6 +21,7 @@ pub enum MemAction {
   GpuGp1(Register),
   CDCmd(u8),
   CDParam(u8),
+  Interrupt(Register),
 }
 
 #[derive(Debug)]
@@ -142,7 +143,8 @@ pub struct Memory {
   cache_control: [u8; 512],
 
   //these are copies of certain edge-triggered I/O port registers
-  interrupt_stat: Register,
+  //although this is a Register, only the previous half word is stored
+  old_interrupt_stat: Register,
 }
 
 impl DMAChannel for Memory {
@@ -175,7 +177,7 @@ impl Memory {
       expansion_3: vec![0; 2 * MB].into_boxed_slice(),
       bios,
       cache_control: [0; 512],
-      interrupt_stat: 0,
+      old_interrupt_stat: 0,
     })
   }
   const INTERRUPT_STAT: Register = 0x1f80_1070;

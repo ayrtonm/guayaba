@@ -64,24 +64,19 @@ impl Cop0 {
     //this is technically an illegal instruction since COP0 does not implement it
     None
   }
+  pub fn request_interrupt(&mut self, irq: Register) {
+    //FIXME: double check what else needs to be done
+    //there should be something that specifies which interrupt was requested right?
+    self.r13.set(10);
+  }
   pub fn generate_exception(&mut self, kind: Cop0Exception, current_pc: Register) -> Register {
     self.store_pc(current_pc);
     let cause = match kind {
-      Cop0Exception::Interrupt => {
-        0x00
-      },
-      Cop0Exception::LoadAddress => {
-        0x04
-      },
-      Cop0Exception::StoreAddress => {
-        0x05
-      },
-      Cop0Exception::Syscall => {
-        0x08
-      },
-      Cop0Exception::Overflow => {
-        0x0C
-      },
+      Cop0Exception::Interrupt => 0x00,
+      Cop0Exception::LoadAddress => 0x04,
+      Cop0Exception::StoreAddress => 0x05,
+      Cop0Exception::Syscall => 0x08,
+      Cop0Exception::Overflow => 0x0C,
     };
     self.set_exception_cause(cause);
     self.disable_interrupts();
@@ -95,8 +90,7 @@ impl Cop0 {
     if imm25 == 0x0000_0010 {
       let bits2_3 = (self.r12 & 0x0000_000c) >> 2;
       let bits4_5 = (self.r12 & 0x0000_0030) >> 2;
-      self.r12 &= 0xffff_fff0;
-      self.r12 |= bits2_3 | bits4_5;
+      self.r12.clear_mask(0x0f).set_mask(bits2_3).set_mask(bits4_5);
     }
     None
   }
@@ -105,7 +99,7 @@ impl Cop0 {
   }
   fn set_exception_cause(&mut self, cause: u32) {
     assert!(cause < 0x20);
-    self.r13 = (self.r13 & 0xffff_ff83) | (cause << 2);
+    self.r13.clear(2).clear(3).clear(4).clear(5).clear(6).set_mask(cause << 2);
   }
   fn exception_vector(&self) -> Register {
     if self.r12.nth_bit_bool(22) {
@@ -115,8 +109,8 @@ impl Cop0 {
     }
   }
   fn disable_interrupts(&mut self) {
-    let prev = self.r12 & 1;
-    self.r12 = (self.r12 & 0xffff_fffa) | (prev << 2);
+    let prev = self.r12.nth_bit(0);
+    self.r12.clear(0).clear(2).set_mask(prev << 2);
   }
 }
 

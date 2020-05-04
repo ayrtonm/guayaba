@@ -152,15 +152,26 @@ macro_rules! get_io_action {
       match aligned_address {
         Memory::INTERRUPT_STAT => {
           //check for interrupt requests
-          //for each bit
-          if $self.interrupt_stat.bit(n) == 0 &&
-            $self.io_ports.as_ref().read_word(aligned_offset).bit(n) == 1 {
-            //then an interrupt was requested
+          let mut irq = Vec::new();
+          let new_interrupt_stat = $self.io_ports.as_ref().read_half(aligned_offset);
+          let interrupt_mask = $self.io_ports.as_ref().read_half(Memory::INTERRUPT_MASK - Memory::IO_PORTS);
+          for i in 0..=10 {
+            if !$self.old_interrupt_stat.nth_bit_bool(i) &&
+              new_interrupt_stat.nth_bit_bool(i) &&
+              interrupt_mask.nth_bit_bool(i) {
+              irq.push(MemAction::Interrupt(i));
+            }
           }
-          //updated old register
-          $self.interrupt_stat = $self.io_ports.as_ref().read_word(aligned_offset);
+          $self.old_interrupt_stat = $self.io_ports.as_ref().read_half(aligned_offset);
           println!("wrote {:#x} to interrupt stat", $value);
-          None
+          match irq.len() {
+            0 => {
+              None
+            },
+            _ => {
+              Some(irq)
+            },
+          }
         },
         Memory::INTERRUPT_MASK => {
           $self.io_ports.as_mut()
