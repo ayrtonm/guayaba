@@ -599,7 +599,6 @@ impl Interpreter{
     }
     //after executing an opcode, complete the loads from the previous opcode
     self.r3000.flush_write_cache(&mut self.delayed_writes, &mut self.modified_register);
-    self.modified_register = None;
     //this match statement optionally returns the next program counter
     //if the return value is None, then we increment pc as normal
     match get_primary_field(op) {

@@ -26,6 +26,9 @@ impl Stub {
   fn operations(&self) -> &Vec<Box<dyn Fn(&mut State)>> {
     &self.operations
   }
+  fn final_pc(&self) -> Register {
+    self.final_pc
+  }
 }
 
 struct State {
@@ -63,19 +66,32 @@ pub struct JIT {
 
 impl Runnable for JIT {
   fn run(&mut self, n: Option<u32>, logging: bool) {
-    if self.stubs.contains_key(&self.state.r3000.pc()) {
-      self.execute_stub(self.state.r3000.pc())
-    } else {
+    loop {
+      let maybe_stub = self.stubs.get(&self.state.r3000.pc());
+      match maybe_stub {
+        Some(stub) => {
+          let operations = stub.operations();
+          for f in operations {
+            self.state.r3000.flush_write_cache(&mut self.state.delayed_writes,
+                                               &mut self.state.modified_register);
+            f(&mut self.state);
+            match self.state.gpu.exec_next_gp0_command() {
+              Some(object) => self.state.screen.draw(object),
+              None => (),
+            };
+            self.state.cd.exec_command();
+          }
+          *self.state.r3000.pc_mut() = stub.final_pc();
+        },
+        None => {
+          //  let f = self.compile_opcode(0x00000000).unwrap();
+          //  let g = self.compile_opcode(0x00000000).unwrap();
+          //  let stub = vec![f, g];
+          //  self.stubs.insert(0xdeadbeef, stub);
+        },
+      }
     }
   }
-  //fn f(&mut self, n: Option<u32>, logging: bool) {
-  //  let f = self.compile_opcode(0x00000000).unwrap();
-  //  let g = self.compile_opcode(0x00000000).unwrap();
-  //  let stub = vec![f, g];
-  //  self.stubs.insert(0xdeadbeef, stub);
-  //  self.execute_stub(0xdeadbeef);
-  //  self.execute_stub(0xdeadbeee);
-  //}
 }
 
 impl JIT {
@@ -108,10 +124,5 @@ impl JIT {
       next_pc: None,
       i: 0,
     })
-  }
-  fn execute_stub(&mut self, address: Register) {
-    for f in self.stubs.get(&address).expect("").operations() {
-      f(&mut self.state)
-    }
   }
 }

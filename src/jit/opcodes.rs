@@ -515,9 +515,6 @@ impl JIT {
       }
     }
     //after executing an opcode, complete the loads from the previous opcode
-    //TODO: move the following two lines outside execute_opcode()
-    //vm.r3000.flush_write_cache(&mut vm.delayed_writes, &mut vm.modified_register);
-    //vm.modified_register = None;
     //this match statement optionally returns the next program counter
     //if the return value is None, then we increment pc as normal
     match get_primary_field(op) {
