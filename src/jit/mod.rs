@@ -52,10 +52,8 @@ pub struct JIT {
 
 impl Runnable for JIT {
   fn run(&mut self, n: Option<u32>, logging: bool) {
-    let f = self.compile_opcode(0x00000000);
-    let g = self.compile_opcode(0x00000000);
-    f(&mut self.state);
-    g(&mut self.state);
+    let f = self.compile_opcode(0x00000000).unwrap();
+    let g = self.compile_opcode(0x00000000).unwrap();
     f(&mut self.state);
   }
 }
@@ -91,8 +89,8 @@ impl JIT {
       i: 0,
     })
   }
-  fn execute_stub(&mut self, address: Register) {
-    for f in &self.stubs[&address] {
+  fn execute_stub(&mut self, stub: &Vec<Box<dyn Fn(&mut State)>>) {
+    for f in stub {
       f(&mut self.state)
     }
   }
