@@ -41,7 +41,7 @@ fn get_secondary_field(op: u32) -> u32 {
 impl JIT {
   //if program counter should incremented normally, return None
   //otherwise return Some(new program counter)
-  pub(super) fn compile_opcode(&mut self, op: u32) -> Box<dyn Fn(&mut JIT) -> Option<u32>> {
+  pub(super) fn compile_opcode(&mut self, op: u32) -> Box<dyn Fn(&mut JIT)> {
     let logging = false;
     macro_rules! log {
       () => ($crate::print!("\n"));
@@ -82,7 +82,6 @@ impl JIT {
             let num_bits = $offset.$operator(8*address.lowest_bits(2));
             let result = rt.$mask(num_bits) | aligned_word.$shift(num_bits);
             vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt_idx), result));
-            None
           })
         }
       };
@@ -97,7 +96,6 @@ impl JIT {
             vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt), result));
             log!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x} {}",
                       rt, rs, imm16, rs.wrapping_add(imm16), result, stringify!($method));
-            None
           })
         }
       };
@@ -128,7 +126,6 @@ impl JIT {
             } else {
               log!("ignoring write while cache is isolated");
             }
-            None
           })
         }
       };
@@ -147,7 +144,6 @@ impl JIT {
             } else {
               log!("ignoring write while cache is isolated");
             }
-            None
           })
         }
       };
@@ -158,7 +154,6 @@ impl JIT {
             let lo = vm.r3000.lo_mut();
             *lo = rs;
             log!("op1");
-            None
           })
         }
       };
@@ -169,7 +164,6 @@ impl JIT {
             let hi = vm.r3000.hi_mut();
             *hi = rs;
             log!("op2");
-            None
           })
         }
       };
@@ -181,7 +175,6 @@ impl JIT {
             let rd = vm.r3000.nth_reg_mut(rd_idx);
             vm.modified_register = rd.maybe_set(lo);
             log!("op3");
-            None
           })
         }
       };
@@ -193,7 +186,6 @@ impl JIT {
             let rd = vm.r3000.nth_reg_mut(rd_idx);
             vm.modified_register = rd.maybe_set(hi);
             log!("op4");
-            None
           })
         }
       };
@@ -213,7 +205,6 @@ impl JIT {
             log!("R{} = R{} {} R{}\n  = {:#x} {} {:#x}\n  = {:#x}",
                       get_rd(op), get_rs(op), stringify!($method), get_rt(op),
                       rs, stringify!($method), rt, vm.r3000.nth_reg(get_rd(op)));
-            None
           })
         }
       };
@@ -237,7 +228,6 @@ impl JIT {
             log!("R{} = R{} {} R{} trap overflow\n  = {:#x} {} {:#x}\n  = {:#x}",
                       get_rd(op), get_rs(op), stringify!($method), get_rt(op),
                       rs, stringify!($method), rt, vm.r3000.nth_reg(get_rd(op)));
-            None
           })
         }
       };
@@ -261,7 +251,6 @@ impl JIT {
             log!("R{} = R{} {} {:#x} trap overflow\n  = {:#x} {} {:#x}\n  = {:#x}",
                       get_rt(op), get_rs(op), stringify!($method), imm16,
                       rs, stringify!($method), imm16, vm.r3000.nth_reg(get_rt(op)));
-            None
           })
         }
       };
@@ -276,7 +265,6 @@ impl JIT {
             log!("R{} = R{} {} {:#x}\n  = {:#x} {} {:#x}\n  = {:#x}",
                       get_rt(op), get_rs(op), stringify!($method), imm16,
                       rs, stringify!($method), imm16, vm.r3000.nth_reg(get_rt(op)));
-            None
           })
         }
       };
@@ -291,7 +279,6 @@ impl JIT {
             log!("R{} = R{} {} {:#x}\n  = {:#x} {} {:#x}\n  = {:#x}",
                       get_rt(op), get_rs(op), stringify!($method), imm16,
                       rs, stringify!($method), imm16, vm.r3000.nth_reg(get_rt(op)));
-            None
           })
         }
       };
@@ -306,7 +293,6 @@ impl JIT {
             log!("R{} = R{} {} {:#x}\n  = {:#x} {} {:#x}\n  = {:#x}",
                       get_rd(op), get_rt(op), stringify!($method), imm5,
                       rt, stringify!($method), imm5, vm.r3000.nth_reg(get_rd(op)));
-            None
           })
         }
       };
@@ -319,7 +305,6 @@ impl JIT {
             let rd = vm.r3000.nth_reg_mut(get_rd(op));
             vm.modified_register = rd.maybe_set(rt.$method(rs & 0x1F));
             log!("op9");
-            None
           })
         }
       };
@@ -330,7 +315,6 @@ impl JIT {
             let imm16 = get_imm16(op);
             vm.modified_register = rt.maybe_set(imm16 << 16);
             log!("R{} = {:#x} << 16 \n  = {:#x}", get_rt(op), imm16, vm.r3000.nth_reg(get_rt(op)));
-            None
           })
         }
       };
@@ -359,7 +343,6 @@ impl JIT {
             *vm.r3000.hi_mut() = hi_res;
             *vm.r3000.lo_mut() = lo_res;
             log!("op11");
-            None
           })
         }
       };
@@ -388,7 +371,6 @@ impl JIT {
             *vm.r3000.hi_mut() = hi_res;
             *vm.r3000.lo_mut() = lo_res;
             log!("op11");
-            None
           })
         }
       };
@@ -412,7 +394,6 @@ impl JIT {
             *vm.r3000.hi_mut() = hi_res;
             *vm.r3000.lo_mut() = lo_res;
             log!("op12");
-            None
           })
         }
       };
@@ -453,152 +434,6 @@ impl JIT {
             *vm.r3000.hi_mut() = hi_res;
             *vm.r3000.lo_mut() = lo_res;
             log!("op12");
-            None
-          })
-        }
-      };
-    }
-    macro_rules! jump {
-      (imm26) => {
-        {
-          Box::new(move |vm| {
-            let imm26 = get_imm26(op);
-            let pc_hi_bits = vm.r3000.pc() & 0xf000_0000;
-            let shifted_imm26 = imm26 * 4;
-            let dest = pc_hi_bits + shifted_imm26;
-            log!("jumping to (PC & 0xf0000000) + ({:#x} * 4)\n  = {:#x} + {:#x}\n  = {:#x} after the delay slot",
-                      imm26, pc_hi_bits, shifted_imm26, dest);
-            Some(dest)
-          })
-        }
-      };
-      (rs) => {
-        {
-          Box::new(move |vm| {
-            let rs = vm.r3000.nth_reg(get_rs(op));
-            if rs & 0x0000_0003 != 0 {
-              let pc = vm.r3000.pc_mut();
-              *pc = vm.cop0.generate_exception(Cop0Exception::LoadAddress, *pc);
-              log!("ignoring jumping to R{} = {:#x} and generating an exception", get_rs(op), rs);
-              None
-            } else {
-              log!("jumping to R{} = {:#x} after the delay slot", get_rs(op), rs);
-              Some(rs)
-            }
-          })
-        }
-      };
-      (rs $cmp:tt rt) => {
-        {
-          Box::new(move |vm| {
-            let rt = vm.r3000.nth_reg(get_rt(op));
-            let rs = vm.r3000.nth_reg(get_rs(op));
-            if rs $cmp rt {
-              let imm16 = get_imm16(op);
-              let pc = vm.r3000.pc();
-              let inc = ((imm16.half_sign_extended() as i32) * 4) as u32;
-              let dest = pc.wrapping_add(inc);
-              log!("jumping to PC + ({:#x} * 4) = {:#x} + {:#x} = {:#x} after the delay slot\n  since R{} {} R{} -> {:#x} {} {:#x}",
-                        imm16, pc, inc, dest, get_rs(op), stringify!($cmp), get_rt(op), rs, stringify!($cmp), rt);
-              Some(dest)
-            } else {
-              log!("skipping jump since R{} {} R{} -> {:#x} {} {:#x} is false",
-                        get_rs(op), stringify!($cmp), get_rt(op), rs, stringify!($cmp), rt);
-              None
-            }
-          })
-        }
-      };
-      (rs $cmp:tt 0) => {
-        {
-          Box::new(move |vm| {
-            let rs = vm.r3000.nth_reg(get_rs(op));
-            log!("op16");
-            if (rs as i32) $cmp 0 {
-              let imm16 = get_imm16(op);
-              let pc = vm.r3000.pc();
-              let inc = ((imm16 as i16) * 4) as u32;
-              let dest = pc.wrapping_add(inc);
-              Some(dest)
-            } else {
-              None
-            }
-          })
-        }
-      };
-    }
-    macro_rules! call {
-      (imm26) => {
-        {
-          Box::new(move |vm| {
-            let ret = vm.r3000.pc().wrapping_add(4);
-            vm.modified_register = vm.r3000.ra_mut().maybe_set(ret);
-            log!("R31 = {:#x}", ret);
-            let imm26 = get_imm26(op);
-            let pc_hi_bits = vm.r3000.pc() & 0xf000_0000;
-            let shifted_imm26 = imm26 * 4;
-            let dest = pc_hi_bits + shifted_imm26;
-            log!("jumping to (PC & 0xf0000000) + ({:#x} * 4)\n  = {:#x} + {:#x}\n  = {:#x} after the delay slot",
-                      imm26, pc_hi_bits, shifted_imm26, dest);
-            Some(dest)
-          })
-        }
-      };
-      (rs) => {
-        {
-          Box::new(move |vm| {
-            let result = vm.r3000.pc().wrapping_add(4);
-            let rd = vm.r3000.nth_reg_mut(get_rd(op));
-            vm.modified_register = rd.maybe_set(result);
-            log!("op18");
-            let rs = vm.r3000.nth_reg(get_rs(op));
-            if rs & 0x0000_0003 != 0 {
-              let pc = vm.r3000.pc_mut();
-              *pc = vm.cop0.generate_exception(Cop0Exception::LoadAddress, *pc);
-              log!("ignoring jumping to R{} = {:#x} and generating an exception", get_rs(op), rs);
-              None
-            } else {
-              log!("jumping to R{} = {:#x} after the delay slot", get_rs(op), rs);
-              Some(rs)
-            }
-          })
-        }
-      };
-      (rs $cmp:tt rt) => {
-        {
-          Box::new(move |vm| {
-            let rt = vm.r3000.nth_reg(get_rt(op));
-            let rs = vm.r3000.nth_reg(get_rs(op));
-            log!("op19");
-            if *rs $cmp *rt {
-              let ret = vm.r3000.pc().wrapping_add(4);
-              vm.modified_register = vm.r3000.ra_mut().maybe_set(ret);
-              let imm16 = get_imm16(op);
-              let pc = vm.r3000.pc();
-              let inc = ((imm16 as i16) * 4) as u32;
-              let dest = pc.wrapping_add(inc);
-              Some(dest)
-            } else {
-              None
-            }
-          })
-        }
-      };
-      (rs $cmp:tt 0) => {
-        {
-          Box::new(move |vm| {
-            let rs = vm.r3000.nth_reg(get_rs(op));
-            log!("op20");
-            if (rs as i32) $cmp 0 {
-              let ret = vm.r3000.pc().wrapping_add(4);
-              vm.modified_register = vm.r3000.ra_mut().maybe_set(ret);
-              let imm16 = get_imm16(op);
-              let pc = vm.r3000.pc();
-              let dest = pc + (imm16 * 4);
-              Some(dest)
-            } else {
-              None
-            }
           })
         }
       };
@@ -615,7 +450,6 @@ impl JIT {
                 vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt), rd_data));
                 log!("R{} = {}R{}\n  = {:#x} after the delay slot",
                           rt, stringify!($copn), get_rd(op), rd_data);
-                None
               })
             },
             0x02 => {
@@ -624,7 +458,6 @@ impl JIT {
                 let rt = get_rt(op);
                 let rd_ctrl = vm.$copn.nth_ctrl_reg(get_rd(op));
                 vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt), rd_ctrl));
-                None
               })
             },
             0x04 => {
@@ -636,7 +469,6 @@ impl JIT {
                 log!("{}R{} = R{}\n  = {:#x}",
                           stringify!($copn), get_rd(op), get_rt(op),
                           vm.$copn.nth_data_reg(get_rd(op)));
-                None
               })
             },
             0x06 => {
@@ -645,7 +477,6 @@ impl JIT {
                 let rt = vm.r3000.nth_reg(get_rt(op));
                 let rd = vm.$copn.nth_ctrl_reg_mut(get_rd(op));
                 vm.modified_register = rd.maybe_set(rt);
-                None
               })
             },
             0x08 => {
@@ -653,7 +484,7 @@ impl JIT {
                 0x00 => {
                   //BCnF
                   Box::new(move |vm| {
-                    vm.$copn.bcnf(get_imm16(op))
+                    vm.$copn.bcnf(get_imm16(op));
                   })
                 },
                 0x01 => {
@@ -662,7 +493,6 @@ impl JIT {
                   //since BCnT is not implemented for COP0
                   //however, GTE (i.e. COP2) does implement it
                   Box::new(move |vm| {
-                    None
                   })
                 },
                 _ => {
@@ -673,7 +503,7 @@ impl JIT {
             0x10..=0x1F => {
               //COPn imm25
               Box::new(move |vm| {
-                vm.$copn.execute_command(get_imm25(op))
+                vm.$copn.execute_command(get_imm25(op));
               })
             },
             _ => {
@@ -726,12 +556,12 @@ impl JIT {
           0x08 => {
             //JR
             log!("> JR");
-            jump!(rs)
+            /*jump!(rs);*/ unreachable!("jump")
           },
           0x09 => {
             //JALR
             log!("> JALR");
-            call!(rs)
+            /*call!(rs);*/ unreachable!("call")
           },
           0x0C => {
             //SYSCALL
@@ -739,7 +569,6 @@ impl JIT {
             Box::new(move |vm| {
               let pc = vm.r3000.pc_mut();
               *pc = vm.cop0.generate_exception(Cop0Exception::Syscall, *pc);
-              None
             })
           },
           0x0D => {
@@ -849,22 +678,22 @@ impl JIT {
           0x00 => {
             //BLTZ
             log!("> BLTZ");
-            jump!(rs < 0)
+            /*jump!(rs < 0);*/ unreachable!("jump")
           },
           0x01 => {
             //BGEZ
             log!("> BGEZ");
-            jump!(rs >= 0)
+            /*jump!(rs >= 0);*/ unreachable!("jump")
           },
           0x80 => {
             //BLTZAL
             log!("> BLTZAL");
-            call!(rs < 0)
+            /*call!(rs < 0);*/ unreachable!("call")
           },
           0x81 => {
             //BGEZAL
             log!("> BGEZAL");
-            call!(rs >= 0)
+            /*call!(rs >= 0);*/ unreachable!("call")
           },
           _ => {
             //invalid opcode
@@ -875,32 +704,32 @@ impl JIT {
       0x02 => {
         //J
         log!("> J");
-        jump!(imm26)
+        /*jump!(imm26);*/ unreachable!("jump")
       },
       0x03 => {
         //JAL
         log!("> JAL");
-        call!(imm26)
+        /*call!(imm26);*/ unreachable!("call")
       },
       0x04 => {
         //BEQ
         log!("> BEQ");
-        jump!(rs == rt)
+        /*jump!(rs == rt);*/ unreachable!("jump")
       },
       0x05 => {
         //BNE
         log!("> BNE");
-        jump!(rs != rt)
+        /*jump!(rs != rt);*/ unreachable!("jump")
       },
       0x06 => {
         //BLEZ
         log!("> BLEZ");
-        jump!(rs <= 0)
+        /*jump!(rs <= 0);*/ unreachable!("jump")
       },
       0x07 => {
         //BGTZ
         log!("> BGTZ");
-        jump!(rs > 0)
+        /*jump!(rs > 0);*/ unreachable!("jump")
       },
       0x08 => {
         //ADDI
