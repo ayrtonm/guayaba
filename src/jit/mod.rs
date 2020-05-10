@@ -103,16 +103,17 @@ impl Runnable for JIT {
         None => {
           let mut operations = vec![];
           let start = self.state.r3000.pc();
-          let op = self.state.resolve_memresponse(self.state.memory.read_word(start));
+          let mut op = self.state.resolve_memresponse(self.state.memory.read_word(start));
           let mut address = start;
           let mut compiled = self.compile_opcode(op);
           //add all instructions before the next jump to the stub
           while compiled.is_some() {
             operations.push(compiled.take().expect(""));
             address += 4;
-            let op = self.state.resolve_memresponse(self.state.memory.read_word(address));
+            op = self.state.resolve_memresponse(self.state.memory.read_word(address));
             compiled = self.compile_opcode(op);
           }
+          println!("jump {:#x} at {:#x}", op, address);
           //get the jump instruction that ended the block
           let compiled_jump = self.compile_jump(op);
           operations.push(compiled_jump);

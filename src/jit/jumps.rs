@@ -42,15 +42,14 @@ fn get_secondary_field(op: u32) -> u32 {
 impl JIT {
   pub(super) fn compile_jump(&mut self, op: u32) -> Box<dyn Fn(&mut State)> {
     Box::new(move |vm| {
-      vm.next_pc = vm.compile_jump_internal(op)
-                                       .expect("")(vm)
-                                       .map_or_else(|| vm.r3000.pc().wrapping_add(4),
-                                                    |next_pc| next_pc);
+      vm.next_pc = vm.compile_jump_internal(op)(vm)
+                     .map_or_else(|| vm.r3000.pc().wrapping_add(4),
+                                  |next_pc| next_pc);
     })
   }
 }
 impl State {
-  fn compile_jump_internal(&mut self, op: u32) -> Option<Box<dyn Fn(&mut State) -> Option<Register>>> {
+  fn compile_jump_internal(&mut self, op: u32) -> Box<dyn Fn(&mut State) -> Option<Register>> {
     let logging = false;
     macro_rules! log {
       () => ($crate::print!("\n"));
@@ -63,7 +62,7 @@ impl State {
     macro_rules! jump {
       (imm26) => {
         {
-          Some(Box::new(move |vm| {
+          Box::new(move |vm| {
             let imm26 = get_imm26(op);
             let pc_hi_bits = vm.r3000.pc() & 0xf000_0000;
             let shifted_imm26 = imm26 * 4;
@@ -71,12 +70,12 @@ impl State {
             log!("jumping to (PC & 0xf0000000) + ({:#x} * 4)\n  = {:#x} + {:#x}\n  = {:#x} after the delay slot",
                       imm26, pc_hi_bits, shifted_imm26, dest);
             Some(dest)
-          }))
+          })
         }
       };
       (rs) => {
         {
-          Some(Box::new(move |vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(get_rs(op));
             if rs & 0x0000_0003 != 0 {
               let pc = vm.r3000.pc_mut();
@@ -87,12 +86,12 @@ impl State {
               log!("jumping to R{} = {:#x} after the delay slot", get_rs(op), rs);
               Some(rs)
             }
-          }))
+          })
         }
       };
       (rs $cmp:tt rt) => {
         {
-          Some(Box::new(move |vm| {
+          Box::new(move |vm| {
             let rt = vm.r3000.nth_reg(get_rt(op));
             let rs = vm.r3000.nth_reg(get_rs(op));
             if rs $cmp rt {
@@ -108,12 +107,12 @@ impl State {
                         get_rs(op), stringify!($cmp), get_rt(op), rs, stringify!($cmp), rt);
               None
             }
-          }))
+          })
         }
       };
       (rs $cmp:tt 0) => {
         {
-          Some(Box::new(move |vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(get_rs(op));
             log!("op16");
             if (rs as i32) $cmp 0 {
@@ -125,14 +124,14 @@ impl State {
             } else {
               None
             }
-          }))
+          })
         }
       };
     }
     macro_rules! call {
       (imm26) => {
         {
-          Some(Box::new(move |vm| {
+          Box::new(move |vm| {
             let ret = vm.r3000.pc().wrapping_add(4);
             vm.modified_register = vm.r3000.ra_mut().maybe_set(ret);
             log!("R31 = {:#x}", ret);
@@ -143,12 +142,12 @@ impl State {
             log!("jumping to (PC & 0xf0000000) + ({:#x} * 4)\n  = {:#x} + {:#x}\n  = {:#x} after the delay slot",
                       imm26, pc_hi_bits, shifted_imm26, dest);
             Some(dest)
-          }))
+          })
         }
       };
       (rs) => {
         {
-          Some(Box::new(move |vm| {
+          Box::new(move |vm| {
             let result = vm.r3000.pc().wrapping_add(4);
             let rd = vm.r3000.nth_reg_mut(get_rd(op));
             vm.modified_register = rd.maybe_set(result);
@@ -163,12 +162,12 @@ impl State {
               log!("jumping to R{} = {:#x} after the delay slot", get_rs(op), rs);
               Some(rs)
             }
-          }))
+          })
         }
       };
       (rs $cmp:tt rt) => {
         {
-          Some(Box::new(move |vm| {
+          Box::new(move |vm| {
             let rt = vm.r3000.nth_reg(get_rt(op));
             let rs = vm.r3000.nth_reg(get_rs(op));
             log!("op19");
@@ -183,12 +182,12 @@ impl State {
             } else {
               None
             }
-          }))
+          })
         }
       };
       (rs $cmp:tt 0) => {
         {
-          Some(Box::new(move |vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(get_rs(op));
             log!("op20");
             if (rs as i32) $cmp 0 {
@@ -201,7 +200,7 @@ impl State {
             } else {
               None
             }
-          }))
+          })
         }
       };
     }
@@ -222,12 +221,12 @@ impl State {
           0x0C => {
             //SYSCALL
             log!("> SYSCALL");
-            Some(Box::new(move |vm| {
+            Box::new(move |vm| {
               Some(vm.cop0.generate_exception(Cop0Exception::Syscall, vm.r3000.pc()))
-            }))
+            })
           },
           _ => {
-            None
+            unreachable!("");
           },
         }
       },
@@ -291,7 +290,7 @@ impl State {
         jump!(rs > 0)
       },
       _ => {
-        None
+        unreachable!("");
       },
     }
   }
