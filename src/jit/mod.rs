@@ -36,8 +36,11 @@ pub struct JIT {
 
 impl Runnable for JIT {
   fn run(&mut self, n: Option<u32>, logging: bool) {
-    self.compile_opcode(0xdeadbeef);
-    self.compile_opcode(0xffff2244);
+    let f = self.compile_opcode(0x00000000);
+    let g = self.compile_opcode(0x00000000);
+    f(self);
+    g(self);
+    f(self);
   }
 }
 
