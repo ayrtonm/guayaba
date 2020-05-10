@@ -566,10 +566,11 @@ impl JIT {
           0x0C => {
             //SYSCALL
             log!("> SYSCALL");
-            Some(Box::new(move |vm| {
-              let pc = vm.r3000.pc_mut();
-              *pc = vm.cop0.generate_exception(Cop0Exception::Syscall, *pc);
-            }))
+            //Some(Box::new(move |vm| {
+            //  let pc = vm.r3000.pc_mut();
+            //  *pc = vm.cop0.generate_exception(Cop0Exception::Syscall, *pc);
+            //}))
+            None
           },
           0x0D => {
             //BREAK
