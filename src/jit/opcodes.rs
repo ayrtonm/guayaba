@@ -9,6 +9,7 @@ use crate::r3000::DelayedWrite;
 use crate::r3000::Name;
 use crate::cop0::Cop0Exception;
 use crate::jit::JIT;
+use crate::jit::State;
 
 fn get_rs(op: u32) -> u32 {
   (op & 0x03e0_0000) >> 21
@@ -41,7 +42,7 @@ fn get_secondary_field(op: u32) -> u32 {
 impl JIT {
   //if program counter should incremented normally, return None
   //otherwise return Some(new program counter)
-  pub(super) fn compile_opcode(&mut self, op: u32) -> Box<dyn Fn(&mut JIT)> {
+  pub(super) fn compile_opcode(&mut self, op: u32) -> Box<dyn Fn(&mut State)> {
     let logging = false;
     macro_rules! log {
       () => ($crate::print!("\n"));

@@ -17,7 +17,7 @@ use crate::runnable::Runnable;
 
 mod opcodes;
 
-pub struct JIT {
+struct State {
   //these correspond to physical components
   r3000: R3000,
   cop0: Cop0,
@@ -27,11 +27,26 @@ pub struct JIT {
   cd: CD,
   screen: Screen,
 
-  //other members of interpreter
-  next_pc: Option<Register>,
   //these are register writes due to memory loads which happen after one cycle
   delayed_writes: VecDeque<DelayedWrite>,
   modified_register: Option<Name>,
+}
+
+impl State {
+  fn resolve_memresponse(&mut self, response: MemResponse) -> Register {
+    todo!("")
+  }
+  fn resolve_memactions(&mut self, maybe_action: Option<Vec<MemAction>>) {
+    todo!("")
+  }
+}
+
+pub struct JIT {
+  state: State,
+  stubs: HashMap<Register, Vec<Box<dyn Fn(&mut State)>>>,
+
+  //other members of interpreter
+  next_pc: Option<Register>,
   i: u32,
 }
 
@@ -39,9 +54,9 @@ impl Runnable for JIT {
   fn run(&mut self, n: Option<u32>, logging: bool) {
     let f = self.compile_opcode(0x00000000);
     let g = self.compile_opcode(0x00000000);
-    f(self);
-    g(self);
-    f(self);
+    f(&mut self.state);
+    g(&mut self.state);
+    f(&mut self.state);
   }
 }
 
@@ -57,23 +72,28 @@ impl JIT {
     let screen = Screen::new(wx, wy);
     let delayed_writes = VecDeque::new();
     Ok(Self {
-      r3000,
-      cop0,
-      memory,
-      gpu,
-      gte,
-      cd,
-      screen,
+      state: State {
+        r3000,
+        cop0,
+        memory,
+        gpu,
+        gte,
+        cd,
+        screen,
+
+        delayed_writes,
+        modified_register: None,
+      },
+
+      stubs: Default::default(),
+
       next_pc: None,
-      delayed_writes,
-      modified_register: None,
       i: 0,
     })
   }
-  fn resolve_memresponse(&mut self, response: MemResponse) -> Register {
-    todo!("")
-  }
-  fn resolve_memactions(&mut self, maybe_action: Option<Vec<MemAction>>) {
-    todo!("")
+  fn execute_stub(&mut self, address: Register) {
+    for f in &self.stubs[&address] {
+      f(&mut self.state)
+    }
   }
 }
