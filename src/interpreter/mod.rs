@@ -13,6 +13,7 @@ use crate::gpu::GPU;
 use crate::gte::GTE;
 use crate::screen::Screen;
 use crate::screen::Drawable;
+use crate::runnable::Runnable;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 
@@ -37,32 +38,8 @@ pub struct Interpreter {
   i: u32,
 }
 
-impl Interpreter {
-  pub fn new(bios_filename: &String, infile: Option<&String>, gpu_logging: bool,
-             wx: u32, wy: u32) -> io::Result<Self> {
-    let r3000 = R3000::new();
-    let cop0 = Default::default();
-    let memory = Memory::new(bios_filename)?;
-    let gpu = GPU::new(gpu_logging);
-    let gte = Default::default();
-    let cd = CD::new(infile);
-    let screen = Screen::new(wx, wy);
-    let delayed_writes = VecDeque::new();
-    Ok(Interpreter {
-      r3000,
-      cop0,
-      memory,
-      gpu,
-      gte,
-      cd,
-      screen,
-      next_pc: None,
-      delayed_writes,
-      modified_register: None,
-      i: 0,
-    })
-  }
-  pub fn run(&mut self, n: Option<u32>, logging: bool) {
+impl Runnable for Interpreter {
+  fn run(&mut self, n: Option<u32>, logging: bool) {
     loop {
       if logging {
         println!("  ");
@@ -75,6 +52,33 @@ impl Interpreter {
         return
       }
     }
+  }
+}
+
+impl Interpreter {
+  pub fn new(bios_filename: &String, infile: Option<&String>, gpu_logging: bool,
+             wx: u32, wy: u32) -> io::Result<Self> {
+    let r3000 = R3000::new();
+    let cop0 = Default::default();
+    let memory = Memory::new(bios_filename)?;
+    let gpu = GPU::new(gpu_logging);
+    let gte = Default::default();
+    let cd = CD::new(infile);
+    let screen = Screen::new(wx, wy);
+    let delayed_writes = VecDeque::new();
+    Ok(Self {
+      r3000,
+      cop0,
+      memory,
+      gpu,
+      gte,
+      cd,
+      screen,
+      next_pc: None,
+      delayed_writes,
+      modified_register: None,
+      i: 0,
+    })
   }
   fn handle_events(&mut self) -> bool {
     let event_rate: u32 = 100_000;
