@@ -84,10 +84,18 @@ impl Runnable for JIT {
           *self.state.r3000.pc_mut() = stub.final_pc();
         },
         None => {
-          //  let f = self.compile_opcode(0x00000000).unwrap();
-          //  let g = self.compile_opcode(0x00000000).unwrap();
-          //  let stub = vec![f, g];
-          //  self.stubs.insert(0xdeadbeef, stub);
+          let mut new_operations = vec![];
+          let start = self.state.r3000.pc();
+          let op = self.state.resolve_memresponse(self.state.memory.read_word(start));
+          let mut compiled = self.compile_opcode(op);
+          while compiled.is_some() {
+            new_operations.push(compiled.take().expect(""));
+            *self.state.r3000.pc_mut() += 4;
+            let op = self.state.resolve_memresponse(self.state.memory.read_word(self.state.r3000.pc()));
+            compiled = self.compile_opcode(op);
+          }
+          let stub = Stub { operations: new_operations, final_pc: self.state.r3000.pc() };
+          self.stubs.insert(start, stub);
         },
       }
     }
