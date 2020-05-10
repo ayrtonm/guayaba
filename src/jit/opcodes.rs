@@ -68,7 +68,7 @@ impl JIT {
       };
       (rt = [rs + imm16] $offset:expr, $operator:ident $mask:ident $shift:ident) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(get_rs(op));
             let imm16 = get_imm16(op).half_sign_extended();
             let rt_idx = get_rt(op);
@@ -89,7 +89,7 @@ impl JIT {
       //delayed aligned reads
       (rt = [rs + imm16] $method:ident) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(get_rs(op));
             let imm16 = get_imm16(op).half_sign_extended();
             let rt = get_rt(op);
@@ -113,7 +113,7 @@ impl JIT {
       };
       ([rs + imm16] = rt $offset:expr, $operator:ident $mask:ident $shift:ident) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(get_rs(op));
             let rt = vm.r3000.nth_reg(get_rt(op));
             let imm16 = get_imm16(op).half_sign_extended();
@@ -135,7 +135,7 @@ impl JIT {
       //aligned writes
       ([rs + imm16] = rt $method:ident) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(get_rs(op));
             let rt = vm.r3000.nth_reg(get_rt(op));
             let imm16 = get_imm16(op).half_sign_extended();
@@ -153,7 +153,7 @@ impl JIT {
       };
       (lo = rs) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(get_rs(op));
             let lo = vm.r3000.lo_mut();
             *lo = rs;
@@ -164,7 +164,7 @@ impl JIT {
       };
       (hi = rs) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(get_rs(op));
             let hi = vm.r3000.hi_mut();
             *hi = rs;
@@ -175,7 +175,7 @@ impl JIT {
       };
       (rd = lo) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let lo = vm.r3000.lo();
             let rd_idx = get_rd(op);
             let rd = vm.r3000.nth_reg_mut(rd_idx);
@@ -187,7 +187,7 @@ impl JIT {
       };
       (rd = hi) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let hi = vm.r3000.hi();
             let rd_idx = get_rd(op);
             let rd = vm.r3000.nth_reg_mut(rd_idx);
@@ -205,7 +205,7 @@ impl JIT {
       //ALU instructions with two general purpose registers
       (rd = rs $method:ident rt) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(get_rs(op));
             let rt = vm.r3000.nth_reg(get_rt(op));
             let rd = vm.r3000.nth_reg_mut(get_rd(op));
@@ -220,7 +220,7 @@ impl JIT {
       //ALU instructions with two general purpose registers that trap overflow
       (rd = rs $method:ident rt trap) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(get_rs(op)) as u64;
             let rt = vm.r3000.nth_reg(get_rt(op)) as u64;
             let rd = vm.r3000.nth_reg_mut(get_rd(op));
@@ -244,7 +244,7 @@ impl JIT {
       //ALU instructions with a register and immediate 16-bit data that trap overflow
       (rt = rs $method:ident signed imm16 trap) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(get_rs(op)) as i32;
             let imm16 = get_imm16(op).half_sign_extended() as i32;
             let rt = vm.r3000.nth_reg_mut(get_rt(op));
@@ -268,7 +268,7 @@ impl JIT {
       //ALU instructions with a register and immediate 16-bit data
       (rt = rs $method:tt imm16) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(get_rs(op));
             let imm16 = get_imm16(op);
             let rt = vm.r3000.nth_reg_mut(get_rt(op));
@@ -283,7 +283,7 @@ impl JIT {
       //ALU instructions with a register and immediate 16-bit data
       (rt = rs $method:tt signed imm16) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(get_rs(op));
             let imm16 = get_imm16(op).half_sign_extended();
             let rt = vm.r3000.nth_reg_mut(get_rt(op));
@@ -298,7 +298,7 @@ impl JIT {
       //shifts a register based on immediate 5 bits
       (rd = rt $method:tt imm5) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let rt = vm.r3000.nth_reg(get_rt(op));
             let imm5 = get_imm5(op);
             let rd = vm.r3000.nth_reg_mut(get_rd(op));
@@ -313,7 +313,7 @@ impl JIT {
       //shifts a register based on the lowest 5 bits of another register
       (rd = rt $method:tt (rs and 0x1F)) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let rt = vm.r3000.nth_reg(get_rt(op));
             let rs = vm.r3000.nth_reg(get_rs(op));
             let rd = vm.r3000.nth_reg_mut(get_rd(op));
@@ -325,7 +325,7 @@ impl JIT {
       };
       (rt = imm16 shl 16) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let rt = vm.r3000.nth_reg_mut(get_rt(op));
             let imm16 = get_imm16(op);
             vm.modified_register = rt.maybe_set(imm16 << 16);
@@ -336,7 +336,7 @@ impl JIT {
       };
       (hi:lo = rs * rt) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(get_rs(op));
             let rt = vm.r3000.nth_reg(get_rt(op));
             let result = (rs as u64) * (rt as u64);
@@ -365,7 +365,7 @@ impl JIT {
       };
       (hi:lo = rs * rt signed) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(get_rs(op)) as i32;
             let rt = vm.r3000.nth_reg(get_rt(op)) as i32;
             let result = (rs as i64) * (rt as i64);
@@ -394,7 +394,7 @@ impl JIT {
       };
       (hi:lo = rs / rt) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(get_rs(op));
             let rt = vm.r3000.nth_reg(get_rt(op));
             let lo_res = match rt {
@@ -418,7 +418,7 @@ impl JIT {
       };
       (hi:lo = rs / rt signed) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(get_rs(op)) as i32;
             let rt = vm.r3000.nth_reg(get_rt(op)) as i32;
             let lo_res = match rt {
@@ -461,7 +461,7 @@ impl JIT {
     macro_rules! jump {
       (imm26) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let imm26 = get_imm26(op);
             let pc_hi_bits = vm.r3000.pc() & 0xf000_0000;
             let shifted_imm26 = imm26 * 4;
@@ -474,7 +474,7 @@ impl JIT {
       };
       (rs) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(get_rs(op));
             if rs & 0x0000_0003 != 0 {
               let pc = vm.r3000.pc_mut();
@@ -490,7 +490,7 @@ impl JIT {
       };
       (rs $cmp:tt rt) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let rt = vm.r3000.nth_reg(get_rt(op));
             let rs = vm.r3000.nth_reg(get_rs(op));
             if rs $cmp rt {
@@ -511,7 +511,7 @@ impl JIT {
       };
       (rs $cmp:tt 0) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(get_rs(op));
             log!("op16");
             if (rs as i32) $cmp 0 {
@@ -530,7 +530,7 @@ impl JIT {
     macro_rules! call {
       (imm26) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let ret = vm.r3000.pc().wrapping_add(4);
             vm.modified_register = vm.r3000.ra_mut().maybe_set(ret);
             log!("R31 = {:#x}", ret);
@@ -546,7 +546,7 @@ impl JIT {
       };
       (rs) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let result = vm.r3000.pc().wrapping_add(4);
             let rd = vm.r3000.nth_reg_mut(get_rd(op));
             vm.modified_register = rd.maybe_set(result);
@@ -566,7 +566,7 @@ impl JIT {
       };
       (rs $cmp:tt rt) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let rt = vm.r3000.nth_reg(get_rt(op));
             let rs = vm.r3000.nth_reg(get_rs(op));
             log!("op19");
@@ -586,7 +586,7 @@ impl JIT {
       };
       (rs $cmp:tt 0) => {
         {
-          Box::new(|vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(get_rs(op));
             log!("op20");
             if (rs as i32) $cmp 0 {
@@ -609,7 +609,7 @@ impl JIT {
           match get_rs(op) {
             0x00 => {
               //MFCn
-              Box::new(|vm| {
+              Box::new(move |vm| {
                 let rt = get_rt(op);
                 let rd_data = vm.$copn.nth_data_reg(get_rd(op));
                 vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt), rd_data));
@@ -620,7 +620,7 @@ impl JIT {
             },
             0x02 => {
               //CFCn
-              Box::new(|vm| {
+              Box::new(move |vm| {
                 let rt = get_rt(op);
                 let rd_ctrl = vm.$copn.nth_ctrl_reg(get_rd(op));
                 vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt), rd_ctrl));
@@ -629,7 +629,7 @@ impl JIT {
             },
             0x04 => {
               //MTCn
-              Box::new(|vm| {
+              Box::new(move |vm| {
                 let rt = vm.r3000.nth_reg(get_rt(op));
                 let rd = vm.$copn.nth_data_reg_mut(get_rd(op));
                 vm.modified_register = rd.maybe_set(rt);
@@ -641,7 +641,7 @@ impl JIT {
             },
             0x06 => {
               //CTCn
-              Box::new(|vm| {
+              Box::new(move |vm| {
                 let rt = vm.r3000.nth_reg(get_rt(op));
                 let rd = vm.$copn.nth_ctrl_reg_mut(get_rd(op));
                 vm.modified_register = rd.maybe_set(rt);
@@ -652,7 +652,7 @@ impl JIT {
               match get_rt(op) {
                 0x00 => {
                   //BCnF
-                  Box::new(|vm| {
+                  Box::new(move |vm| {
                     vm.$copn.bcnf(get_imm16(op))
                   })
                 },
@@ -661,7 +661,7 @@ impl JIT {
                   //technically we're implementing one illegal instruction here
                   //since BCnT is not implemented for COP0
                   //however, GTE (i.e. COP2) does implement it
-                  Box::new(|vm| {
+                  Box::new(move |vm| {
                     None
                   })
                 },
@@ -672,7 +672,7 @@ impl JIT {
             },
             0x10..=0x1F => {
               //COPn imm25
-              Box::new(|vm| {
+              Box::new(move |vm| {
                 vm.$copn.execute_command(get_imm25(op))
               })
             },
@@ -736,7 +736,7 @@ impl JIT {
           0x0C => {
             //SYSCALL
             log!("> SYSCALL");
-            Box::new(|vm| {
+            Box::new(move |vm| {
               let pc = vm.r3000.pc_mut();
               *pc = vm.cop0.generate_exception(Cop0Exception::Syscall, *pc);
               None
