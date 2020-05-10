@@ -17,6 +17,17 @@ use crate::runnable::Runnable;
 
 mod opcodes;
 
+struct Stub {
+  operations: Vec<Box<dyn Fn(&mut State)>>,
+  final_pc: Register,
+}
+
+impl Stub {
+  fn operations(&self) -> &Vec<Box<dyn Fn(&mut State)>> {
+    &self.operations
+  }
+}
+
 struct State {
   //these correspond to physical components
   r3000: R3000,
@@ -43,7 +54,7 @@ impl State {
 
 pub struct JIT {
   state: State,
-  stubs: HashMap<Register, Vec<Box<dyn Fn(&mut State)>>>,
+  stubs: HashMap<Register, Stub>,
 
   //other members of interpreter
   next_pc: Option<Register>,
@@ -52,10 +63,19 @@ pub struct JIT {
 
 impl Runnable for JIT {
   fn run(&mut self, n: Option<u32>, logging: bool) {
-    let f = self.compile_opcode(0x00000000).unwrap();
-    let g = self.compile_opcode(0x00000000).unwrap();
-    f(&mut self.state);
+    if self.stubs.contains_key(&self.state.r3000.pc()) {
+      self.execute_stub(self.state.r3000.pc())
+    } else {
+    }
   }
+  //fn f(&mut self, n: Option<u32>, logging: bool) {
+  //  let f = self.compile_opcode(0x00000000).unwrap();
+  //  let g = self.compile_opcode(0x00000000).unwrap();
+  //  let stub = vec![f, g];
+  //  self.stubs.insert(0xdeadbeef, stub);
+  //  self.execute_stub(0xdeadbeef);
+  //  self.execute_stub(0xdeadbeee);
+  //}
 }
 
 impl JIT {
@@ -89,8 +109,8 @@ impl JIT {
       i: 0,
     })
   }
-  fn execute_stub(&mut self, stub: &Vec<Box<dyn Fn(&mut State)>>) {
-    for f in stub {
+  fn execute_stub(&mut self, address: Register) {
+    for f in self.stubs.get(&address).expect("").operations() {
       f(&mut self.state)
     }
   }
