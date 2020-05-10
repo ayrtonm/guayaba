@@ -1,12 +1,20 @@
 use std::io;
+use std::collections::VecDeque;
+use crate::register::Register;
 use crate::r3000::R3000;
+use crate::r3000::DelayedWrite;
+use crate::r3000::Name;
 use crate::cop0::Cop0;
 use crate::memory::Memory;
+use crate::memory::MemAction;
+use crate::memory::MemResponse;
 use crate::cd::CD;
 use crate::gpu::GPU;
 use crate::gte::GTE;
 use crate::screen::Screen;
 use crate::runnable::Runnable;
+
+mod opcodes;
 
 pub struct JIT {
   //these correspond to physical components
@@ -17,11 +25,19 @@ pub struct JIT {
   gte: GTE,
   cd: CD,
   screen: Screen,
+
+  //other members of interpreter
+  next_pc: Option<Register>,
+  //these are register writes due to memory loads which happen after one cycle
+  delayed_writes: VecDeque<DelayedWrite>,
+  modified_register: Option<Name>,
+  i: u32,
 }
 
 impl Runnable for JIT {
   fn run(&mut self, n: Option<u32>, logging: bool) {
-    println!("ran the JIT");
+    self.compile_opcode(0xdeadbeef);
+    self.compile_opcode(0xffff2244);
   }
 }
 
@@ -35,6 +51,7 @@ impl JIT {
     let gte = Default::default();
     let cd = CD::new(infile);
     let screen = Screen::new(wx, wy);
+    let delayed_writes = VecDeque::new();
     Ok(Self {
       r3000,
       cop0,
@@ -43,6 +60,16 @@ impl JIT {
       gte,
       cd,
       screen,
+      next_pc: None,
+      delayed_writes,
+      modified_register: None,
+      i: 0,
     })
+  }
+  fn resolve_memresponse(&mut self, response: MemResponse) -> Register {
+    todo!("")
+  }
+  fn resolve_memactions(&mut self, maybe_action: Option<Vec<MemAction>>) {
+    todo!("")
   }
 }
