@@ -2,6 +2,7 @@ use std::io;
 use std::collections::VecDeque;
 use std::collections::HashMap;
 use std::time::Instant;
+use std::time::Duration;
 use crate::register::Register;
 use crate::register::BitBang;
 use crate::r3000::R3000;
@@ -121,6 +122,8 @@ pub struct JIT {
 impl Runnable for JIT {
   fn run(&mut self, n: Option<u32>, logging: bool) {
     let start_time = Instant::now();
+    let mut down_time = start_time - start_time;
+    let mut compile_time = start_time - start_time;
     println!("running in JIT mode");
     loop {
       let maybe_stub = self.stubs.get(&physical(self.state.r3000.pc()));
@@ -142,19 +145,20 @@ impl Runnable for JIT {
             n.map(|n| {
               if self.i == n {
                 let end_time = Instant::now();
-                panic!("Executed {} steps in {:?}", self.i, end_time - start_time);
+                panic!("Executed {} steps in {:?}\nwith {:?} of down time and {:?} of compile time",
+                       self.i, end_time - start_time, down_time, compile_time);
               };
             });
             //println!("on step {} of block", self.i);
           }
           *self.state.r3000.pc_mut() = self.state.next_pc;
-          self.invalidate_cache();
+          down_time += self.invalidate_cache();
           if !self.handle_events() {
             return
           }
         },
         None => {
-          self.compile_stub(logging);
+          compile_time += self.compile_stub(logging);
         },
       }
     }
@@ -194,7 +198,8 @@ impl JIT {
       i: 0,
     })
   }
-  fn compile_stub(&mut self, logging: bool) {
+  fn compile_stub(&mut self, logging: bool) -> Duration {
+    let t0 = Instant::now();
     let mut operations = Vec::with_capacity(50);
     let start = self.state.r3000.pc();
     let mut op = self.state.resolve_memresponse(self.state.memory.read_word(start));
@@ -237,8 +242,11 @@ impl JIT {
                           None
                         });
     //self.ranges_compiled.push((physical(start), physical(address));
+    let t1 = Instant::now();
+    t1 - t0
   }
-  fn invalidate_cache(&mut self) {
+  fn invalidate_cache(&mut self) -> Duration {
+    let t0 = Instant::now();
     let x = self.state.overwritten.drain(..).collect::<Vec<Register>>();
     x.iter().for_each(|&addr| {
       let ends = self.ranges_compiled.keys().filter(|&e| addr <= *e).map(|&e| e).collect::<Vec<Register>>();
@@ -251,6 +259,8 @@ impl JIT {
         });
       }
     });
+    let t1 = Instant::now();
+    t1 - t0
   }
   fn handle_events(&mut self) -> bool {
     let event_rate: u32 = 100_000;
