@@ -231,6 +231,11 @@ impl JIT {
     }
 
     //println!("compiled a block with {} operations for {:#x}", operations.len(), start);
+    //let's try limiting the size of the cache
+    //if self.stubs.len() >= 128 {
+    //  self.stubs.clear();
+    //  self.ranges_compiled.clear();
+    //};
     self.stubs.insert(physical(start), Stub { operations, final_pc: address });
     let end = physical(address);
     self.ranges_compiled.get_mut(&end)
@@ -247,18 +252,24 @@ impl JIT {
   }
   fn invalidate_cache(&mut self) -> Duration {
     let t0 = Instant::now();
-    let x = self.state.overwritten.drain(..).collect::<Vec<Register>>();
-    x.iter().for_each(|&addr| {
-      let ends = self.ranges_compiled.keys().filter(|&e| addr <= *e).map(|&e| e).collect::<Vec<Register>>();
-      for e in ends {
-        let sv = self.ranges_compiled.get(&e).unwrap();
-        let s = sv.iter().filter(|&s| *s <= addr).map(|&s| s).collect::<Vec<Register>>();
-        s.iter().for_each(|s| {
-          println!("removed a stub");
-          self.stubs.remove(s);
-        });
+    let mut invalidated = Vec::new();
+    self.state.overwritten.iter()
+    .for_each(|&addr| {
+      for &e in self.ranges_compiled.keys().filter(|&e| addr <= *e) {
+        self.ranges_compiled.get(&e)
+                            .unwrap()
+                            .iter()
+                            .filter(|&s| *s <= addr)
+                            .for_each(|&s| {
+                              println!("removed a stub");
+                              invalidated.push(s);
+                            });
       }
     });
+    self.state.overwritten.clear();
+    for i in invalidated {
+      self.stubs.remove(&i);
+    }
     let t1 = Instant::now();
     t1 - t0
   }
