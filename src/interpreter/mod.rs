@@ -1,5 +1,6 @@
 use std::io;
 use std::collections::VecDeque;
+use std::time::Instant;
 use crate::register::Register;
 use crate::r3000::R3000;
 use crate::r3000::DelayedWrite;
@@ -40,6 +41,7 @@ pub struct Interpreter {
 
 impl Runnable for Interpreter {
   fn run(&mut self, n: Option<u32>, logging: bool) {
+    let start_time = Instant::now();
     loop {
       if logging {
         println!("  ");
@@ -47,7 +49,12 @@ impl Runnable for Interpreter {
       }
       self.step(logging);
       self.i += 1;
-      n.map(|n| if self.i == n { panic!("Executed {} steps", self.i); });
+      n.map(|n| {
+        if self.i == n {
+          let end_time = Instant::now();
+          panic!("Executed {} steps in {:?}", self.i, end_time - start_time);
+        };
+      });
       if !self.handle_events() {
         return
       }

@@ -1,6 +1,7 @@
 use std::io;
 use std::collections::VecDeque;
 use std::collections::HashMap;
+use std::time::Instant;
 use crate::register::Register;
 use crate::register::BitBang;
 use crate::r3000::R3000;
@@ -119,6 +120,7 @@ pub struct JIT {
 
 impl Runnable for JIT {
   fn run(&mut self, n: Option<u32>, logging: bool) {
+    let start_time = Instant::now();
     println!("running in JIT mode");
     loop {
       let maybe_stub = self.stubs.get(&physical(self.state.r3000.pc()));
@@ -137,21 +139,16 @@ impl Runnable for JIT {
             };
             self.state.cd.exec_command();
             self.i += 1;
-            n.map(|n| if self.i == n { panic!("Executed {} steps", self.i); });
+            n.map(|n| {
+              if self.i == n {
+                let end_time = Instant::now();
+                panic!("Executed {} steps in {:?}", self.i, end_time - start_time);
+              };
+            });
             //println!("on step {} of block", self.i);
           }
           *self.state.r3000.pc_mut() = self.state.next_pc;
-          let x = self.state.overwritten.drain(..).collect::<Vec<Register>>();
-              x.iter().for_each(|&addr| {
-                let ends = self.ranges_compiled.keys().filter(|&e| addr <= *e).map(|&e| e).collect::<Vec<Register>>();
-                for e in ends {
-                  let sv = self.ranges_compiled.get(&e).unwrap();
-                  let s = sv.iter().filter(|&s| *s <= addr).map(|&s| s).collect::<Vec<Register>>();
-                  s.iter().for_each(|s| {
-                    self.stubs.remove(s);
-                  });
-                }
-              });
+          self.invalidate_cache();
           if !self.handle_events() {
             return
           }
@@ -240,6 +237,20 @@ impl JIT {
                           None
                         });
     //self.ranges_compiled.push((physical(start), physical(address));
+  }
+  fn invalidate_cache(&mut self) {
+    let x = self.state.overwritten.drain(..).collect::<Vec<Register>>();
+    x.iter().for_each(|&addr| {
+      let ends = self.ranges_compiled.keys().filter(|&e| addr <= *e).map(|&e| e).collect::<Vec<Register>>();
+      for e in ends {
+        let sv = self.ranges_compiled.get(&e).unwrap();
+        let s = sv.iter().filter(|&s| *s <= addr).map(|&s| s).collect::<Vec<Register>>();
+        s.iter().for_each(|s| {
+          println!("removed a stub");
+          self.stubs.remove(s);
+        });
+      }
+    });
   }
   fn handle_events(&mut self) -> bool {
     let event_rate: u32 = 100_000;
