@@ -110,7 +110,10 @@ impl State {
 
 pub struct JIT {
   state: State,
+  //maps start addresses to stubs for efficient execution
   stubs: HashMap<Register, Stub>,
+  //maps end addresses to start addresses for efficient cache invalidation
+  ranges_compiled: HashMap<Register, Vec<Register>>,
   i: u32,
 }
 
@@ -138,22 +141,17 @@ impl Runnable for JIT {
             //println!("on step {} of block", self.i);
           }
           *self.state.r3000.pc_mut() = self.state.next_pc;
-          self.state
-              .overwritten
-              .clone()
-              .iter()
-              .for_each(|&addr| {
-                let invalidated = self.stubs
-                                      .iter()
-                                      .filter(|(&k,v)| k <= addr && addr <= v.final_pc())
-                                      .map(|(&k,_)| k)
-                                      .collect::<Vec<Register>>();
-                invalidated.iter()
-                           .for_each(|&invalid| {
-                             self.stubs.remove(&physical(invalid));
-                           });
-                });
-          self.state.overwritten.clear();
+          let x = self.state.overwritten.drain(..).collect::<Vec<Register>>();
+              x.iter().for_each(|&addr| {
+                let ends = self.ranges_compiled.keys().filter(|&e| addr <= *e).map(|&e| e).collect::<Vec<Register>>();
+                for e in ends {
+                  let sv = self.ranges_compiled.get(&e).unwrap();
+                  let s = sv.iter().filter(|&s| *s <= addr).map(|&s| s).collect::<Vec<Register>>();
+                  s.iter().for_each(|s| {
+                    self.stubs.remove(s);
+                  });
+                }
+              });
           if !self.handle_events() {
             return
           }
@@ -194,6 +192,7 @@ impl JIT {
       },
 
       stubs: Default::default(),
+      ranges_compiled: Default::default(),
 
       i: 0,
     })
@@ -231,6 +230,16 @@ impl JIT {
 
     //println!("compiled a block with {} operations for {:#x}", operations.len(), start);
     self.stubs.insert(physical(start), Stub { operations, final_pc: address });
+    let end = physical(address);
+    self.ranges_compiled.get_mut(&end)
+                        .map(|v| {
+                          v.push(physical(start));
+                        })
+                        .or_else(|| {
+                          self.ranges_compiled.insert(end, vec![physical(start)]);
+                          None
+                        });
+    //self.ranges_compiled.push((physical(start), physical(address));
   }
   fn handle_events(&mut self) -> bool {
     let event_rate: u32 = 100_000;
