@@ -553,19 +553,16 @@ impl JIT {
           },
           0x08 => {
             //JR
-            log!("> JR");
             /*jump!(rs);*/
             None
           },
           0x09 => {
             //JALR
-            log!("> JALR");
             /*call!(rs);*/
             None
           },
           0x0C => {
             //SYSCALL
-            log!("> SYSCALL");
             //Some(Box::new(move |vm| {
             //  let pc = vm.r3000.pc_mut();
             //  *pc = vm.cop0.generate_exception(Cop0Exception::Syscall, *pc);
@@ -678,25 +675,21 @@ impl JIT {
         match get_rt(op) {
           0x00 => {
             //BLTZ
-            log!("> BLTZ");
             /*jump!(rs < 0);*/
             None
           },
           0x01 => {
             //BGEZ
-            log!("> BGEZ");
             /*jump!(rs >= 0);*/
             None
           },
           0x80 => {
             //BLTZAL
-            log!("> BLTZAL");
             /*call!(rs < 0);*/
             None
           },
           0x81 => {
             //BGEZAL
-            log!("> BGEZAL");
             /*call!(rs >= 0);*/
             None
           },
@@ -708,37 +701,31 @@ impl JIT {
       },
       0x02 => {
         //J
-        log!("> J");
         /*jump!(imm26);*/
         None
       },
       0x03 => {
         //JAL
-        log!("> JAL");
         /*call!(imm26);*/
         None
       },
       0x04 => {
         //BEQ
-        log!("> BEQ");
         /*jump!(rs == rt);*/
         None
       },
       0x05 => {
         //BNE
-        log!("> BNE");
         /*jump!(rs != rt);*/
         None
       },
       0x06 => {
         //BLEZ
-        log!("> BLEZ");
         /*jump!(rs <= 0);*/
         None
       },
       0x07 => {
         //BGTZ
-        log!("> BGTZ");
         /*jump!(rs > 0);*/
         None
       },

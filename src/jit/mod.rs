@@ -2,6 +2,7 @@ use std::io;
 use std::collections::VecDeque;
 use std::collections::HashMap;
 use crate::register::Register;
+use crate::register::BitBang;
 use crate::r3000::R3000;
 use crate::r3000::DelayedWrite;
 use crate::r3000::Name;
@@ -18,6 +19,13 @@ use crate::runnable::Runnable;
 mod opcodes;
 mod jumps;
 mod handle_dma;
+
+const PHYS_MASK: [u32; 8] = [0xffff_ffff, 0xffff_ffff, 0xffff_ffff, 0xffff_ffff,
+                             0x7fff_ffff, 0x1fff_ffff, 0xffff_ffff, 0xffff_ffff];
+fn physical(address: Register) -> Register {
+  let idx = address.upper_bits(3) as usize;
+  address & PHYS_MASK[idx]
+}
 
 struct Stub {
   operations: Vec<Box<dyn Fn(&mut State)>>,
@@ -52,15 +60,15 @@ struct State {
 
 impl State {
   fn write_byte(&mut self, address: Register, value: Register) -> Option<Vec<MemAction>> {
-    self.overwritten.push(address);
+    self.overwritten.push(physical(address));
     self.memory.write_byte(address, value)
   }
   fn write_half(&mut self, address: Register, value: Register) -> Option<Vec<MemAction>> {
-    self.overwritten.push(address);
+    self.overwritten.push(physical(address));
     self.memory.write_half(address, value)
   }
   fn write_word(&mut self, address: Register, value: Register) -> Option<Vec<MemAction>> {
-    self.overwritten.push(address);
+    self.overwritten.push(physical(address));
     self.memory.write_word(address, value)
   }
   fn resolve_memresponse(&mut self, response: MemResponse) -> Register {
@@ -108,7 +116,7 @@ impl Runnable for JIT {
   fn run(&mut self, n: Option<u32>, logging: bool) {
     println!("running in JIT mode");
     loop {
-      let maybe_stub = self.stubs.get(&self.state.r3000.pc());
+      let maybe_stub = self.stubs.get(&physical(self.state.r3000.pc()));
       match maybe_stub {
         Some(stub) => {
           //println!("running block {:#x}", self.state.r3000.pc());
@@ -128,34 +136,40 @@ impl Runnable for JIT {
             //println!("on step {} of block", self.i);
           }
           *self.state.r3000.pc_mut() = self.state.next_pc;
-          self.state.overwritten.clone().iter().for_each(|addr| {self.stubs.remove(&addr);});
+          self.state.overwritten.clone()
+                                .iter()
+                                .for_each(|&addr| {
+                                  self.stubs.remove(&physical(addr));
+                                });
           self.state.overwritten.clear();
         },
         None => {
           let mut operations = vec![];
-          let start = self.state.r3000.pc();
+          let start = physical(self.state.r3000.pc());
           let mut op = self.state.resolve_memresponse(self.state.memory.read_word(start));
           let mut address = start;
           let mut compiled = self.compile_opcode(op);
           //add all instructions before the next jump to the stub
           while compiled.is_some() {
             operations.push(compiled.take().expect(""));
-            address += 4;
+            address = physical(address.wrapping_add(4));
             op = self.state.resolve_memresponse(self.state.memory.read_word(address));
             //println!("{:#x}", op);
             compiled = self.compile_opcode(op);
           }
           //println!("jump {:#x} at {:#x}", op, address);
           //get the jump instruction that ended the block
+          let jump_op = op;
           let compiled_jump = self.compile_jump(op);
           operations.push(compiled_jump);
 
           //add the branch delay slot to the stub
-          address += 4;
+          address = physical(address.wrapping_add(4));
           let op = self.state.resolve_memresponse(self.state.memory.read_word(address));
-          //println!("{:#x}", op);
+          //println!("branch delay slot contained {:#x}", op);
           compiled = self.compile_opcode(op);
-          operations.push(compiled.take().expect(""));
+          //println!("{:#x} followed by {:#x}", jump_op, op);
+          operations.push(compiled.expect("Consecutive jumps are not allowed in the MIPS ISA"));
 
           //println!("compiled a block with {} operations for {:#x}", operations.len(), start);
           self.stubs.insert(start, Stub { operations, final_pc: address });
