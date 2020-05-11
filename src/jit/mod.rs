@@ -19,7 +19,19 @@ mod opcodes;
 mod jumps;
 mod handle_dma;
 
-type Stub = Vec<Box<dyn Fn(&mut State)>>;
+struct Stub {
+  operations: Vec<Box<dyn Fn(&mut State)>>,
+  final_pc: Register,
+}
+
+impl Stub {
+  fn operations(&self) -> &Vec<Box<dyn Fn(&mut State)>> {
+    &self.operations
+  }
+  fn final_pc(&self) -> Register {
+    self.final_pc
+  }
+}
 
 struct State {
   //these correspond to physical components
@@ -76,7 +88,6 @@ impl State {
 pub struct JIT {
   state: State,
   stubs: HashMap<Register, Stub>,
-
   i: u32,
 }
 
@@ -87,8 +98,11 @@ impl Runnable for JIT {
       let maybe_stub = self.stubs.get(&self.state.r3000.pc());
       match maybe_stub {
         Some(stub) => {
-          println!("running block {:#x}", self.state.r3000.pc());
-          for f in stub {
+          //println!("running block {:#x}", self.state.r3000.pc());
+          self.i = 0;
+          let operations = stub.operations();
+          *self.state.r3000.pc_mut() = stub.final_pc();
+          for f in operations {
             self.state.r3000.flush_write_cache(&mut self.state.delayed_writes,
                                                &mut self.state.modified_register);
             f(&mut self.state);
@@ -97,6 +111,8 @@ impl Runnable for JIT {
               None => (),
             };
             self.state.cd.exec_command();
+            self.i += 1;
+            //println!("on step {} of block", self.i);
           }
           *self.state.r3000.pc_mut() = self.state.next_pc;
         },
@@ -111,9 +127,10 @@ impl Runnable for JIT {
             operations.push(compiled.take().expect(""));
             address += 4;
             op = self.state.resolve_memresponse(self.state.memory.read_word(address));
+            //println!("{:#x}", op);
             compiled = self.compile_opcode(op);
           }
-          println!("jump {:#x} at {:#x}", op, address);
+          //println!("jump {:#x} at {:#x}", op, address);
           //get the jump instruction that ended the block
           let compiled_jump = self.compile_jump(op);
           operations.push(compiled_jump);
@@ -121,11 +138,12 @@ impl Runnable for JIT {
           //add the branch delay slot to the stub
           address += 4;
           let op = self.state.resolve_memresponse(self.state.memory.read_word(address));
+          //println!("{:#x}", op);
           compiled = self.compile_opcode(op);
           operations.push(compiled.take().expect(""));
 
-          self.stubs.insert(start, operations);
-          println!("compiled a block for {:#x}", start);
+          //println!("compiled a block with {} operations for {:#x}", operations.len(), start);
+          self.stubs.insert(start, Stub { operations, final_pc: address });
         },
       }
     }
