@@ -24,7 +24,7 @@ const PHYS_MASK: [u32; 8] = [0xffff_ffff, 0xffff_ffff, 0xffff_ffff, 0xffff_ffff,
                              0x7fff_ffff, 0x1fff_ffff, 0xffff_ffff, 0xffff_ffff];
 fn physical(address: Register) -> Register {
   let idx = address.upper_bits(3) as usize;
-  address & PHYS_MASK[idx]
+  address & PHYS_MASK[idx] & 0xffff_fffc
 }
 
 struct Stub {
@@ -145,14 +145,14 @@ impl Runnable for JIT {
         },
         None => {
           let mut operations = vec![];
-          let start = physical(self.state.r3000.pc());
+          let start = self.state.r3000.pc();
           let mut op = self.state.resolve_memresponse(self.state.memory.read_word(start));
           let mut address = start;
           let mut compiled = self.compile_opcode(op);
           //add all instructions before the next jump to the stub
           while compiled.is_some() {
             operations.push(compiled.take().expect(""));
-            address = physical(address.wrapping_add(4));
+            address = address.wrapping_add(4);
             op = self.state.resolve_memresponse(self.state.memory.read_word(address));
             //println!("{:#x}", op);
             compiled = self.compile_opcode(op);
@@ -164,7 +164,7 @@ impl Runnable for JIT {
           operations.push(compiled_jump);
 
           //add the branch delay slot to the stub
-          address = physical(address.wrapping_add(4));
+          address = address.wrapping_add(4);
           let op = self.state.resolve_memresponse(self.state.memory.read_word(address));
           //println!("branch delay slot contained {:#x}", op);
           compiled = self.compile_opcode(op);
@@ -172,7 +172,7 @@ impl Runnable for JIT {
           operations.push(compiled.expect("Consecutive jumps are not allowed in the MIPS ISA"));
 
           //println!("compiled a block with {} operations for {:#x}", operations.len(), start);
-          self.stubs.insert(start, Stub { operations, final_pc: address });
+          self.stubs.insert(physical(start), Stub { operations, final_pc: address });
         },
       }
     }
