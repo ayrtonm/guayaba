@@ -42,8 +42,7 @@ fn get_secondary_field(op: u32) -> u32 {
 impl JIT {
   //if program counter should incremented normally, return None
   //otherwise return Some(new program counter)
-  pub(super) fn compile_opcode(&mut self, op: u32) -> Option<Box<dyn Fn(&mut State)>> {
-    let logging = false;
+  pub(super) fn compile_opcode(&mut self, op: u32, logging: bool) -> Option<Box<dyn Fn(&mut State)>> {
     macro_rules! log {
       () => ($crate::print!("\n"));
       ($($arg:tt)*) => ({

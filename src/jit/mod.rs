@@ -120,7 +120,6 @@ impl Runnable for JIT {
       match maybe_stub {
         Some(stub) => {
           //println!("running block {:#x}", self.state.r3000.pc());
-          self.i = 0;
           let operations = stub.operations();
           *self.state.r3000.pc_mut() = stub.final_pc();
           for f in operations {
@@ -133,6 +132,7 @@ impl Runnable for JIT {
             };
             self.state.cd.exec_command();
             self.i += 1;
+            n.map(|n| if self.i == n { panic!("Executed {} steps", self.i); });
             //println!("on step {} of block", self.i);
           }
           *self.state.r3000.pc_mut() = self.state.next_pc;
@@ -148,26 +148,26 @@ impl Runnable for JIT {
           let start = self.state.r3000.pc();
           let mut op = self.state.resolve_memresponse(self.state.memory.read_word(start));
           let mut address = start;
-          let mut compiled = self.compile_opcode(op);
+          let mut compiled = self.compile_opcode(op, logging);
           //add all instructions before the next jump to the stub
           while compiled.is_some() {
             operations.push(compiled.take().expect(""));
             address = address.wrapping_add(4);
             op = self.state.resolve_memresponse(self.state.memory.read_word(address));
             //println!("{:#x}", op);
-            compiled = self.compile_opcode(op);
+            compiled = self.compile_opcode(op, logging);
           }
           //println!("jump {:#x} at {:#x}", op, address);
           //get the jump instruction that ended the block
           let jump_op = op;
-          let compiled_jump = self.compile_jump(op);
+          let compiled_jump = self.compile_jump(op, logging);
           operations.push(compiled_jump);
 
           //add the branch delay slot to the stub
           address = address.wrapping_add(4);
           let op = self.state.resolve_memresponse(self.state.memory.read_word(address));
           //println!("branch delay slot contained {:#x}", op);
-          compiled = self.compile_opcode(op);
+          compiled = self.compile_opcode(op, logging);
           //println!("{:#x} followed by {:#x}", jump_op, op);
           operations.push(compiled.expect("Consecutive jumps are not allowed in the MIPS ISA"));
 

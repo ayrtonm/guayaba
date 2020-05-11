@@ -40,17 +40,16 @@ fn get_secondary_field(op: u32) -> u32 {
 }
 
 impl JIT {
-  pub(super) fn compile_jump(&mut self, op: u32) -> Box<dyn Fn(&mut State)> {
+  pub(super) fn compile_jump(&mut self, op: u32, logging: bool) -> Box<dyn Fn(&mut State)> {
     Box::new(move |vm| {
-      vm.next_pc = vm.compile_jump_internal(op)(vm)
+      vm.next_pc = vm.compile_jump_internal(op, logging)(vm)
                      .map_or_else(|| vm.r3000.pc().wrapping_add(4),
                                   |next_pc| next_pc);
     })
   }
 }
 impl State {
-  fn compile_jump_internal(&mut self, op: u32) -> Box<dyn Fn(&mut State) -> Option<Register>> {
-    let logging = false;
+  fn compile_jump_internal(&mut self, op: u32, logging: bool) -> Box<dyn Fn(&mut State) -> Option<Register>> {
     macro_rules! log {
       () => ($crate::print!("\n"));
       ($($arg:tt)*) => ({
