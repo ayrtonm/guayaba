@@ -47,9 +47,22 @@ struct State {
   next_pc: Register,
   delayed_writes: VecDeque<DelayedWrite>,
   modified_register: Option<Name>,
+  overwritten: Vec<Register>,
 }
 
 impl State {
+  fn write_byte(&mut self, address: Register, value: Register) -> Option<Vec<MemAction>> {
+    self.overwritten.push(address);
+    self.memory.write_byte(address, value)
+  }
+  fn write_half(&mut self, address: Register, value: Register) -> Option<Vec<MemAction>> {
+    self.overwritten.push(address);
+    self.memory.write_half(address, value)
+  }
+  fn write_word(&mut self, address: Register, value: Register) -> Option<Vec<MemAction>> {
+    self.overwritten.push(address);
+    self.memory.write_word(address, value)
+  }
   fn resolve_memresponse(&mut self, response: MemResponse) -> Register {
     match response {
       MemResponse::Value(value) => value,
@@ -115,6 +128,8 @@ impl Runnable for JIT {
             //println!("on step {} of block", self.i);
           }
           *self.state.r3000.pc_mut() = self.state.next_pc;
+          self.state.overwritten.clone().iter().for_each(|addr| {self.stubs.remove(&addr);});
+          self.state.overwritten.clear();
         },
         None => {
           let mut operations = vec![];
@@ -174,6 +189,7 @@ impl JIT {
         next_pc: 0,
         delayed_writes,
         modified_register: None,
+        overwritten: vec![],
       },
 
       stubs: Default::default(),

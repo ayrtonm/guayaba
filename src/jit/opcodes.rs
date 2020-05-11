@@ -122,7 +122,7 @@ impl JIT {
               let aligned_word = vm.resolve_memresponse(vm.memory.read_word(aligned_address));
               let num_bits = $offset.$operator(8*address.lowest_bits(2));
               let result = rt.$shift(num_bits) | aligned_word.$mask(num_bits);
-              let maybe_action = vm.memory.write_word(aligned_address, result);
+              let maybe_action = vm.write_word(aligned_address, result);
               vm.resolve_memactions(maybe_action);
             } else {
               log!("ignoring write while cache is isolated");
@@ -140,7 +140,7 @@ impl JIT {
             log!("[{:#x} + {:#x}] = [{:#x}] \n  = R{}\n  = {:#x} {}",
                       rs, imm16, rs.wrapping_add(imm16), get_rt(op), rt, stringify!($method));
             if !vm.cop0.cache_isolated() {
-              let maybe_action = vm.memory.$method(rs.wrapping_add(imm16), rt);
+              let maybe_action = vm.$method(rs.wrapping_add(imm16), rt);
               vm.resolve_memactions(maybe_action);
             } else {
               log!("ignoring write while cache is isolated");
