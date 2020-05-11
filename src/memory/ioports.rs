@@ -52,47 +52,47 @@ macro_rules! get_io_response {
       let value = $self.io_ports.as_ref().$function(offset);
       match aligned_address {
         Memory::INTERRUPT_STAT => {
-          println!("read interrupt stat");
+          //println!("read interrupt stat");
           MemResponse::Value(value)
         },
         Memory::INTERRUPT_MASK => {
-          println!("read interrupt mask");
+          //println!("read interrupt mask");
           MemResponse::Value(value)
         },
         Memory::TIMER_VALUE_0 => {
-          println!("read timer value 0");
+          //println!("read timer value 0");
           MemResponse::Value(value)
         },
         Memory::TIMER_MODE_0 => {
-          println!("read timer mode 0");
+          //println!("read timer mode 0");
           MemResponse::Value(value)
         },
         Memory::TIMER_TARGET_0 => {
-          println!("read timer target 0");
+          //println!("read timer target 0");
           MemResponse::Value(value)
         },
         Memory::TIMER_VALUE_1 => {
-          println!("read timer value 1");
+          //println!("read timer value 1");
           MemResponse::Value(value)
         },
         Memory::TIMER_MODE_1 => {
-          println!("read timemode r 1");
+          //println!("read timemode r 1");
           MemResponse::Value(value)
         },
         Memory::TIMER_TARGET_1 => {
-          println!("read timer target 1");
+          //println!("read timer target 1");
           MemResponse::Value(value)
         },
         Memory::TIMER_VALUE_2 => {
-          println!("read timer value 2");
+          //println!("read timer value 2");
           MemResponse::Value(value)
         },
         Memory::TIMER_MODE_2 => {
-          println!("read timer mode 2");
+          //println!("read timer mode 2");
           MemResponse::Value(value)
         },
         Memory::TIMER_TARGET_2 => {
-          println!("read timer target 2");
+          //println!("read timer target 2");
           MemResponse::Value(value)
         },
         Memory::CD_PORT => {
@@ -163,7 +163,7 @@ macro_rules! get_io_action {
             }
           }
           $self.old_interrupt_stat = $self.io_ports.as_ref().read_half(aligned_offset);
-          println!("wrote {:#x} to interrupt stat", $value);
+          //println!("wrote {:#x} to interrupt stat", $value);
           match irq.len() {
             0 => {
               None
@@ -182,47 +182,47 @@ macro_rules! get_io_action {
                                            .clear(13)
                                            .clear(14)
                                            .clear(15));
-          println!("wrote {:#x} to interrupt mask", $value);
+          //println!("wrote {:#x} to interrupt mask", $value);
           None
         },
         Memory::TIMER_VALUE_0 => {
-          println!("wrote {:#x} to timer value 0", $value);
+          //println!("wrote {:#x} to timer value 0", $value);
           None
         },
         Memory::TIMER_MODE_0 => {
-          println!("wrote {:#x} to timer mode 0", $value);
+          //println!("wrote {:#x} to timer mode 0", $value);
           None
         },
         Memory::TIMER_TARGET_0 => {
-          println!("wrote {:#x} to timer target 0", $value);
+          //println!("wrote {:#x} to timer target 0", $value);
           None
         },
         Memory::TIMER_VALUE_1 => {
-          println!("wrote {:#x} to timer value 1", $value);
+          //println!("wrote {:#x} to timer value 1", $value);
           None
         },
         Memory::TIMER_MODE_1 => {
-          println!("wrote {:#x} to timemode r 1", $value);
+          //println!("wrote {:#x} to timemode r 1", $value);
           None
         },
         Memory::TIMER_TARGET_1 => {
-          println!("wrote {:#x} to timer target 1", $value);
+          //println!("wrote {:#x} to timer target 1", $value);
           None
         },
         Memory::TIMER_VALUE_2 => {
-          println!("wrote {:#x} to timer value 2", $value);
+          //println!("wrote {:#x} to timer value 2", $value);
           None
         },
         Memory::TIMER_MODE_2 => {
-          println!("wrote {:#x} to timer mode 2", $value);
+          //println!("wrote {:#x} to timer mode 2", $value);
           None
         },
         Memory::TIMER_TARGET_2 => {
-          println!("wrote {:#x} to timer target 2", $value);
+          //println!("wrote {:#x} to timer target 2", $value);
           None
         },
         Memory::CD_PORT => {
-          println!("CD {} {:#x} to {:#x}", stringify!($function), $value, $address);
+          //println!("CD {} {:#x} to {:#x}", stringify!($function), $value, $address);
           let index = $self.io_ports.as_ref().read_byte(aligned_offset).lowest_bits(2);
           match $address.lowest_bits(2) {
             //could write word, half or byte

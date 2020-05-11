@@ -15,6 +15,8 @@ use crate::gpu::GPU;
 use crate::gte::GTE;
 use crate::screen::Screen;
 use crate::runnable::Runnable;
+use sdl2::event::Event;
+use sdl2::keyboard::Keycode;
 
 mod opcodes;
 mod jumps;
@@ -24,7 +26,7 @@ const PHYS_MASK: [u32; 8] = [0xffff_ffff, 0xffff_ffff, 0xffff_ffff, 0xffff_ffff,
                              0x7fff_ffff, 0x1fff_ffff, 0xffff_ffff, 0xffff_ffff];
 fn physical(address: Register) -> Register {
   let idx = address.upper_bits(3) as usize;
-  address & PHYS_MASK[idx] & 0xffff_fffc
+  address & PHYS_MASK[idx]
 }
 
 struct Stub {
@@ -139,9 +141,20 @@ impl Runnable for JIT {
           self.state.overwritten.clone()
                                 .iter()
                                 .for_each(|&addr| {
-                                  self.stubs.remove(&physical(addr));
+                                  let invalidated = self.stubs.iter()
+                                                              .filter(|(&k,_)| k <= addr)
+                                                              .filter(|(_,v)| addr <= v.final_pc())
+                                                              .map(|(&k,_)| k)
+                                                              .collect::<Vec<Register>>();
+                                  invalidated.iter()
+                                             .for_each(|&invalid| {
+                                               self.stubs.remove(&physical(invalid));
+                                             });
                                 });
           self.state.overwritten.clear();
+          if !self.handle_events() {
+            return
+          }
         },
         None => {
           let mut operations = vec![];
@@ -163,13 +176,16 @@ impl Runnable for JIT {
           let compiled_jump = self.compile_jump(op, logging);
           operations.push(compiled_jump);
 
-          //add the branch delay slot to the stub
-          address = address.wrapping_add(4);
-          let op = self.state.resolve_memresponse(self.state.memory.read_word(address));
-          //println!("branch delay slot contained {:#x}", op);
-          compiled = self.compile_opcode(op, logging);
-          //println!("{:#x} followed by {:#x}", jump_op, op);
-          operations.push(compiled.expect("Consecutive jumps are not allowed in the MIPS ISA"));
+          //if the jump was not a SYSCALL
+          if jump_op != 0xc {
+            //add the branch delay slot to the stub
+            address = address.wrapping_add(4);
+            let op = self.state.resolve_memresponse(self.state.memory.read_word(address));
+            //println!("branch delay slot contained {:#x}", op);
+            compiled = self.compile_opcode(op, logging);
+            //println!("{:#x} followed by {:#x}", jump_op, op);
+            operations.push(compiled.expect("Consecutive jumps are not allowed in the MIPS ISA"));
+          }
 
           //println!("compiled a block with {} operations for {:#x}", operations.len(), start);
           self.stubs.insert(physical(start), Stub { operations, final_pc: address });
@@ -210,5 +226,21 @@ impl JIT {
 
       i: 0,
     })
+  }
+  fn handle_events(&mut self) -> bool {
+    let event_rate: u32 = 100_000;
+    if self.i % event_rate == 0 {
+      for event in self.state.screen.event_pump().poll_iter() {
+        match event {
+          Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
+            println!("Executed {} steps", self.i);
+            return false;
+          },
+          Event::Quit {..} => panic!(""),
+          _ => {},
+        }
+      }
+    }
+    true
   }
 }
