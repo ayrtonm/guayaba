@@ -126,7 +126,13 @@ impl Runnable for JIT {
     let mut compile_time = start_time - start_time;
     println!("running in JIT mode");
     loop {
-      let maybe_stub = self.stubs.get(&physical(self.state.r3000.pc()));
+      let address = physical(self.state.r3000.pc());
+      if self.state.overwritten.iter().any(|&ov| ov == address) {
+        self.state.overwritten.sort();
+        self.state.overwritten.dedup();
+        down_time += self.full_cache_invalidation();
+      };
+      let maybe_stub = self.stubs.get(&address);
       match maybe_stub {
         Some(stub) => {
           //println!("running block {:#x}", self.state.r3000.pc());
@@ -152,7 +158,6 @@ impl Runnable for JIT {
             //println!("on step {} of block", self.i);
           }
           *self.state.r3000.pc_mut() = self.state.next_pc;
-          down_time += self.invalidate_cache();
           if !self.handle_events() {
             return
           }
@@ -250,7 +255,7 @@ impl JIT {
     let t1 = Instant::now();
     t1 - t0
   }
-  fn invalidate_cache(&mut self) -> Duration {
+  fn full_cache_invalidation(&mut self) -> Duration {
     let t0 = Instant::now();
     let mut invalidated = Vec::new();
     self.state.overwritten.iter()
