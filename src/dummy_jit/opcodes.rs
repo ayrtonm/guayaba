@@ -7,11 +7,11 @@ use crate::r3000::MaybeSet;
 use crate::r3000::DelayedWrite;
 use crate::r3000::Name;
 use crate::cop0::Cop0Exception;
-use crate::dummy_jit::JIT;
+use crate::dummy_jit::Dummy_JIT;
 use crate::console::Console;
 use crate::common::*;
 
-impl JIT {
+impl Dummy_JIT {
   //if program counter should incremented normally, return None
   //otherwise return Some(new program counter)
   pub(super) fn compile_opcode(&mut self, op: u32, logging: bool) -> Option<Box<dyn Fn(&mut Console)>> {

@@ -2,7 +2,7 @@ use std::io;
 use std::env;
 use std::convert::TryInto;
 use interpreter::Interpreter;
-use dummy_jit::JIT;
+use dummy_jit::Dummy_JIT;
 
 mod console;
 mod common;
@@ -94,7 +94,7 @@ fn main() -> io::Result<()> {
         if !jit {
           Interpreter::new(bios_filename, infile, gpu_logging, wx, wy)?.run(steps, logging);
         } else {
-          JIT::new(bios_filename, infile, gpu_logging, wx, wy)?.run(steps, logging);
+          Dummy_JIT::new(bios_filename, infile, gpu_logging, wx, wy)?.run(steps, logging);
         }
       },
       None => {

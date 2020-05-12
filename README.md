@@ -1,5 +1,5 @@
 # RSX - A PlayStation 1 Emulator
-RSX is a PS1 emulator started as a way for me to understand a relatively "simple" MIPS-based system before moving on to emulating more [modern consoles](https://github.com/ayrtonm/gecko). Recently it's evolved into a way to test various interpreter and just-in-time (JIT) compilers and currently includes:
+RSX is a PS1 emulator started as a way for me to understand a relatively "simple" MIPS-based system before moving on to emulating more [modern consoles](https://github.com/ayrtonm/gecko). Recently it's evolved into a way to test various interpreters and just-in-time (JIT) compilers and currently includes:
 
  - a standard interpreter
  - a dummy JIT that "compiles" PS1 code to a sequence of closures

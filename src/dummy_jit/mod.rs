@@ -22,7 +22,7 @@ impl Stub {
   }
 }
 
-pub struct JIT {
+pub struct Dummy_JIT {
   console: Console,
   //maps start addresses to stubs for efficient execution
   stubs: HashMap<Register, Stub>,
@@ -30,12 +30,12 @@ pub struct JIT {
   ranges_compiled: HashMap<Register, Vec<Register>>,
 }
 
-impl JIT {
+impl Dummy_JIT {
   pub fn run(&mut self, n: Option<u32>, logging: bool) {
     let start_time = Instant::now();
     let mut down_time = start_time - start_time;
     let mut compile_time = start_time - start_time;
-    println!("running in JIT mode");
+    println!("running in dummy JIT mode");
     loop {
       let address = Console::physical(self.console.r3000.pc());
       let t0 = Instant::now();
@@ -84,7 +84,9 @@ impl JIT {
             });
             //println!("on step {} of block", self.i);
           }
-          *self.console.r3000.pc_mut() = self.console.next_pc.expect("this should not be an option");
+          *self.console.r3000.pc_mut() = self.console.next_pc
+                                                     .map_or_else(|| self.console.r3000.pc().wrapping_add(4),
+                                                                  |next_pc| next_pc);
           if !self.console.handle_events() {
             return
           }
@@ -174,8 +176,9 @@ impl JIT {
     });
     self.console.overwritten.clear();
     for i in invalidated {
-      let value = self.stubs.remove(&i).unwrap();
-      self.ranges_compiled.remove(&value.final_pc());
+      self.stubs.remove(&i);
+      //let value = self.stubs.remove(&i).unwrap();
+      //self.ranges_compiled.remove(&value.final_pc());
     }
   }
 }
