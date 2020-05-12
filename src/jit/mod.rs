@@ -1,6 +1,7 @@
 use std::io;
 use std::collections::VecDeque;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::time::Instant;
 use std::time::Duration;
 use crate::register::Register;
@@ -59,20 +60,20 @@ struct State {
   next_pc: Register,
   delayed_writes: VecDeque<DelayedWrite>,
   modified_register: Option<Name>,
-  overwritten: Vec<Register>,
+  overwritten: HashSet<Register>,
 }
 
 impl State {
   fn write_byte(&mut self, address: Register, value: Register) -> Option<Vec<MemAction>> {
-    self.overwritten.push(physical(address));
+    self.overwritten.insert(physical(address));
     self.memory.write_byte(address, value)
   }
   fn write_half(&mut self, address: Register, value: Register) -> Option<Vec<MemAction>> {
-    self.overwritten.push(physical(address));
+    self.overwritten.insert(physical(address));
     self.memory.write_half(address, value)
   }
   fn write_word(&mut self, address: Register, value: Register) -> Option<Vec<MemAction>> {
-    self.overwritten.push(physical(address));
+    self.overwritten.insert(physical(address));
     self.memory.write_word(address, value)
   }
   fn resolve_memresponse(&mut self, response: MemResponse) -> Register {
@@ -127,11 +128,27 @@ impl Runnable for JIT {
     println!("running in JIT mode");
     loop {
       let address = physical(self.state.r3000.pc());
-      if self.state.overwritten.iter().any(|&ov| ov == address) {
-        self.state.overwritten.sort();
-        self.state.overwritten.dedup();
-        down_time += self.full_cache_invalidation();
-      };
+      let t0 = Instant::now();
+      if self.state.overwritten.len() >= 1000 {
+        self.cache_invalidation();
+      }
+      let maybe_invalidated_stub = self.stubs.get(&address);
+      match maybe_invalidated_stub {
+        Some(stub) => {
+          let mut intersection = self.state.overwritten.clone();
+          //these are the executable addresses that have been overwritten
+          //this will be no bigger than the size of the stub
+          intersection.retain(|&t| address <= t && t <= physical(stub.final_pc()));
+
+          if !intersection.is_empty() {
+            self.cache_invalidation();
+          };
+        },
+        None => {
+        },
+      }
+      let t1 = Instant::now();
+      down_time += t1 - t0;
       let maybe_stub = self.stubs.get(&address);
       match maybe_stub {
         Some(stub) => {
@@ -163,6 +180,7 @@ impl Runnable for JIT {
           }
         },
         None => {
+          //if the stub was invalidated, compile another one
           compile_time += self.compile_stub(logging);
         },
       }
@@ -194,7 +212,7 @@ impl JIT {
         next_pc: 0,
         delayed_writes,
         modified_register: None,
-        overwritten: vec![],
+        overwritten: Default::default(),
       },
 
       stubs: Default::default(),
@@ -255,8 +273,7 @@ impl JIT {
     let t1 = Instant::now();
     t1 - t0
   }
-  fn full_cache_invalidation(&mut self) -> Duration {
-    let t0 = Instant::now();
+  fn cache_invalidation(&mut self) {
     let mut invalidated = Vec::new();
     self.state.overwritten.iter()
     .for_each(|&addr| {
@@ -273,10 +290,9 @@ impl JIT {
     });
     self.state.overwritten.clear();
     for i in invalidated {
-      self.stubs.remove(&i);
+      let value = self.stubs.remove(&i).unwrap();
+      self.ranges_compiled.remove(&value.final_pc());
     }
-    let t1 = Instant::now();
-    t1 - t0
   }
   fn handle_events(&mut self) -> bool {
     let event_rate: u32 = 100_000;
