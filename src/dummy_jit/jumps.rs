@@ -1,55 +1,22 @@
-use std::ops::Add;
-use std::ops::Shl;
-use std::ops::Shr;
-use std::ops::Sub;
 use crate::register::Register;
 use crate::register::BitBang;
 use crate::r3000::MaybeSet;
-use crate::r3000::DelayedWrite;
-use crate::r3000::Name;
 use crate::cop0::Cop0Exception;
-use crate::jit::JIT;
-use crate::jit::State;
-
-fn get_rs(op: u32) -> u32 {
-  (op & 0x03e0_0000) >> 21
-}
-fn get_rt(op: u32) -> u32 {
-  (op & 0x001f_0000) >> 16
-}
-fn get_rd(op: u32) -> u32 {
-  (op & 0x0000_f800) >> 11
-}
-fn get_imm5(op: u32) -> u32 {
-  (op & 0x0000_07c0) >> 6
-}
-fn get_imm16(op: u32) -> u32 {
-  op & 0x0000_ffff
-}
-fn get_imm25(op: u32) -> u32 {
-  op & 0x01ff_ffff
-}
-fn get_imm26(op: u32) -> u32 {
-  op & 0x03ff_ffff
-}
-fn get_primary_field(op: u32) -> u32 {
-  (op & 0xfc00_0000) >> 26
-}
-fn get_secondary_field(op: u32) -> u32 {
-  op & 0x0000_003f
-}
+use crate::dummy_jit::JIT;
+use crate::console::Console;
+use crate::common::*;
 
 impl JIT {
-  pub(super) fn compile_jump(&mut self, op: u32, logging: bool) -> Box<dyn Fn(&mut State)> {
+  pub(super) fn compile_jump(&mut self, op: u32, logging: bool) -> Box<dyn Fn(&mut Console)> {
     Box::new(move |vm| {
-      vm.next_pc = vm.compile_jump_internal(op, logging)(vm)
+      vm.next_pc = Some(vm.compile_jump_internal(op, logging)(vm)
                      .map_or_else(|| vm.r3000.pc().wrapping_add(4),
-                                  |next_pc| next_pc);
+                                  |next_pc| next_pc));
     })
   }
 }
-impl State {
-  fn compile_jump_internal(&mut self, op: u32, logging: bool) -> Box<dyn Fn(&mut State) -> Option<Register>> {
+impl Console {
+  fn compile_jump_internal(&mut self, op: u32, logging: bool) -> Box<dyn Fn(&mut Console) -> Option<Register>> {
     macro_rules! log {
       () => ($crate::print!("\n"));
       ($($arg:tt)*) => ({

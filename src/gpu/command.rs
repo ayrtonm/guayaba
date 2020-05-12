@@ -1,6 +1,5 @@
 use crate::register::Register;
 use crate::register::BitBang;
-use crate::screen::Drawable;
 
 #[derive(Debug)]
 pub struct Command(Vec<Register>);

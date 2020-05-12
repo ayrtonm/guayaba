@@ -9,34 +9,7 @@ use crate::r3000::DelayedWrite;
 use crate::r3000::Name;
 use crate::cop0::Cop0Exception;
 use crate::interpreter::Interpreter;
-
-fn get_rs(op: u32) -> u32 {
-  (op & 0x03e0_0000) >> 21
-}
-fn get_rt(op: u32) -> u32 {
-  (op & 0x001f_0000) >> 16
-}
-fn get_rd(op: u32) -> u32 {
-  (op & 0x0000_f800) >> 11
-}
-fn get_imm5(op: u32) -> u32 {
-  (op & 0x0000_07c0) >> 6
-}
-fn get_imm16(op: u32) -> u32 {
-  op & 0x0000_ffff
-}
-fn get_imm25(op: u32) -> u32 {
-  op & 0x01ff_ffff
-}
-fn get_imm26(op: u32) -> u32 {
-  op & 0x03ff_ffff
-}
-fn get_primary_field(op: u32) -> u32 {
-  (op & 0xfc00_0000) >> 26
-}
-fn get_secondary_field(op: u32) -> u32 {
-  op & 0x0000_003f
-}
+use crate::common::*;
 
 impl Interpreter{
   //if program counter should incremented normally, return None
@@ -67,30 +40,30 @@ impl Interpreter{
       };
       (rt = [rs + imm16] $offset:expr, $operator:ident $mask:ident $shift:ident) => {
         {
-          let rs = self.r3000.nth_reg(get_rs(op));
+          let rs = self.console.r3000.nth_reg(get_rs(op));
           let imm16 = get_imm16(op).half_sign_extended();
           let rt_idx = get_rt(op);
-          let rt = self.delayed_writes.iter()
+          let rt = self.console.delayed_writes.iter()
                                       .rev()
                                       .find(|write| *write.name() == Name::Rn(rt_idx))
-                                      .map_or(self.r3000.nth_reg(rt_idx),|write| write.value());
+                                      .map_or(self.console.r3000.nth_reg(rt_idx),|write| write.value());
           let address = rs.wrapping_add(imm16);
           let aligned_address = *address.clone().clear_mask(3);
-          let aligned_word = self.resolve_memresponse(self.memory.read_word(aligned_address));
+          let aligned_word = self.console.resolve_memresponse(self.console.memory.read_word(aligned_address));
           let num_bits = $offset.$operator(8*address.lowest_bits(2));
           let result = rt.$mask(num_bits) | aligned_word.$shift(num_bits);
-          self.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt_idx), result));
+          self.console.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt_idx), result));
           None
         }
       };
       //delayed aligned reads
       (rt = [rs + imm16] $method:ident) => {
         {
-          let rs = self.r3000.nth_reg(get_rs(op));
+          let rs = self.console.r3000.nth_reg(get_rs(op));
           let imm16 = get_imm16(op).half_sign_extended();
           let rt = get_rt(op);
-          let result = self.resolve_memresponse(self.memory.$method(rs.wrapping_add(imm16)));
-          self.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt), result));
+          let result = self.console.resolve_memresponse(self.console.memory.$method(rs.wrapping_add(imm16)));
+          self.console.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt), result));
           log!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x} {}",
                     rt, rs, imm16, rs.wrapping_add(imm16), result, stringify!($method));
           None
@@ -108,17 +81,17 @@ impl Interpreter{
       };
       ([rs + imm16] = rt $offset:expr, $operator:ident $mask:ident $shift:ident) => {
         {
-          let rs = self.r3000.nth_reg(get_rs(op));
-          let rt = self.r3000.nth_reg(get_rt(op));
+          let rs = self.console.r3000.nth_reg(get_rs(op));
+          let rt = self.console.r3000.nth_reg(get_rt(op));
           let imm16 = get_imm16(op).half_sign_extended();
-          if !self.cop0.cache_isolated() {
+          if !self.console.cop0.cache_isolated() {
             let address = rs.wrapping_add(imm16);
             let aligned_address = *address.clone().clear_mask(3);
-            let aligned_word = self.resolve_memresponse(self.memory.read_word(aligned_address));
+            let aligned_word = self.console.resolve_memresponse(self.console.memory.read_word(aligned_address));
             let num_bits = $offset.$operator(8*address.lowest_bits(2));
             let result = rt.$shift(num_bits) | aligned_word.$mask(num_bits);
-            let maybe_action = self.memory.write_word(aligned_address, result);
-            self.resolve_memactions(maybe_action);
+            let maybe_action = self.console.memory.write_word(aligned_address, result);
+            self.console.resolve_memactions(maybe_action);
           } else {
             log!("ignoring write while cache is isolated");
           }
@@ -128,14 +101,14 @@ impl Interpreter{
       //aligned writes
       ([rs + imm16] = rt $method:ident) => {
         {
-          let rs = self.r3000.nth_reg(get_rs(op));
-          let rt = self.r3000.nth_reg(get_rt(op));
+          let rs = self.console.r3000.nth_reg(get_rs(op));
+          let rt = self.console.r3000.nth_reg(get_rt(op));
           let imm16 = get_imm16(op).half_sign_extended();
           log!("[{:#x} + {:#x}] = [{:#x}] \n  = R{}\n  = {:#x} {}",
                     rs, imm16, rs.wrapping_add(imm16), get_rt(op), rt, stringify!($method));
-          if !self.cop0.cache_isolated() {
-            let maybe_action = self.memory.$method(rs.wrapping_add(imm16), rt);
-            self.resolve_memactions(maybe_action);
+          if !self.console.cop0.cache_isolated() {
+            let maybe_action = self.console.memory.$method(rs.wrapping_add(imm16), rt);
+            self.console.resolve_memactions(maybe_action);
           } else {
             log!("ignoring write while cache is isolated");
           }
@@ -144,8 +117,8 @@ impl Interpreter{
       };
       (lo = rs) => {
         {
-          let rs = self.r3000.nth_reg(get_rs(op));
-          let lo = self.r3000.lo_mut();
+          let rs = self.console.r3000.nth_reg(get_rs(op));
+          let lo = self.console.r3000.lo_mut();
           *lo = rs;
           log!("op1");
           None
@@ -153,8 +126,8 @@ impl Interpreter{
       };
       (hi = rs) => {
         {
-          let rs = self.r3000.nth_reg(get_rs(op));
-          let hi = self.r3000.hi_mut();
+          let rs = self.console.r3000.nth_reg(get_rs(op));
+          let hi = self.console.r3000.hi_mut();
           *hi = rs;
           log!("op2");
           None
@@ -162,149 +135,149 @@ impl Interpreter{
       };
       (rd = lo) => {
         {
-          let lo = self.r3000.lo();
+          let lo = self.console.r3000.lo();
           let rd_idx = get_rd(op);
-          let rd = self.r3000.nth_reg_mut(rd_idx);
-          self.modified_register = rd.maybe_set(lo);
+          let rd = self.console.r3000.nth_reg_mut(rd_idx);
+          self.console.modified_register = rd.maybe_set(lo);
           log!("op3");
           None
         }
       };
       (rd = hi) => {
         {
-          let hi = self.r3000.hi();
+          let hi = self.console.r3000.hi();
           let rd_idx = get_rd(op);
-          let rd = self.r3000.nth_reg_mut(rd_idx);
-          self.modified_register = rd.maybe_set(hi);
+          let rd = self.console.r3000.nth_reg_mut(rd_idx);
+          self.console.modified_register = rd.maybe_set(hi);
           log!("op4");
           None
         }
       };
     }
-    //since self.r3000 is borrowed mutably on the lhs, the rhs must be
+    //since self.console.r3000 is borrowed mutably on the lhs, the rhs must be
     //computed from the immutable references before assigning its value
     //to the lhs
     macro_rules! compute {
       //ALU instructions with two general purpose registers
       (rd = rs $method:ident rt) => {
         {
-          let rs = self.r3000.nth_reg(get_rs(op));
-          let rt = self.r3000.nth_reg(get_rt(op));
-          let rd = self.r3000.nth_reg_mut(get_rd(op));
-          self.modified_register = rd.maybe_set(rs.$method(rt));
+          let rs = self.console.r3000.nth_reg(get_rs(op));
+          let rt = self.console.r3000.nth_reg(get_rt(op));
+          let rd = self.console.r3000.nth_reg_mut(get_rd(op));
+          self.console.modified_register = rd.maybe_set(rs.$method(rt));
           log!("R{} = R{} {} R{}\n  = {:#x} {} {:#x}\n  = {:#x}",
                     get_rd(op), get_rs(op), stringify!($method), get_rt(op),
-                    rs, stringify!($method), rt, self.r3000.nth_reg(get_rd(op)));
+                    rs, stringify!($method), rt, self.console.r3000.nth_reg(get_rd(op)));
           None
         }
       };
       //ALU instructions with two general purpose registers that trap overflow
       (rd = rs $method:ident rt trap) => {
         {
-          let rs = self.r3000.nth_reg(get_rs(op)) as u64;
-          let rt = self.r3000.nth_reg(get_rt(op)) as u64;
-          let rd = self.r3000.nth_reg_mut(get_rd(op));
+          let rs = self.console.r3000.nth_reg(get_rs(op)) as u64;
+          let rt = self.console.r3000.nth_reg(get_rt(op)) as u64;
+          let rd = self.console.r3000.nth_reg_mut(get_rd(op));
           let result = rs.$method(rt);
           match result {
             Some(result) => {
-              self.modified_register = rd.maybe_set(result as u32);
+              self.console.modified_register = rd.maybe_set(result as u32);
             },
             None => {
-              let pc = self.r3000.pc_mut();
-              *pc = self.cop0.generate_exception(Cop0Exception::Overflow, *pc);
+              let pc = self.console.r3000.pc_mut();
+              *pc = self.console.cop0.generate_exception(Cop0Exception::Overflow, *pc);
             },
           }
           log!("R{} = R{} {} R{} trap overflow\n  = {:#x} {} {:#x}\n  = {:#x}",
                     get_rd(op), get_rs(op), stringify!($method), get_rt(op),
-                    rs, stringify!($method), rt, self.r3000.nth_reg(get_rd(op)));
+                    rs, stringify!($method), rt, self.console.r3000.nth_reg(get_rd(op)));
           None
         }
       };
       //ALU instructions with a register and immediate 16-bit data that trap overflow
       (rt = rs $method:ident signed imm16 trap) => {
         {
-          let rs = self.r3000.nth_reg(get_rs(op)) as i32;
+          let rs = self.console.r3000.nth_reg(get_rs(op)) as i32;
           let imm16 = get_imm16(op).half_sign_extended() as i32;
-          let rt = self.r3000.nth_reg_mut(get_rt(op));
+          let rt = self.console.r3000.nth_reg_mut(get_rt(op));
           let result = rs.$method(imm16);
           match result {
             Some(result) => {
-              self.modified_register = rt.maybe_set(result as u32);
+              self.console.modified_register = rt.maybe_set(result as u32);
             },
             None => {
-              let pc = self.r3000.pc_mut();
-              *pc = self.cop0.generate_exception(Cop0Exception::Overflow, *pc);
+              let pc = self.console.r3000.pc_mut();
+              *pc = self.console.cop0.generate_exception(Cop0Exception::Overflow, *pc);
             },
           }
           log!("R{} = R{} {} {:#x} trap overflow\n  = {:#x} {} {:#x}\n  = {:#x}",
                     get_rt(op), get_rs(op), stringify!($method), imm16,
-                    rs, stringify!($method), imm16, self.r3000.nth_reg(get_rt(op)));
+                    rs, stringify!($method), imm16, self.console.r3000.nth_reg(get_rt(op)));
           None
         }
       };
       //ALU instructions with a register and immediate 16-bit data
       (rt = rs $method:tt imm16) => {
         {
-          let rs = self.r3000.nth_reg(get_rs(op));
+          let rs = self.console.r3000.nth_reg(get_rs(op));
           let imm16 = get_imm16(op);
-          let rt = self.r3000.nth_reg_mut(get_rt(op));
-          self.modified_register = rt.maybe_set(rs.$method(imm16));
+          let rt = self.console.r3000.nth_reg_mut(get_rt(op));
+          self.console.modified_register = rt.maybe_set(rs.$method(imm16));
           log!("R{} = R{} {} {:#x}\n  = {:#x} {} {:#x}\n  = {:#x}",
                     get_rt(op), get_rs(op), stringify!($method), imm16,
-                    rs, stringify!($method), imm16, self.r3000.nth_reg(get_rt(op)));
+                    rs, stringify!($method), imm16, self.console.r3000.nth_reg(get_rt(op)));
           None
         }
       };
       //ALU instructions with a register and immediate 16-bit data
       (rt = rs $method:tt signed imm16) => {
         {
-          let rs = self.r3000.nth_reg(get_rs(op));
+          let rs = self.console.r3000.nth_reg(get_rs(op));
           let imm16 = get_imm16(op).half_sign_extended();
-          let rt = self.r3000.nth_reg_mut(get_rt(op));
-          self.modified_register = rt.maybe_set(rs.$method(imm16));
+          let rt = self.console.r3000.nth_reg_mut(get_rt(op));
+          self.console.modified_register = rt.maybe_set(rs.$method(imm16));
           log!("R{} = R{} {} {:#x}\n  = {:#x} {} {:#x}\n  = {:#x}",
                     get_rt(op), get_rs(op), stringify!($method), imm16,
-                    rs, stringify!($method), imm16, self.r3000.nth_reg(get_rt(op)));
+                    rs, stringify!($method), imm16, self.console.r3000.nth_reg(get_rt(op)));
           None
         }
       };
       //shifts a register based on immediate 5 bits
       (rd = rt $method:tt imm5) => {
         {
-          let rt = self.r3000.nth_reg(get_rt(op));
+          let rt = self.console.r3000.nth_reg(get_rt(op));
           let imm5 = get_imm5(op);
-          let rd = self.r3000.nth_reg_mut(get_rd(op));
-          self.modified_register = rd.maybe_set(rt.$method(imm5));
+          let rd = self.console.r3000.nth_reg_mut(get_rd(op));
+          self.console.modified_register = rd.maybe_set(rt.$method(imm5));
           log!("R{} = R{} {} {:#x}\n  = {:#x} {} {:#x}\n  = {:#x}",
                     get_rd(op), get_rt(op), stringify!($method), imm5,
-                    rt, stringify!($method), imm5, self.r3000.nth_reg(get_rd(op)));
+                    rt, stringify!($method), imm5, self.console.r3000.nth_reg(get_rd(op)));
           None
         }
       };
       //shifts a register based on the lowest 5 bits of another register
       (rd = rt $method:tt (rs and 0x1F)) => {
         {
-          let rt = self.r3000.nth_reg(get_rt(op));
-          let rs = self.r3000.nth_reg(get_rs(op));
-          let rd = self.r3000.nth_reg_mut(get_rd(op));
-          self.modified_register = rd.maybe_set(rt.$method(rs & 0x1F));
+          let rt = self.console.r3000.nth_reg(get_rt(op));
+          let rs = self.console.r3000.nth_reg(get_rs(op));
+          let rd = self.console.r3000.nth_reg_mut(get_rd(op));
+          self.console.modified_register = rd.maybe_set(rt.$method(rs & 0x1F));
           log!("op9");
           None
         }
       };
       (rt = imm16 shl 16) => {
         {
-          let rt = self.r3000.nth_reg_mut(get_rt(op));
+          let rt = self.console.r3000.nth_reg_mut(get_rt(op));
           let imm16 = get_imm16(op);
-          self.modified_register = rt.maybe_set(imm16 << 16);
-          log!("R{} = {:#x} << 16 \n  = {:#x}", get_rt(op), imm16, self.r3000.nth_reg(get_rt(op)));
+          self.console.modified_register = rt.maybe_set(imm16 << 16);
+          log!("R{} = {:#x} << 16 \n  = {:#x}", get_rt(op), imm16, self.console.r3000.nth_reg(get_rt(op)));
           None
         }
       };
       (hi:lo = rs * rt) => {
         {
-          let rs = self.r3000.nth_reg(get_rs(op));
-          let rt = self.r3000.nth_reg(get_rt(op));
+          let rs = self.console.r3000.nth_reg(get_rs(op));
+          let rt = self.console.r3000.nth_reg(get_rt(op));
           let result = (rs as u64) * (rt as u64);
           let hi_res = (result >> 32) as u32;
           let lo_res = (result & 0x0000_0000_ffff_ffff) as u32;
@@ -320,18 +293,18 @@ impl Interpreter{
             },
           };
           //TODO: add delay back in
-          //self.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, delay));
-          //self.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, delay));
-          *self.r3000.hi_mut() = hi_res;
-          *self.r3000.lo_mut() = lo_res;
+          //self.console.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, delay));
+          //self.console.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, delay));
+          *self.console.r3000.hi_mut() = hi_res;
+          *self.console.r3000.lo_mut() = lo_res;
           log!("op11");
           None
         }
       };
       (hi:lo = rs * rt signed) => {
         {
-          let rs = self.r3000.nth_reg(get_rs(op)) as i32;
-          let rt = self.r3000.nth_reg(get_rt(op)) as i32;
+          let rs = self.console.r3000.nth_reg(get_rs(op)) as i32;
+          let rt = self.console.r3000.nth_reg(get_rt(op)) as i32;
           let result = (rs as i64) * (rt as i64);
           let hi_res = (result >> 32) as u32;
           let lo_res = (result & 0x0000_0000_ffff_ffff) as u32;
@@ -347,18 +320,18 @@ impl Interpreter{
             },
           };
           //TODO: add delay back in
-          //self.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, delay));
-          //self.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, delay));
-          *self.r3000.hi_mut() = hi_res;
-          *self.r3000.lo_mut() = lo_res;
+          //self.console.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, delay));
+          //self.console.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, delay));
+          *self.console.r3000.hi_mut() = hi_res;
+          *self.console.r3000.lo_mut() = lo_res;
           log!("op11");
           None
         }
       };
       (hi:lo = rs / rt) => {
         {
-          let rs = self.r3000.nth_reg(get_rs(op));
-          let rt = self.r3000.nth_reg(get_rt(op));
+          let rs = self.console.r3000.nth_reg(get_rs(op));
+          let rt = self.console.r3000.nth_reg(get_rt(op));
           let lo_res = match rt {
             0 => {
               0xffff_ffff
@@ -369,18 +342,18 @@ impl Interpreter{
           };
           let hi_res = rs % rt;
           //TODO: add delay back in
-          //self.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, 36));
-          //self.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, 36));
-          *self.r3000.hi_mut() = hi_res;
-          *self.r3000.lo_mut() = lo_res;
+          //self.console.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, 36));
+          //self.console.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, 36));
+          *self.console.r3000.hi_mut() = hi_res;
+          *self.console.r3000.lo_mut() = lo_res;
           log!("op12");
           None
         }
       };
       (hi:lo = rs / rt signed) => {
         {
-          let rs = self.r3000.nth_reg(get_rs(op)) as i32;
-          let rt = self.r3000.nth_reg(get_rt(op)) as i32;
+          let rs = self.console.r3000.nth_reg(get_rs(op)) as i32;
+          let rt = self.console.r3000.nth_reg(get_rt(op)) as i32;
           let lo_res = match rt {
             0 => {
               match rs {
@@ -408,10 +381,10 @@ impl Interpreter{
           } as u32;
           let hi_res = (rs % rt) as u32;
           //TODO: add delay back in
-          //self.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, 36));
-          //self.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, 36));
-          *self.r3000.hi_mut() = hi_res;
-          *self.r3000.lo_mut() = lo_res;
+          //self.console.delayed_writes.push(DelayedWrite::new(Name::Hi, hi_res, 36));
+          //self.console.delayed_writes.push(DelayedWrite::new(Name::Lo, lo_res, 36));
+          *self.console.r3000.hi_mut() = hi_res;
+          *self.console.r3000.lo_mut() = lo_res;
           log!("op12");
           None
         }
@@ -421,7 +394,7 @@ impl Interpreter{
       (imm26) => {
         {
           let imm26 = get_imm26(op);
-          let pc_hi_bits = self.r3000.pc() & 0xf000_0000;
+          let pc_hi_bits = self.console.r3000.pc() & 0xf000_0000;
           let shifted_imm26 = imm26 * 4;
           let dest = pc_hi_bits + shifted_imm26;
           log!("jumping to (PC & 0xf0000000) + ({:#x} * 4)\n  = {:#x} + {:#x}\n  = {:#x} after the delay slot",
@@ -431,10 +404,10 @@ impl Interpreter{
       };
       (rs) => {
         {
-          let rs = self.r3000.nth_reg(get_rs(op));
+          let rs = self.console.r3000.nth_reg(get_rs(op));
           if rs & 0x0000_0003 != 0 {
-            let pc = self.r3000.pc_mut();
-            *pc = self.cop0.generate_exception(Cop0Exception::LoadAddress, *pc);
+            let pc = self.console.r3000.pc_mut();
+            *pc = self.console.cop0.generate_exception(Cop0Exception::LoadAddress, *pc);
             log!("ignoring jumping to R{} = {:#x} and generating an exception", get_rs(op), rs);
             None
           } else {
@@ -445,11 +418,11 @@ impl Interpreter{
       };
       (rs $cmp:tt rt) => {
         {
-          let rt = self.r3000.nth_reg(get_rt(op));
-          let rs = self.r3000.nth_reg(get_rs(op));
+          let rt = self.console.r3000.nth_reg(get_rt(op));
+          let rs = self.console.r3000.nth_reg(get_rs(op));
           if rs $cmp rt {
             let imm16 = get_imm16(op);
-            let pc = self.r3000.pc();
+            let pc = self.console.r3000.pc();
             let inc = ((imm16.half_sign_extended() as i32) * 4) as u32;
             let dest = pc.wrapping_add(inc);
             log!("jumping to PC + ({:#x} * 4) = {:#x} + {:#x} = {:#x} after the delay slot\n  since R{} {} R{} -> {:#x} {} {:#x}",
@@ -464,11 +437,11 @@ impl Interpreter{
       };
       (rs $cmp:tt 0) => {
         {
-          let rs = self.r3000.nth_reg(get_rs(op));
+          let rs = self.console.r3000.nth_reg(get_rs(op));
           log!("op16");
           if (rs as i32) $cmp 0 {
             let imm16 = get_imm16(op);
-            let pc = self.r3000.pc();
+            let pc = self.console.r3000.pc();
             let inc = ((imm16 as i16) * 4) as u32;
             let dest = pc.wrapping_add(inc);
             Some(dest)
@@ -481,31 +454,31 @@ impl Interpreter{
     macro_rules! call {
       (imm26) => {
         {
-          let ret = self.r3000.pc().wrapping_add(4);
-          self.modified_register = self.r3000.ra_mut().maybe_set(ret);
+          let ret = self.console.r3000.pc().wrapping_add(4);
+          self.console.modified_register = self.console.r3000.ra_mut().maybe_set(ret);
           log!("R31 = {:#x}", ret);
           jump!(imm26)
         }
       };
       (rs) => {
         {
-          let result = self.r3000.pc().wrapping_add(4);
-          let rd = self.r3000.nth_reg_mut(get_rd(op));
-          self.modified_register = rd.maybe_set(result);
+          let result = self.console.r3000.pc().wrapping_add(4);
+          let rd = self.console.r3000.nth_reg_mut(get_rd(op));
+          self.console.modified_register = rd.maybe_set(result);
           log!("op18");
           jump!(rs)
         }
       };
       (rs $cmp:tt rt) => {
         {
-          let rt = self.r3000.nth_reg(get_rt(op));
-          let rs = self.r3000.nth_reg(get_rs(op));
+          let rt = self.console.r3000.nth_reg(get_rt(op));
+          let rs = self.console.r3000.nth_reg(get_rs(op));
           log!("op19");
           if *rs $cmp *rt {
-            let ret = self.r3000.pc().wrapping_add(4);
-            self.modified_register = self.r3000.ra_mut().maybe_set(ret);
+            let ret = self.console.r3000.pc().wrapping_add(4);
+            self.console.modified_register = self.console.r3000.ra_mut().maybe_set(ret);
             let imm16 = get_imm16(op);
-            let pc = self.r3000.pc();
+            let pc = self.console.r3000.pc();
             let inc = ((imm16 as i16) * 4) as u32;
             let dest = pc.wrapping_add(inc);
             Some(dest)
@@ -516,13 +489,13 @@ impl Interpreter{
       };
       (rs $cmp:tt 0) => {
         {
-          let rs = self.r3000.nth_reg(get_rs(op));
+          let rs = self.console.r3000.nth_reg(get_rs(op));
           log!("op20");
           if (rs as i32) $cmp 0 {
-            let ret = self.r3000.pc().wrapping_add(4);
-            self.modified_register = self.r3000.ra_mut().maybe_set(ret);
+            let ret = self.console.r3000.pc().wrapping_add(4);
+            self.console.modified_register = self.console.r3000.ra_mut().maybe_set(ret);
             let imm16 = get_imm16(op);
-            let pc = self.r3000.pc();
+            let pc = self.console.r3000.pc();
             let dest = pc + (imm16 * 4);
             Some(dest)
           } else {
@@ -538,8 +511,8 @@ impl Interpreter{
             0x00 => {
               //MFCn
               let rt = get_rt(op);
-              let rd_data = self.$copn.nth_data_reg(get_rd(op));
-              self.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt), rd_data));
+              let rd_data = self.console.$copn.nth_data_reg(get_rd(op));
+              self.console.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt), rd_data));
               log!("R{} = {}R{}\n  = {:#x} after the delay slot",
                         rt, stringify!($copn), get_rd(op), rd_data);
               None
@@ -547,32 +520,32 @@ impl Interpreter{
             0x02 => {
               //CFCn
               let rt = get_rt(op);
-              let rd_ctrl = self.$copn.nth_ctrl_reg(get_rd(op));
-              self.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt), rd_ctrl));
+              let rd_ctrl = self.console.$copn.nth_ctrl_reg(get_rd(op));
+              self.console.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt), rd_ctrl));
               None
             },
             0x04 => {
               //MTCn
-              let rt = self.r3000.nth_reg(get_rt(op));
-              let rd = self.$copn.nth_data_reg_mut(get_rd(op));
-              self.modified_register = rd.maybe_set(rt);
+              let rt = self.console.r3000.nth_reg(get_rt(op));
+              let rd = self.console.$copn.nth_data_reg_mut(get_rd(op));
+              self.console.modified_register = rd.maybe_set(rt);
               log!("{}R{} = R{}\n  = {:#x}",
                         stringify!($copn), get_rd(op), get_rt(op),
-                        self.$copn.nth_data_reg(get_rd(op)));
+                        self.console.$copn.nth_data_reg(get_rd(op)));
               None
             },
             0x06 => {
               //CTCn
-              let rt = self.r3000.nth_reg(get_rt(op));
-              let rd = self.$copn.nth_ctrl_reg_mut(get_rd(op));
-              self.modified_register = rd.maybe_set(rt);
+              let rt = self.console.r3000.nth_reg(get_rt(op));
+              let rd = self.console.$copn.nth_ctrl_reg_mut(get_rd(op));
+              self.console.modified_register = rd.maybe_set(rt);
               None
             },
             0x08 => {
               match get_rt(op) {
                 0x00 => {
                   //BCnF
-                  self.$copn.bcnf(get_imm16(op))
+                  self.console.$copn.bcnf(get_imm16(op))
                 },
                 0x01 => {
                   //BCnT
@@ -588,7 +561,7 @@ impl Interpreter{
             },
             0x10..=0x1F => {
               //COPn imm25
-              self.$copn.execute_command(get_imm25(op))
+              self.console.$copn.execute_command(get_imm25(op))
             },
             _ => {
               unreachable!("ran into invalid opcode")
@@ -598,7 +571,7 @@ impl Interpreter{
       }
     }
     //after executing an opcode, complete the loads from the previous opcode
-    self.r3000.flush_write_cache(&mut self.delayed_writes, &mut self.modified_register);
+    self.console.r3000.flush_write_cache(&mut self.console.delayed_writes, &mut self.console.modified_register);
     //this match statement optionally returns the next program counter
     //if the return value is None, then we increment pc as normal
     match get_primary_field(op) {
@@ -648,8 +621,8 @@ impl Interpreter{
           0x0C => {
             //SYSCALL
             log!("> SYSCALL");
-            let pc = self.r3000.pc_mut();
-            *pc = self.cop0.generate_exception(Cop0Exception::Syscall, *pc);
+            let pc = self.console.r3000.pc_mut();
+            *pc = self.console.cop0.generate_exception(Cop0Exception::Syscall, *pc);
             None
           },
           0x0D => {

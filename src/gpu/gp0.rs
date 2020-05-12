@@ -3,7 +3,6 @@ use crate::gpu::Command;
 use crate::common::ReadArray;
 use crate::common::WriteArray;
 use crate::memory::KB;
-use crate::memory::MB;
 use crate::register::Register;
 use crate::register::BitBang;
 use crate::screen::Drawable;

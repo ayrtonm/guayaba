@@ -2,13 +2,12 @@ use std::io;
 use std::env;
 use std::convert::TryInto;
 use interpreter::Interpreter;
-use jit::JIT;
-use runnable::Runnable;
+use dummy_jit::JIT;
 
-mod runnable;
+mod console;
 mod common;
 mod interpreter;
-mod jit;
+mod dummy_jit;
 mod r3000;
 mod cop0;
 mod register;

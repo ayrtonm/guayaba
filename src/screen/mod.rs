@@ -1,5 +1,4 @@
 use std::ffi::CString;
-use std::ffi::CStr;
 use gl::types::GLuint;
 extern crate sdl2;
 extern crate gl;

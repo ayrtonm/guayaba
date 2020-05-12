@@ -1,16 +1,14 @@
-use crate::jit::JIT;
-use crate::jit::State;
+use crate::console::Console;
 use crate::memory::Memory;
 use crate::register::Register;
 use crate::register::BitBang;
 use crate::dma::Transfer;
 use crate::dma::Direction;
 use crate::dma::Chunks;
-use crate::dma::Blocks;
 use crate::dma::Step;
 use crate::dma::DMAChannel;
 
-impl State {
+impl Console {
   pub(super) fn handle_dma(&mut self, transfer: Transfer) {
     let addr_mask = 0x00ff_fffc;
     let step = |address: Register| {

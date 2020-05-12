@@ -50,3 +50,31 @@ impl WriteArray for &mut [u8] {
     self[address + 3] = value.upper_bits(8).byte() as u8;
   }
 }
+
+pub fn get_rs(op: u32) -> u32 {
+  (op & 0x03e0_0000) >> 21
+}
+pub fn get_rt(op: u32) -> u32 {
+  (op & 0x001f_0000) >> 16
+}
+pub fn get_rd(op: u32) -> u32 {
+  (op & 0x0000_f800) >> 11
+}
+pub fn get_imm5(op: u32) -> u32 {
+  (op & 0x0000_07c0) >> 6
+}
+pub fn get_imm16(op: u32) -> u32 {
+  op & 0x0000_ffff
+}
+pub fn get_imm25(op: u32) -> u32 {
+  op & 0x01ff_ffff
+}
+pub fn get_imm26(op: u32) -> u32 {
+  op & 0x03ff_ffff
+}
+pub fn get_primary_field(op: u32) -> u32 {
+  (op & 0xfc00_0000) >> 26
+}
+pub fn get_secondary_field(op: u32) -> u32 {
+  op & 0x0000_003f
+}

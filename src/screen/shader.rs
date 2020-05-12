@@ -1,4 +1,3 @@
-use std::ffi::CString;
 use std::ffi::CStr;
 use gl::types::GLuint;
 use gl::types::GLenum;

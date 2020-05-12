@@ -1,4 +1,3 @@
-use std::io;
 use std::io::Seek;
 use std::io::SeekFrom;
 use std::io::Read;
