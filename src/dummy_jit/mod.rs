@@ -38,27 +38,27 @@ impl Dummy_JIT {
     println!("running in dummy JIT mode");
     loop {
       let address = Console::physical(self.console.r3000.pc());
-      let t0 = Instant::now();
-      if self.console.overwritten.len() >= 1000 {
-        self.cache_invalidation();
-      }
-      let maybe_invalidated_stub = self.stubs.get(&address);
-      match maybe_invalidated_stub {
-        Some(stub) => {
-          let mut intersection = self.console.overwritten.clone();
-          //these are the executable addresses that have been overwritten
-          //this will be no bigger than the size of the stub
-          intersection.retain(|&t| address <= t && t <= Console::physical(stub.final_pc()));
+      //let t0 = Instant::now();
+      //if self.console.overwritten.len() >= 1000 {
+      //  self.cache_invalidation();
+      //}
+      //let maybe_invalidated_stub = self.stubs.get(&address);
+      //match maybe_invalidated_stub {
+      //  Some(stub) => {
+      //    let mut intersection = self.console.overwritten.clone();
+      //    //these are the executable addresses that have been overwritten
+      //    //this will be no bigger than the size of the stub
+      //    intersection.retain(|&t| address <= t && t <= Console::physical(stub.final_pc()));
 
-          if !intersection.is_empty() {
-            self.cache_invalidation();
-          };
-        },
-        None => {
-        },
-      }
-      let t1 = Instant::now();
-      down_time += t1 - t0;
+      //    if !intersection.is_empty() {
+      //      self.cache_invalidation();
+      //    };
+      //  },
+      //  None => {
+      //  },
+      //}
+      //let t1 = Instant::now();
+      //down_time += t1 - t0;
       let maybe_stub = self.stubs.get(&address);
       match maybe_stub {
         Some(stub) => {
@@ -116,7 +116,9 @@ impl Dummy_JIT {
     let mut compiled = self.compile_opcode(op, logging);
     //add all instructions before the next jump to the stub
     while compiled.is_some() {
-      operations.push(compiled.take().expect(""));
+      if op != 0x00 {
+        operations.push(compiled.take().expect(""));
+      }
       address = address.wrapping_add(4);
       op = self.console.resolve_memresponse(self.console.memory.read_word(address));
       //println!("{:#x}", op);
