@@ -41,8 +41,8 @@ impl Dummy_JIT {
       (rt = [rs + imm16] $offset:expr, $operator:ident $mask:ident $shift:ident) => {
         {
           let s = get_rs(op);
-          let imm16 = get_imm16(op).half_sign_extended();
           let t = get_rt(op);
+          let imm16 = get_imm16(op).half_sign_extended();
           Some(Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(s);
             let rt = vm.delayed_writes.iter()
@@ -62,15 +62,25 @@ impl Dummy_JIT {
       (rt = [rs + imm16] $method:ident) => {
         {
           let s = get_rs(op);
-          let imm16 = get_imm16(op).half_sign_extended();
           let t = get_rt(op);
-          Some(Box::new(move |vm| {
-            let rs = vm.r3000.nth_reg(s);
-            let result = vm.resolve_memresponse(vm.memory.$method(rs.wrapping_add(imm16)));
-            vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(t), result));
-            log!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x} {}",
-                      t, rs, imm16, rs.wrapping_add(imm16), result, stringify!($method));
-          }))
+          let imm16 = get_imm16(op).half_sign_extended();
+          if imm16 == 0 {
+            Some(Box::new(move |vm| {
+              let rs = vm.r3000.nth_reg(s);
+              let result = vm.resolve_memresponse(vm.memory.$method(rs));
+              vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(t), result));
+              log!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x} {}",
+                        t, rs, 0, rs, result, stringify!($method));
+            }))
+          } else {
+            Some(Box::new(move |vm| {
+              let rs = vm.r3000.nth_reg(s);
+              let result = vm.resolve_memresponse(vm.memory.$method(rs.wrapping_add(imm16)));
+              vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(t), result));
+              log!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x} {}",
+                        t, rs, imm16, rs.wrapping_add(imm16), result, stringify!($method));
+            }))
+          }
         }
       };
       ([rs + imm16] = rt left) => {
@@ -88,21 +98,39 @@ impl Dummy_JIT {
           let s = get_rs(op);
           let t = get_rt(op);
           let imm16 = get_imm16(op).half_sign_extended();
-          Some(Box::new(move |vm| {
-            let rs = vm.r3000.nth_reg(s);
-            let rt = vm.r3000.nth_reg(t);
-            if !vm.cop0.cache_isolated() {
-              let address = rs.wrapping_add(imm16);
-              let aligned_address = *address.clone().clear_mask(3);
-              let aligned_word = vm.resolve_memresponse(vm.memory.read_word(aligned_address));
-              let num_bits = $offset.$operator(8*address.lowest_bits(2));
-              let result = rt.$shift(num_bits) | aligned_word.$mask(num_bits);
-              let maybe_action = vm.write_word(aligned_address, result);
-              vm.resolve_memactions(maybe_action);
-            } else {
-              log!("ignoring write while cache is isolated");
-            }
-          }))
+          if imm16 == 0 {
+            Some(Box::new(move |vm| {
+              let rs = vm.r3000.nth_reg(s);
+              let rt = vm.r3000.nth_reg(t);
+              if !vm.cop0.cache_isolated() {
+                let address = rs;
+                let aligned_address = *address.clone().clear_mask(3);
+                let aligned_word = vm.resolve_memresponse(vm.memory.read_word(aligned_address));
+                let num_bits = $offset.$operator(8*address.lowest_bits(2));
+                let result = rt.$shift(num_bits) | aligned_word.$mask(num_bits);
+                let maybe_action = vm.write_word(aligned_address, result);
+                vm.resolve_memactions(maybe_action);
+              } else {
+                log!("ignoring write while cache is isolated");
+              }
+            }))
+          } else {
+            Some(Box::new(move |vm| {
+              let rs = vm.r3000.nth_reg(s);
+              let rt = vm.r3000.nth_reg(t);
+              if !vm.cop0.cache_isolated() {
+                let address = rs.wrapping_add(imm16);
+                let aligned_address = *address.clone().clear_mask(3);
+                let aligned_word = vm.resolve_memresponse(vm.memory.read_word(aligned_address));
+                let num_bits = $offset.$operator(8*address.lowest_bits(2));
+                let result = rt.$shift(num_bits) | aligned_word.$mask(num_bits);
+                let maybe_action = vm.write_word(aligned_address, result);
+                vm.resolve_memactions(maybe_action);
+              } else {
+                log!("ignoring write while cache is isolated");
+              }
+            }))
+          }
         }
       };
       //aligned writes
@@ -111,18 +139,33 @@ impl Dummy_JIT {
           let s = get_rs(op);
           let t = get_rt(op);
           let imm16 = get_imm16(op).half_sign_extended();
-          Some(Box::new(move |vm| {
-            let rs = vm.r3000.nth_reg(s);
-            let rt = vm.r3000.nth_reg(t);
-            log!("[{:#x} + {:#x}] = [{:#x}] \n  = R{}\n  = {:#x} {}",
-                      rs, imm16, rs.wrapping_add(imm16), t, rt, stringify!($method));
-            if !vm.cop0.cache_isolated() {
-              let maybe_action = vm.$method(rs.wrapping_add(imm16), rt);
-              vm.resolve_memactions(maybe_action);
-            } else {
-              log!("ignoring write while cache is isolated");
-            }
-          }))
+          if imm16 == 0 {
+            Some(Box::new(move |vm| {
+              let rs = vm.r3000.nth_reg(s);
+              let rt = vm.r3000.nth_reg(t);
+              log!("[{:#x} + {:#x}] = [{:#x}] \n  = R{}\n  = {:#x} {}",
+                        rs, 0, rs, t, rt, stringify!($method));
+              if !vm.cop0.cache_isolated() {
+                let maybe_action = vm.$method(rs, rt);
+                vm.resolve_memactions(maybe_action);
+              } else {
+                log!("ignoring write while cache is isolated");
+              }
+            }))
+          } else {
+            Some(Box::new(move |vm| {
+              let rs = vm.r3000.nth_reg(s);
+              let rt = vm.r3000.nth_reg(t);
+              log!("[{:#x} + {:#x}] = [{:#x}] \n  = R{}\n  = {:#x} {}",
+                        rs, imm16, rs.wrapping_add(imm16), t, rt, stringify!($method));
+              if !vm.cop0.cache_isolated() {
+                let maybe_action = vm.$method(rs.wrapping_add(imm16), rt);
+                vm.resolve_memactions(maybe_action);
+              } else {
+                log!("ignoring write while cache is isolated");
+              }
+            }))
+          }
         }
       };
       (lo = rs) => {

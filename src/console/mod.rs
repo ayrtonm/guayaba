@@ -110,11 +110,7 @@ impl Console {
       MemResponse::CDResponse => self.cd.read_response(),
     }
   }
-  pub fn resolve_memactions(&mut self, maybe_action: Option<Vec<MemAction>>) {
-    maybe_action.map(
-      |actions| {
-        actions.into_iter().for_each(
-          |action| {
+  pub fn resolve_memactions(&mut self, action: MemAction) {
             match action {
               MemAction::DMA(transfer) => {
                 self.handle_dma(transfer);
@@ -130,20 +126,19 @@ impl Console {
               MemAction::Interrupt(irq) => {
                 self.cop0.request_interrupt(irq);
               },
-            }
-          })
-      }
-    );
+              MemAction::None => {
+              },
+            };
   }
-  pub fn write_byte(&mut self, address: Register, value: Register) -> Option<Vec<MemAction>> {
+  pub fn write_byte(&mut self, address: Register, value: Register) -> MemAction {
     self.overwritten.insert(Console::physical(address));
     self.memory.write_byte(address, value)
   }
-  pub fn write_half(&mut self, address: Register, value: Register) -> Option<Vec<MemAction>> {
+  pub fn write_half(&mut self, address: Register, value: Register) -> MemAction {
     self.overwritten.insert(Console::physical(address));
     self.memory.write_half(address, value)
   }
-  pub fn write_word(&mut self, address: Register, value: Register) -> Option<Vec<MemAction>> {
+  pub fn write_word(&mut self, address: Register, value: Register) -> MemAction {
     self.overwritten.insert(Console::physical(address));
     self.memory.write_word(address, value)
   }

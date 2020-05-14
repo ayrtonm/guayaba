@@ -150,29 +150,29 @@ macro_rules! get_io_action {
       let aligned_address = $address & 0xffff_fffc;
       let aligned_offset = aligned_address - Memory::IO_PORTS;
       match aligned_address {
-        Memory::INTERRUPT_STAT => {
-          //check for interrupt requests
-          let mut irq = Vec::new();
-          let new_interrupt_stat = $self.io_ports.as_ref().read_half(aligned_offset);
-          let interrupt_mask = $self.io_ports.as_ref().read_half(Memory::INTERRUPT_MASK - Memory::IO_PORTS);
-          for i in 0..=10 {
-            if !$self.old_interrupt_stat.nth_bit_bool(i) &&
-              new_interrupt_stat.nth_bit_bool(i) &&
-              interrupt_mask.nth_bit_bool(i) {
-              irq.push(MemAction::Interrupt(i));
-            }
-          }
-          $self.old_interrupt_stat = $self.io_ports.as_ref().read_half(aligned_offset);
-          //println!("wrote {:#x} to interrupt stat", $value);
-          match irq.len() {
-            0 => {
-              None
-            },
-            _ => {
-              Some(irq)
-            },
-          }
-        },
+        //Memory::INTERRUPT_STAT => {
+        //  //check for interrupt requests
+        //  let mut irq = Vec::new();
+        //  let new_interrupt_stat = $self.io_ports.as_ref().read_half(aligned_offset);
+        //  let interrupt_mask = $self.io_ports.as_ref().read_half(Memory::INTERRUPT_MASK - Memory::IO_PORTS);
+        //  for i in 0..=10 {
+        //    if !$self.old_interrupt_stat.nth_bit_bool(i) &&
+        //      new_interrupt_stat.nth_bit_bool(i) &&
+        //      interrupt_mask.nth_bit_bool(i) {
+        //      irq.push(MemAction::Interrupt(i));
+        //    }
+        //  }
+        //  $self.old_interrupt_stat = $self.io_ports.as_ref().read_half(aligned_offset);
+        //  //println!("wrote {:#x} to interrupt stat", $value);
+        //  match irq.len() {
+        //    0 => {
+        //      None
+        //    },
+        //    _ => {
+        //      Some(irq)
+        //    },
+        //  }
+        //},
         Memory::INTERRUPT_MASK => {
           $self.io_ports.as_mut()
                         .write_word(aligned_offset,
@@ -183,43 +183,43 @@ macro_rules! get_io_action {
                                            .clear(14)
                                            .clear(15));
           //println!("wrote {:#x} to interrupt mask", $value);
-          None
+          MemAction::None
         },
         Memory::TIMER_VALUE_0 => {
           //println!("wrote {:#x} to timer value 0", $value);
-          None
+          MemAction::None
         },
         Memory::TIMER_MODE_0 => {
           //println!("wrote {:#x} to timer mode 0", $value);
-          None
+          MemAction::None
         },
         Memory::TIMER_TARGET_0 => {
           //println!("wrote {:#x} to timer target 0", $value);
-          None
+          MemAction::None
         },
         Memory::TIMER_VALUE_1 => {
           //println!("wrote {:#x} to timer value 1", $value);
-          None
+          MemAction::None
         },
         Memory::TIMER_MODE_1 => {
           //println!("wrote {:#x} to timemode r 1", $value);
-          None
+          MemAction::None
         },
         Memory::TIMER_TARGET_1 => {
           //println!("wrote {:#x} to timer target 1", $value);
-          None
+          MemAction::None
         },
         Memory::TIMER_VALUE_2 => {
           //println!("wrote {:#x} to timer value 2", $value);
-          None
+          MemAction::None
         },
         Memory::TIMER_MODE_2 => {
           //println!("wrote {:#x} to timer mode 2", $value);
-          None
+          MemAction::None
         },
         Memory::TIMER_TARGET_2 => {
           //println!("wrote {:#x} to timer target 2", $value);
-          None
+          MemAction::None
         },
         Memory::CD_PORT => {
           //println!("CD {} {:#x} to {:#x}", stringify!($function), $value, $address);
@@ -230,23 +230,21 @@ macro_rules! get_io_action {
             0 => {
               match identifier_size!($function) {
                 SizeIdentifier::Word => {
-                  Some(vec![
-                    MemAction::CDCmd(
-                      $self.io_ports.as_ref().read_byte(aligned_offset + 1) as u8),
-                    MemAction::CDParam(
-                      $self.io_ports.as_ref().read_byte(aligned_offset + 2) as u8)
-                    ]
-                  )
+                  MemAction::None
+                  //Some(vec![
+                  //  MemAction::CDCmd(
+                  //    $self.io_ports.as_ref().read_byte(aligned_offset + 1) as u8),
+                  //  MemAction::CDParam(
+                  //    $self.io_ports.as_ref().read_byte(aligned_offset + 2) as u8)
+                  //  ]
+                  //)
                 },
                 SizeIdentifier::Half => {
-                  Some(vec![
                     MemAction::CDCmd(
                       $self.io_ports.as_ref().read_byte(aligned_offset + 1) as u8)
-                    ]
-                  )
                 },
                 SizeIdentifier::Byte => {
-                  None
+                  MemAction::None
                 },
               }
             },
@@ -254,20 +252,17 @@ macro_rules! get_io_action {
             1 => {
               match index {
                 0 => {
-                  Some(vec![
                     MemAction::CDCmd(
                       $self.io_ports.as_ref().read_byte(aligned_offset + 1) as u8)
-                    ]
-                  )
                 },
                 1 => {
-                  None
+                  MemAction::None
                 },
                 2 => {
-                  None
+                  MemAction::None
                 },
                 3 => {
-                  None
+                  MemAction::None
                 },
                 _ => {
                   unreachable!("");
@@ -279,20 +274,17 @@ macro_rules! get_io_action {
             2 => {
               match index {
                 0 => {
-                  Some(vec![
                     MemAction::CDParam(
                       $self.io_ports.as_ref().read_byte(aligned_offset + 2) as u8)
-                    ]
-                  )
                 },
                 1 => {
-                  None
+                  MemAction::None
                 },
                 2 => {
-                  None
+                  MemAction::None
                 },
                 3 => {
-                  None
+                  MemAction::None
                 },
                 _ => {
                   unreachable!("");
@@ -304,16 +296,16 @@ macro_rules! get_io_action {
             3 => {
               match index {
                 0 => {
-                  None
+                  MemAction::None
                 },
                 1 => {
-                  None
+                  MemAction::None
                 },
                 2 => {
-                  None
+                  MemAction::None
                 },
                 3 => {
-                  None
+                  MemAction::None
                 },
                 _ => {
                   unreachable!("");
@@ -326,23 +318,17 @@ macro_rules! get_io_action {
           }
         },
         Memory::GPU_GP0 => {
-          Some(vec![
             MemAction::GpuGp0(
               $self.io_ports.as_ref().read_word(aligned_offset))
-            ]
-          )
         },
         Memory::GPU_GP1 => {
-          Some(vec![
             MemAction::GpuGp1(
               $self.io_ports.as_ref().read_word(aligned_offset))
-            ]
-          )
         },
         Memory::DMA_CHANNEL_0 | Memory::DMA_CHANNEL_1 | Memory::DMA_CHANNEL_2 |
         Memory::DMA_CHANNEL_3 | Memory::DMA_CHANNEL_4 | Memory::DMA_CHANNEL_5 |
         Memory::DMA_CHANNEL_6 => {
-          let channel_num = (aligned_address - Memory::DMA_CHANNEL_0) >> 4;
+          let channel_num = (aligned_address - Memory::DMA_CHANNEL_0) as u8 >> 4;
           let control_register = $self.io_ports.as_ref()
                                                .read_word(aligned_offset);
           let sync_mode = control_register.sync_mode();
@@ -350,33 +336,27 @@ macro_rules! get_io_action {
             match sync_mode {
               0 => {
                 if control_register.nth_bit_bool(28) {
-                  Some(vec![
                     MemAction::DMA($self.create_dma_transfer(channel_num))
-                    ]
-                  )
                 } else {
-                  None
+                  MemAction::None
                 }
               },
               1 | 2 => {
-                Some(vec![
                   MemAction::DMA($self.create_dma_transfer(channel_num))
-                  ]
-                )
               },
               _ => unreachable!("DMA channel {} is not configured properly", channel_num),
             }
           } else {
-            None
+            MemAction::None
           }
         },
         //DMA interrupt register
         0x1f80_10f4 => {
-          None
+          MemAction::None
         },
         _ => {
           //println!("unhandled IO port {} {:#x} at {:#x}", stringify!($function), $value, $address);
-          None
+          MemAction::None
         },
       }
     }
@@ -384,17 +364,17 @@ macro_rules! get_io_action {
 }
 
 impl Memory {
-  pub fn reset_dma_channel(&mut self, channel: u32) {
-    let address = Memory::DMA_CHANNEL_0 + (channel * 0x10) - Memory::IO_PORTS;
+  pub fn reset_dma_channel(&mut self, channel: u8) {
+    let address = Memory::DMA_CHANNEL_0 + ((channel as u32) * 0x10) - Memory::IO_PORTS;
     let mut control_register = self.io_ports.as_ref().read_word(address);
     let new_register = *control_register.clear(28).clear(24);
     self.io_ports.as_mut().write_word(address, new_register);
   }
   //pack the current state of I/O ports into a Transfer struct for a given channel
-  pub(super) fn create_dma_transfer(&mut self, channel: u32) -> Transfer {
+  pub(super) fn create_dma_transfer(&mut self, channel: u8) -> Transfer {
     assert!(channel < 7);
     //these are addresses to locations in memory
-    let base_addr = 0x0000_0080 + (channel * 0x0000_0010);
+    let base_addr = 0x0000_0080 + ((channel as u32) * 0x0000_0010);
     let block_control = base_addr + 4;
     let channel_control = block_control + 4;
   
@@ -449,11 +429,11 @@ impl Memory {
 }
 
 pub trait DMAControl {
-  fn sync_mode(&self) -> u32;
+  fn sync_mode(&self) -> u8;
 }
 
 impl DMAControl for Register {
-  fn sync_mode(&self) -> u32 {
-    self.upper_bits(23) & (3 as u32)
+  fn sync_mode(&self) -> u8 {
+    self.upper_bits(23) as u8 & 3
   }
 }

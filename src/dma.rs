@@ -46,18 +46,19 @@ pub enum Step {
 }
 
 #[derive(Debug)]
+//1 + 4 + 1 + 1 + 4 + 1
 pub struct Transfer {
-  channel_num: u32,
+  channel_num: u8,
   start_address: Register,
   chunks: Chunks,
   direction: Direction,
   step: Step,
-  sync_mode: u32,
+  sync_mode: u8,
 }
 
 impl Transfer {
-  pub fn new(channel_num: u32, start_address: Register, chunks: Chunks,
-             direction: Direction, step: Step, sync_mode: u32) -> Self {
+  pub fn new(channel_num: u8, start_address: Register, chunks: Chunks,
+             direction: Direction, step: Step, sync_mode: u8) -> Self {
     Transfer {
       channel_num,
       start_address,
@@ -73,7 +74,7 @@ impl Transfer {
   pub fn start_address(&self) -> u32 {
     self.start_address
   }
-  pub fn channel_num(&self) -> u32 {
+  pub fn channel_num(&self) -> u8 {
     self.channel_num
   }
   pub fn direction(&self) -> &Direction {

@@ -15,6 +15,7 @@ use crate::dma::DMAChannel;
 mod ioports;
 use ioports::DMAControl;
 
+#[repr(align(16))]
 pub enum MemAction {
   DMA(Transfer),
   GpuGp0(Register),
@@ -22,6 +23,7 @@ pub enum MemAction {
   CDCmd(u8),
   CDParam(u8),
   Interrupt(Register),
+  None,
 }
 
 #[derive(Debug)]
@@ -93,15 +95,15 @@ macro_rules! write_memory {
       match phys_addr {
         (Memory::MAIN_RAM..=Memory::MAIN_RAM_END) => {
           $self.main_ram.as_mut().$function(phys_addr - Memory::MAIN_RAM, $value);
-          None
+          MemAction::None
         },
         (Memory::EXPANSION_1..=Memory::EXPANSION_1_END) => {
           $self.expansion_1.as_mut().$function(phys_addr - Memory::EXPANSION_1, $value);
-          None
+          MemAction::None
         },
         (Memory::SCRATCHPAD..=Memory::SCRATCHPAD_END) => {
           $self.scratchpad.as_mut().$function(phys_addr - Memory::SCRATCHPAD, $value);
-          None
+          MemAction::None
         },
         (Memory::IO_PORTS..=Memory::IO_PORTS_END) => {
           $self.io_ports.as_mut().$function(phys_addr - Memory::IO_PORTS, $value);
@@ -109,19 +111,19 @@ macro_rules! write_memory {
         },
         (Memory::EXPANSION_2..=Memory::EXPANSION_2_END) => {
           $self.expansion_2.as_mut().$function(phys_addr - Memory::EXPANSION_2, $value);
-          None
+          MemAction::None
         },
         (Memory::EXPANSION_3..=Memory::EXPANSION_3_END) => {
           $self.expansion_3.as_mut().$function(phys_addr - Memory::EXPANSION_3, $value);
-          None
+          MemAction::None
         },
         (Memory::BIOS..=Memory::BIOS_END) => {
           $self.bios.as_mut().as_mut().$function(phys_addr - Memory::BIOS, $value);
-          None
+          MemAction::None
         },
         (Memory::CACHE_CONTROL..=Memory::CACHE_CONTROL_END) => {
           $self.cache_control.as_mut().$function($address - Memory::CACHE_CONTROL, $value);
-          None
+          MemAction::None
         },
         _ => {
           panic!("{} [{:#x}] = [{:#x}] = {:#x} is illegal", stringify!($function), $address, phys_addr, $value);
@@ -266,14 +268,14 @@ impl Memory {
     assert_eq!(address & 0x0000_0003, 0);
     read_memory!(address, read_word, self)
   }
-  pub fn write_byte(&mut self, address: Register, value: Register) -> Option<Vec<MemAction>> {
+  pub fn write_byte(&mut self, address: Register, value: Register) -> MemAction {
     write_memory!(address, value, write_byte, self)
   }
-  pub fn write_half(&mut self, address: Register, value: Register) -> Option<Vec<MemAction>> {
+  pub fn write_half(&mut self, address: Register, value: Register) -> MemAction {
     assert_eq!(address & 0x0000_0001, 0);
     write_memory!(address, value, write_half, self)
   }
-  pub fn write_word(&mut self, address: Register, value: Register) -> Option<Vec<MemAction>>  {
+  pub fn write_word(&mut self, address: Register, value: Register) -> MemAction  {
     assert_eq!(address & 0x0000_0003, 0);
     write_memory!(address, value, write_word, self)
   }

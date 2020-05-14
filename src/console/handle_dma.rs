@@ -70,7 +70,7 @@ impl Console {
                 addr = step(addr);
               }
               addr = undo_step(addr);
-              self.memory.write_word(Memory::DMA_ADDRESS_0 + (transfer.channel_num() * 0x10), addr);
+              self.memory.write_word(Memory::DMA_ADDRESS_0 + (transfer.channel_num() as u32 * 0x10), addr);
             },
             Chunks::LinkedList => {
               let mut header_address = addr;
@@ -90,7 +90,7 @@ impl Console {
                   addr = header_address;
                 }
               }
-              self.memory.write_word(Memory::DMA_ADDRESS_0 + (transfer.channel_num() * 0x10), 0x00ff_ffff);
+              self.memory.write_word(Memory::DMA_ADDRESS_0 + (transfer.channel_num() as u32 * 0x10), 0x00ff_ffff);
             },
           }
           //println!("sending {:#x?} through a DMA", buffer);
@@ -101,7 +101,7 @@ impl Console {
     }
     self.memory.reset_dma_channel(transfer.channel_num());
   }
-  fn get_dma_channel(&mut self, channel_num: u32) -> Option<&mut dyn DMAChannel> {
+  fn get_dma_channel(&mut self, channel_num: u8) -> Option<&mut dyn DMAChannel> {
     match channel_num {
       2 => {
         Some(&mut self.gpu)
