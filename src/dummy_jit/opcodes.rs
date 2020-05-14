@@ -40,34 +40,36 @@ impl Dummy_JIT {
       };
       (rt = [rs + imm16] $offset:expr, $operator:ident $mask:ident $shift:ident) => {
         {
+          let s = get_rs(op);
+          let imm16 = get_imm16(op).half_sign_extended();
+          let t = get_rt(op);
           Some(Box::new(move |vm| {
-            let rs = vm.r3000.nth_reg(get_rs(op));
-            let imm16 = get_imm16(op).half_sign_extended();
-            let rt_idx = get_rt(op);
+            let rs = vm.r3000.nth_reg(s);
             let rt = vm.delayed_writes.iter()
                                         .rev()
-                                        .find(|write| *write.name() == Name::Rn(rt_idx))
-                                        .map_or(vm.r3000.nth_reg(rt_idx),|write| write.value());
+                                        .find(|write| *write.name() == Name::Rn(t))
+                                        .map_or(vm.r3000.nth_reg(t),|write| write.value());
             let address = rs.wrapping_add(imm16);
             let aligned_address = *address.clone().clear_mask(3);
             let aligned_word = vm.resolve_memresponse(vm.memory.read_word(aligned_address));
             let num_bits = $offset.$operator(8*address.lowest_bits(2));
             let result = rt.$mask(num_bits) | aligned_word.$shift(num_bits);
-            vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt_idx), result));
+            vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(t), result));
           }))
         }
       };
       //delayed aligned reads
       (rt = [rs + imm16] $method:ident) => {
         {
+          let s = get_rs(op);
+          let imm16 = get_imm16(op).half_sign_extended();
+          let t = get_rt(op);
           Some(Box::new(move |vm| {
-            let rs = vm.r3000.nth_reg(get_rs(op));
-            let imm16 = get_imm16(op).half_sign_extended();
-            let rt = get_rt(op);
+            let rs = vm.r3000.nth_reg(s);
             let result = vm.resolve_memresponse(vm.memory.$method(rs.wrapping_add(imm16)));
-            vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt), result));
+            vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(t), result));
             log!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x} {}",
-                      rt, rs, imm16, rs.wrapping_add(imm16), result, stringify!($method));
+                      t, rs, imm16, rs.wrapping_add(imm16), result, stringify!($method));
           }))
         }
       };
@@ -83,10 +85,12 @@ impl Dummy_JIT {
       };
       ([rs + imm16] = rt $offset:expr, $operator:ident $mask:ident $shift:ident) => {
         {
+          let s = get_rs(op);
+          let t = get_rt(op);
+          let imm16 = get_imm16(op).half_sign_extended();
           Some(Box::new(move |vm| {
-            let rs = vm.r3000.nth_reg(get_rs(op));
-            let rt = vm.r3000.nth_reg(get_rt(op));
-            let imm16 = get_imm16(op).half_sign_extended();
+            let rs = vm.r3000.nth_reg(s);
+            let rt = vm.r3000.nth_reg(t);
             if !vm.cop0.cache_isolated() {
               let address = rs.wrapping_add(imm16);
               let aligned_address = *address.clone().clear_mask(3);
@@ -104,12 +108,14 @@ impl Dummy_JIT {
       //aligned writes
       ([rs + imm16] = rt $method:ident) => {
         {
+          let s = get_rs(op);
+          let t = get_rt(op);
+          let imm16 = get_imm16(op).half_sign_extended();
           Some(Box::new(move |vm| {
-            let rs = vm.r3000.nth_reg(get_rs(op));
-            let rt = vm.r3000.nth_reg(get_rt(op));
-            let imm16 = get_imm16(op).half_sign_extended();
+            let rs = vm.r3000.nth_reg(s);
+            let rt = vm.r3000.nth_reg(t);
             log!("[{:#x} + {:#x}] = [{:#x}] \n  = R{}\n  = {:#x} {}",
-                      rs, imm16, rs.wrapping_add(imm16), get_rt(op), rt, stringify!($method));
+                      rs, imm16, rs.wrapping_add(imm16), t, rt, stringify!($method));
             if !vm.cop0.cache_isolated() {
               let maybe_action = vm.$method(rs.wrapping_add(imm16), rt);
               vm.resolve_memactions(maybe_action);
@@ -121,8 +127,9 @@ impl Dummy_JIT {
       };
       (lo = rs) => {
         {
+          let s = get_rs(op);
           Some(Box::new(move |vm| {
-            let rs = vm.r3000.nth_reg(get_rs(op));
+            let rs = vm.r3000.nth_reg(s);
             let lo = vm.r3000.lo_mut();
             *lo = rs;
             log!("op1");
@@ -131,8 +138,9 @@ impl Dummy_JIT {
       };
       (hi = rs) => {
         {
+          let s = get_rs(op);
           Some(Box::new(move |vm| {
-            let rs = vm.r3000.nth_reg(get_rs(op));
+            let rs = vm.r3000.nth_reg(s);
             let hi = vm.r3000.hi_mut();
             *hi = rs;
             log!("op2");
@@ -141,10 +149,10 @@ impl Dummy_JIT {
       };
       (rd = lo) => {
         {
+          let d = get_rd(op);
           Some(Box::new(move |vm| {
             let lo = vm.r3000.lo();
-            let rd_idx = get_rd(op);
-            let rd = vm.r3000.nth_reg_mut(rd_idx);
+            let rd = vm.r3000.nth_reg_mut(d);
             vm.modified_register = rd.maybe_set(lo);
             log!("op3");
           }))
@@ -152,10 +160,10 @@ impl Dummy_JIT {
       };
       (rd = hi) => {
         {
+          let d = get_rd(op);
           Some(Box::new(move |vm| {
             let hi = vm.r3000.hi();
-            let rd_idx = get_rd(op);
-            let rd = vm.r3000.nth_reg_mut(rd_idx);
+            let rd = vm.r3000.nth_reg_mut(d);
             vm.modified_register = rd.maybe_set(hi);
             log!("op4");
           }))
@@ -169,24 +177,30 @@ impl Dummy_JIT {
       //ALU instructions with two general purpose registers
       (rd = rs $method:ident rt) => {
         {
+          let s = get_rs(op);
+          let t = get_rt(op);
+          let d = get_rd(op);
           Some(Box::new(move |vm| {
-            let rs = vm.r3000.nth_reg(get_rs(op));
-            let rt = vm.r3000.nth_reg(get_rt(op));
-            let rd = vm.r3000.nth_reg_mut(get_rd(op));
+            let rs = vm.r3000.nth_reg(s);
+            let rt = vm.r3000.nth_reg(t);
+            let rd = vm.r3000.nth_reg_mut(d);
             vm.modified_register = rd.maybe_set(rs.$method(rt));
             log!("R{} = R{} {} R{}\n  = {:#x} {} {:#x}\n  = {:#x}",
-                      get_rd(op), get_rs(op), stringify!($method), get_rt(op),
-                      rs, stringify!($method), rt, vm.r3000.nth_reg(get_rd(op)));
+                      d, s, stringify!($method), t,
+                      rs, stringify!($method), rt, vm.r3000.nth_reg(d));
           }))
         }
       };
       //ALU instructions with two general purpose registers that trap overflow
       (rd = rs $method:ident rt trap) => {
         {
+          let s = get_rs(op);
+          let t = get_rt(op);
+          let d = get_rd(op);
           Some(Box::new(move |vm| {
-            let rs = vm.r3000.nth_reg(get_rs(op)) as u64;
-            let rt = vm.r3000.nth_reg(get_rt(op)) as u64;
-            let rd = vm.r3000.nth_reg_mut(get_rd(op));
+            let rs = vm.r3000.nth_reg(s) as u64;
+            let rt = vm.r3000.nth_reg(t) as u64;
+            let rd = vm.r3000.nth_reg_mut(d);
             let result = rs.$method(rt);
             match result {
               Some(result) => {
@@ -198,18 +212,20 @@ impl Dummy_JIT {
               },
             }
             log!("R{} = R{} {} R{} trap overflow\n  = {:#x} {} {:#x}\n  = {:#x}",
-                      get_rd(op), get_rs(op), stringify!($method), get_rt(op),
-                      rs, stringify!($method), rt, vm.r3000.nth_reg(get_rd(op)));
+                      d, s, stringify!($method), t,
+                      rs, stringify!($method), rt, vm.r3000.nth_reg(d));
           }))
         }
       };
       //ALU instructions with a register and immediate 16-bit data that trap overflow
       (rt = rs $method:ident signed imm16 trap) => {
         {
+          let s = get_rs(op);
+          let imm16 = get_imm16(op).half_sign_extended() as i32;
+          let t = get_rt(op);
           Some(Box::new(move |vm| {
-            let rs = vm.r3000.nth_reg(get_rs(op)) as i32;
-            let imm16 = get_imm16(op).half_sign_extended() as i32;
-            let rt = vm.r3000.nth_reg_mut(get_rt(op));
+            let rs = vm.r3000.nth_reg(s) as i32;
+            let rt = vm.r3000.nth_reg_mut(t);
             let result = rs.$method(imm16);
             match result {
               Some(result) => {
@@ -221,60 +237,69 @@ impl Dummy_JIT {
               },
             }
             log!("R{} = R{} {} {:#x} trap overflow\n  = {:#x} {} {:#x}\n  = {:#x}",
-                      get_rt(op), get_rs(op), stringify!($method), imm16,
-                      rs, stringify!($method), imm16, vm.r3000.nth_reg(get_rt(op)));
+                      t, s, stringify!($method), imm16,
+                      rs, stringify!($method), imm16, vm.r3000.nth_reg(t));
           }))
         }
       };
       //ALU instructions with a register and immediate 16-bit data
       (rt = rs $method:tt imm16) => {
         {
+          let s = get_rs(op);
+          let imm16 = get_imm16(op);
+          let t = get_rt(op);
           Some(Box::new(move |vm| {
-            let rs = vm.r3000.nth_reg(get_rs(op));
-            let imm16 = get_imm16(op);
-            let rt = vm.r3000.nth_reg_mut(get_rt(op));
+            let rs = vm.r3000.nth_reg(s);
+            let rt = vm.r3000.nth_reg_mut(t);
             vm.modified_register = rt.maybe_set(rs.$method(imm16));
             log!("R{} = R{} {} {:#x}\n  = {:#x} {} {:#x}\n  = {:#x}",
-                      get_rt(op), get_rs(op), stringify!($method), imm16,
-                      rs, stringify!($method), imm16, vm.r3000.nth_reg(get_rt(op)));
+                      t, s, stringify!($method), imm16,
+                      rs, stringify!($method), imm16, vm.r3000.nth_reg(t));
           }))
         }
       };
       //ALU instructions with a register and immediate 16-bit data
       (rt = rs $method:tt signed imm16) => {
         {
+          let s = get_rs(op);
+          let imm16 = get_imm16(op).half_sign_extended();
+          let t = get_rt(op);
           Some(Box::new(move |vm| {
-            let rs = vm.r3000.nth_reg(get_rs(op));
-            let imm16 = get_imm16(op).half_sign_extended();
-            let rt = vm.r3000.nth_reg_mut(get_rt(op));
+            let rs = vm.r3000.nth_reg(s);
+            let rt = vm.r3000.nth_reg_mut(t);
             vm.modified_register = rt.maybe_set(rs.$method(imm16));
             log!("R{} = R{} {} {:#x}\n  = {:#x} {} {:#x}\n  = {:#x}",
-                      get_rt(op), get_rs(op), stringify!($method), imm16,
-                      rs, stringify!($method), imm16, vm.r3000.nth_reg(get_rt(op)));
+                      t, s, stringify!($method), imm16,
+                      rs, stringify!($method), imm16, vm.r3000.nth_reg(t));
           }))
         }
       };
       //shifts a register based on immediate 5 bits
       (rd = rt $method:tt imm5) => {
         {
+          let t = get_rt(op);
+          let imm5 = get_imm5(op);
+          let d = get_rd(op);
           Some(Box::new(move |vm| {
-            let rt = vm.r3000.nth_reg(get_rt(op));
-            let imm5 = get_imm5(op);
-            let rd = vm.r3000.nth_reg_mut(get_rd(op));
+            let rt = vm.r3000.nth_reg(t);
+            let rd = vm.r3000.nth_reg_mut(d);
             vm.modified_register = rd.maybe_set(rt.$method(imm5));
             log!("R{} = R{} {} {:#x}\n  = {:#x} {} {:#x}\n  = {:#x}",
-                      get_rd(op), get_rt(op), stringify!($method), imm5,
-                      rt, stringify!($method), imm5, vm.r3000.nth_reg(get_rd(op)));
+                      d, t, stringify!($method), imm5,
+                      rt, stringify!($method), imm5, vm.r3000.nth_reg(d));
           }))
         }
       };
       //shifts a register based on the lowest 5 bits of another register
       (rd = rt $method:tt (rs and 0x1F)) => {
         {
+          let t = get_rt(op);
+          let s = get_rs(op);
+          let d = get_rd(op);
           Some(Box::new(move |vm| {
-            let rt = vm.r3000.nth_reg(get_rt(op));
-            let rs = vm.r3000.nth_reg(get_rs(op));
-            let rd = vm.r3000.nth_reg_mut(get_rd(op));
+            let rt = vm.r3000.nth_reg(t);
+            let rs = vm.r3000.nth_reg(s);
+            let rd = vm.r3000.nth_reg_mut(d);
             vm.modified_register = rd.maybe_set(rt.$method(rs & 0x1F));
             log!("op9");
           }))
@@ -282,19 +307,23 @@ impl Dummy_JIT {
       };
       (rt = imm16 shl 16) => {
         {
+          let t = get_rt(op);
+          let imm16 = get_imm16(op);
+          let result = imm16 << 16;
           Some(Box::new(move |vm| {
-            let rt = vm.r3000.nth_reg_mut(get_rt(op));
-            let imm16 = get_imm16(op);
-            vm.modified_register = rt.maybe_set(imm16 << 16);
-            log!("R{} = {:#x} << 16 \n  = {:#x}", get_rt(op), imm16, vm.r3000.nth_reg(get_rt(op)));
+            let rt = vm.r3000.nth_reg_mut(t);
+            vm.modified_register = rt.maybe_set(result);
+            log!("R{} = {:#x} << 16 \n  = {:#x}", t, imm16, vm.r3000.nth_reg(t));
           }))
         }
       };
       (hi:lo = rs * rt) => {
         {
+          let s = get_rs(op);
+          let t = get_rt(op);
           Some(Box::new(move |vm| {
-            let rs = vm.r3000.nth_reg(get_rs(op));
-            let rt = vm.r3000.nth_reg(get_rt(op));
+            let rs = vm.r3000.nth_reg(s);
+            let rt = vm.r3000.nth_reg(t);
             let result = (rs as u64) * (rt as u64);
             let hi_res = (result >> 32) as u32;
             let lo_res = (result & 0x0000_0000_ffff_ffff) as u32;
@@ -320,9 +349,11 @@ impl Dummy_JIT {
       };
       (hi:lo = rs * rt signed) => {
         {
+          let s = get_rs(op);
+          let t = get_rt(op);
           Some(Box::new(move |vm| {
-            let rs = vm.r3000.nth_reg(get_rs(op)) as i32;
-            let rt = vm.r3000.nth_reg(get_rt(op)) as i32;
+            let rs = vm.r3000.nth_reg(s) as i32;
+            let rt = vm.r3000.nth_reg(t) as i32;
             let result = (rs as i64) * (rt as i64);
             let hi_res = (result >> 32) as u32;
             let lo_res = (result & 0x0000_0000_ffff_ffff) as u32;
@@ -348,9 +379,11 @@ impl Dummy_JIT {
       };
       (hi:lo = rs / rt) => {
         {
+          let s = get_rs(op);
+          let t = get_rt(op);
           Some(Box::new(move |vm| {
-            let rs = vm.r3000.nth_reg(get_rs(op));
-            let rt = vm.r3000.nth_reg(get_rt(op));
+            let rs = vm.r3000.nth_reg(s);
+            let rt = vm.r3000.nth_reg(t);
             let lo_res = match rt {
               0 => {
                 0xffff_ffff
@@ -371,9 +404,11 @@ impl Dummy_JIT {
       };
       (hi:lo = rs / rt signed) => {
         {
+          let s = get_rs(op);
+          let t = get_rt(op);
           Some(Box::new(move |vm| {
-            let rs = vm.r3000.nth_reg(get_rs(op)) as i32;
-            let rt = vm.r3000.nth_reg(get_rt(op)) as i32;
+            let rs = vm.r3000.nth_reg(s) as i32;
+            let rt = vm.r3000.nth_reg(t) as i32;
             let lo_res = match rt {
               0 => {
                 match rs {
@@ -416,38 +451,44 @@ impl Dummy_JIT {
           match get_rs(op) {
             0x00 => {
               //MFCn
+              let t = get_rt(op);
+              let d = get_rd(op);
               Some(Box::new(move |vm| {
-                let rt = get_rt(op);
-                let rd_data = vm.$copn.nth_data_reg(get_rd(op));
-                vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt), rd_data));
+                let rd_data = vm.$copn.nth_data_reg(d);
+                vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(t), rd_data));
                 log!("R{} = {}R{}\n  = {:#x} after the delay slot",
-                          rt, stringify!($copn), get_rd(op), rd_data);
+                          t, stringify!($copn), d, rd_data);
               }))
             },
             0x02 => {
               //CFCn
+              let t = get_rt(op);
+              let d = get_rd(op);
               Some(Box::new(move |vm| {
-                let rt = get_rt(op);
-                let rd_ctrl = vm.$copn.nth_ctrl_reg(get_rd(op));
-                vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt), rd_ctrl));
+                let rd_ctrl = vm.$copn.nth_ctrl_reg(d);
+                vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(t), rd_ctrl));
               }))
             },
             0x04 => {
               //MTCn
+              let t = get_rt(op);
+              let d = get_rd(op);
               Some(Box::new(move |vm| {
-                let rt = vm.r3000.nth_reg(get_rt(op));
-                let rd = vm.$copn.nth_data_reg_mut(get_rd(op));
+                let rt = vm.r3000.nth_reg(t);
+                let rd = vm.$copn.nth_data_reg_mut(d);
                 vm.modified_register = rd.maybe_set(rt);
                 log!("{}R{} = R{}\n  = {:#x}",
-                          stringify!($copn), get_rd(op), get_rt(op),
-                          vm.$copn.nth_data_reg(get_rd(op)));
+                          stringify!($copn), d, t,
+                          vm.$copn.nth_data_reg(d));
               }))
             },
             0x06 => {
               //CTCn
+              let t = get_rt(op);
+              let d = get_rd(op);
               Some(Box::new(move |vm| {
-                let rt = vm.r3000.nth_reg(get_rt(op));
-                let rd = vm.$copn.nth_ctrl_reg_mut(get_rd(op));
+                let rt = vm.r3000.nth_reg(t);
+                let rd = vm.$copn.nth_ctrl_reg_mut(d);
                 vm.modified_register = rd.maybe_set(rt);
               }))
             },
@@ -455,8 +496,9 @@ impl Dummy_JIT {
               match get_rt(op) {
                 0x00 => {
                   //BCnF
+                  let imm16 = get_imm16(op);
                   Some(Box::new(move |vm| {
-                    vm.$copn.bcnf(get_imm16(op));
+                    vm.$copn.bcnf(imm16);
                   }))
                 },
                 0x01 => {
@@ -474,8 +516,9 @@ impl Dummy_JIT {
             },
             0x10..=0x1F => {
               //COPn imm25
+              let imm25 = get_imm25(op);
               Some(Box::new(move |vm| {
-                vm.$copn.execute_command(get_imm25(op));
+                vm.$copn.execute_command(imm25);
               }))
             },
             _ => {
