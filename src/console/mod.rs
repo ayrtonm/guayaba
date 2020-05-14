@@ -111,7 +111,10 @@ impl Console {
     }
   }
   pub fn resolve_memactions(&mut self, action: MemAction) {
-            match action {
+  }
+  pub fn write_byte(&mut self, address: Register, value: Register) {
+    self.overwritten.insert(Console::physical(address));
+    match self.memory.write_byte(address, value) {
               MemAction::DMA(transfer) => {
                 self.handle_dma(transfer);
               },
@@ -130,17 +133,47 @@ impl Console {
               },
             };
   }
-  pub fn write_byte(&mut self, address: Register, value: Register) -> MemAction {
+  pub fn write_half(&mut self, address: Register, value: Register) {
     self.overwritten.insert(Console::physical(address));
-    self.memory.write_byte(address, value)
+    match self.memory.write_half(address, value) {
+              MemAction::DMA(transfer) => {
+                self.handle_dma(transfer);
+              },
+              MemAction::GpuGp0(value) => self.gpu.write_to_gp0(value),
+              MemAction::GpuGp1(value) => self.gpu.write_to_gp1(value),
+              MemAction::CDCmd(value) => {
+                self.cd.send_command(value);
+              },
+              MemAction::CDParam(value) => {
+                self.cd.send_parameter(value);
+              },
+              MemAction::Interrupt(irq) => {
+                self.cop0.request_interrupt(irq);
+              },
+              MemAction::None => {
+              },
+            };
   }
-  pub fn write_half(&mut self, address: Register, value: Register) -> MemAction {
+  pub fn write_word(&mut self, address: Register, value: Register) {
     self.overwritten.insert(Console::physical(address));
-    self.memory.write_half(address, value)
-  }
-  pub fn write_word(&mut self, address: Register, value: Register) -> MemAction {
-    self.overwritten.insert(Console::physical(address));
-    self.memory.write_word(address, value)
+            match self.memory.write_word(address, value) {
+              MemAction::DMA(transfer) => {
+                self.handle_dma(transfer);
+              },
+              MemAction::GpuGp0(value) => self.gpu.write_to_gp0(value),
+              MemAction::GpuGp1(value) => self.gpu.write_to_gp1(value),
+              MemAction::CDCmd(value) => {
+                self.cd.send_command(value);
+              },
+              MemAction::CDParam(value) => {
+                self.cd.send_parameter(value);
+              },
+              MemAction::Interrupt(irq) => {
+                self.cop0.request_interrupt(irq);
+              },
+              MemAction::None => {
+              },
+            };
   }
   pub fn physical(address: Register) -> Register {
     const PHYS_MASK: [u32; 8] = [0xffff_ffff, 0xffff_ffff, 0xffff_ffff, 0xffff_ffff,

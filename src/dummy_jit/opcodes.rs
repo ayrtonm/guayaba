@@ -108,8 +108,7 @@ impl Dummy_JIT {
                 let aligned_word = vm.resolve_memresponse(vm.memory.read_word(aligned_address));
                 let num_bits = $offset.$operator(8*address.lowest_bits(2));
                 let result = rt.$shift(num_bits) | aligned_word.$mask(num_bits);
-                let maybe_action = vm.write_word(aligned_address, result);
-                vm.resolve_memactions(maybe_action);
+                vm.write_word(aligned_address, result);
               } else {
                 log!("ignoring write while cache is isolated");
               }
@@ -124,8 +123,7 @@ impl Dummy_JIT {
                 let aligned_word = vm.resolve_memresponse(vm.memory.read_word(aligned_address));
                 let num_bits = $offset.$operator(8*address.lowest_bits(2));
                 let result = rt.$shift(num_bits) | aligned_word.$mask(num_bits);
-                let maybe_action = vm.write_word(aligned_address, result);
-                vm.resolve_memactions(maybe_action);
+                vm.write_word(aligned_address, result);
               } else {
                 log!("ignoring write while cache is isolated");
               }
@@ -146,8 +144,7 @@ impl Dummy_JIT {
               log!("[{:#x} + {:#x}] = [{:#x}] \n  = R{}\n  = {:#x} {}",
                         rs, 0, rs, t, rt, stringify!($method));
               if !vm.cop0.cache_isolated() {
-                let maybe_action = vm.$method(rs, rt);
-                vm.resolve_memactions(maybe_action);
+                vm.$method(rs, rt);
               } else {
                 log!("ignoring write while cache is isolated");
               }
@@ -159,8 +156,7 @@ impl Dummy_JIT {
               log!("[{:#x} + {:#x}] = [{:#x}] \n  = R{}\n  = {:#x} {}",
                         rs, imm16, rs.wrapping_add(imm16), t, rt, stringify!($method));
               if !vm.cop0.cache_isolated() {
-                let maybe_action = vm.$method(rs.wrapping_add(imm16), rt);
-                vm.resolve_memactions(maybe_action);
+                vm.$method(rs.wrapping_add(imm16), rt);
               } else {
                 log!("ignoring write while cache is isolated");
               }
