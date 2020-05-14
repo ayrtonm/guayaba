@@ -109,7 +109,7 @@ impl Dummy_JIT {
   }
   fn compile_stub(&mut self, logging: bool) -> Duration {
     let t0 = Instant::now();
-    let mut operations = Vec::with_capacity(50);
+    let mut operations = Vec::new();
     let start = self.console.r3000.pc();
     let mut op = self.console.resolve_memresponse(self.console.memory.read_word(start));
     let mut address = start;
@@ -148,15 +148,15 @@ impl Dummy_JIT {
     //  self.ranges_compiled.clear();
     //};
     self.stubs.insert(Console::physical(start), Stub { operations, final_pc: address });
-    let end = Console::physical(address);
-    self.ranges_compiled.get_mut(&end)
-                        .map(|v| {
-                          v.push(Console::physical(start));
-                        })
-                        .or_else(|| {
-                          self.ranges_compiled.insert(end, vec![Console::physical(start)]);
-                          None
-                        });
+    //let end = Console::physical(address);
+    //self.ranges_compiled.get_mut(&end)
+    //                    .map(|v| {
+    //                      v.push(Console::physical(start));
+    //                    })
+    //                    .or_else(|| {
+    //                      self.ranges_compiled.insert(end, vec![Console::physical(start)]);
+    //                      None
+    //                    });
     //self.ranges_compiled.push((Console::physical(start), Console::physical(address));
     let t1 = Instant::now();
     t1 - t0
