@@ -110,8 +110,6 @@ impl Console {
       MemResponse::CDResponse => self.cd.read_response(),
     }
   }
-  pub fn resolve_memactions(&mut self, action: MemAction) {
-  }
   pub fn write_byte(&mut self, address: Register, value: Register) {
     self.overwritten.insert(Console::physical(address));
     match self.memory.write_byte(address, value) {
