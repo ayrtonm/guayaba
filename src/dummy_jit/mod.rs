@@ -5,6 +5,7 @@ use std::time::Duration;
 use crate::console::Console;
 use crate::register::Register;
 
+mod insn_ir;
 mod opcodes;
 mod jumps;
 
