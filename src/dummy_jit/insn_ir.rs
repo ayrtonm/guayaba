@@ -24,9 +24,8 @@ pub struct Insn {
 }
 
 impl Dummy_JIT {
-  //outer option determines if it's an insn that ends a block
-  //inner option determines if there's if the insn is tagged
-  pub(super) fn tag_insn(&mut self, op: u32, logging: bool) -> Option<Option<Insn>> {
+  //the option determines if it's an insn that ends a block
+  pub(super) fn tag_insn(&mut self, op: u32, logging: bool) -> Option<Insn> {
     macro_rules! log {
       () => ($crate::print!("\n"));
       ($($arg:tt)*) => ({
@@ -34,6 +33,83 @@ impl Dummy_JIT {
           println!($($arg)*);
         };
       })
+    }
+    macro_rules! cop {
+      ($copn:ident) => {
+        {
+          match get_rs(op) {
+            0x00 => {
+              //MFCn
+              Some(Insn {
+                kind: Kind::Register,
+                inputs: vec![],
+                output: Some(get_rt(op)),
+              })
+            },
+            0x02 => {
+              //CFCn
+              Some(Insn {
+                kind: Kind::Register,
+                inputs: vec![],
+                output: Some(get_rt(op)),
+              })
+            },
+            0x04 => {
+              //MTCn
+              Some(Insn {
+                kind: Kind::Register,
+                inputs: vec![get_rt(op)],
+                output: None,
+              })
+            },
+            0x06 => {
+              //CTCn
+              Some(Insn {
+                kind: Kind::Register,
+                inputs: vec![get_rt(op)],
+                output: None,
+              })
+            },
+            0x08 => {
+              match get_rt(op) {
+                0x00 => {
+                  //BCnF
+                  Some(Insn {
+                    kind: Kind::Immediate,
+                    inputs: vec![],
+                    output: None,
+                  })
+                },
+                0x01 => {
+                  //BCnT
+                  //technically we're implementing one illegal instruction here
+                  //since BCnT is not implemented for COP0
+                  //however, GTE (i.e. COP2) does implement it
+                  Some(Insn {
+                    kind: Kind::Immediate,
+                    inputs: vec![],
+                    output: None,
+                  })
+                },
+                _ => {
+                  unreachable!("ran into invalid opcode")
+                },
+              }
+            },
+            0x10..=0x1F => {
+              //COPn imm25
+              Some(Insn {
+                kind: Kind::Immediate,
+                inputs: vec![],
+                output: None,
+              })
+            },
+            _ => {
+              unreachable!("ran into invalid opcode")
+            },
+          }
+        }
+      }
     }
     match get_primary_field(op) {
       0x00 => {
@@ -43,61 +119,61 @@ impl Dummy_JIT {
             //SLL
             log!("> SLL");
             //compute!(rd = rt shl imm5)
-            Some(Some(Insn {
+            Some(Insn {
               kind: Kind::Immediate,
               inputs: vec![get_rt(op)],
               output: Some(get_rd(op)),
-            }))
+            })
           },
           0x02 => {
             //SRL
             log!("> SRL");
             //compute!(rd = rt shr imm5)
-            Some(Some(Insn {
+            Some(Insn {
               kind: Kind::Immediate,
               inputs: vec![get_rt(op)],
               output: Some(get_rd(op)),
-            }))
+            })
           },
           0x03 => {
             //SRA
             log!("> SRA");
             //compute!(rd = rt sra imm5)
-            Some(Some(Insn {
+            Some(Insn {
               kind: Kind::Immediate,
               inputs: vec![get_rt(op)],
               output: Some(get_rd(op)),
-            }))
+            })
           },
           0x04 => {
             //SLLV
             log!("> SLLV");
             //compute!(rd = rt shl (rs and 0x1F))
-            Some(Some(Insn {
+            Some(Insn {
               kind: Kind::Immediate,
               inputs: vec![get_rt(op), get_rs(op)],
               output: Some(get_rd(op)),
-            }))
+            })
           },
           0x06 => {
             //SRLV
             log!("> SRLV");
             //compute!(rd = rt shr (rs and 0x1F))
-            Some(Some(Insn {
+            Some(Insn {
               kind: Kind::Immediate,
               inputs: vec![get_rt(op), get_rs(op)],
               output: Some(get_rd(op)),
-            }))
+            })
           },
           0x07 => {
             //SRAV
             log!("> SRAV");
             //compute!(rd = rt sra (rs and 0x1F))
-            Some(Some(Insn {
+            Some(Insn {
               kind: Kind::Immediate,
               inputs: vec![get_rt(op), get_rs(op)],
               output: Some(get_rd(op)),
-            }))
+            })
           },
           0x08 => {
             //JR
@@ -114,7 +190,7 @@ impl Dummy_JIT {
             //Some(Box::new(move |vm| {
             //  let pc = vm.r3000.pc_mut();
             //  *pc = vm.cop0.generate_exception(Cop0Exception::Syscall, *pc);
-            //}))
+            //})
             None
           },
           0x0D => {
@@ -126,149 +202,181 @@ impl Dummy_JIT {
             //MFHI
             log!("> MFHI");
             //mov!(rd = hi)
-            Some(None)
+            Some(Insn {
+              kind: Kind::Register,
+              inputs: vec![],
+              output: Some(get_rd(op)),
+            })
           },
           0x11 => {
             //MTHI
             log!("> MTHI");
             //mov!(hi = rs)
-            Some(None)
+            Some(Insn {
+              kind: Kind::Register,
+              inputs: vec![get_rs(op)],
+              output: None,
+            })
           },
           0x12 => {
             //MFLO
             log!("> MFLO");
             //mov!(rd = lo)
-            Some(None)
+            Some(Insn {
+              kind: Kind::Register,
+              inputs: vec![],
+              output: Some(get_rd(op)),
+            })
           },
           0x13 => {
             //MTLO
             log!("> MTLO");
             //mov!(lo = rs)
-            Some(None)
+            Some(Insn {
+              kind: Kind::Register,
+              inputs: vec![get_rs(op)],
+              output: None,
+            })
           },
           0x18 => {
             //MULT
             log!("> MULT");
             //compute!(hi:lo = rs * rt signed)
-            Some(None)
+            Some(Insn {
+              kind: Kind::Register,
+              inputs: vec![get_rs(op), get_rt(op)],
+              output: None,
+            })
           },
           0x19 => {
             //MULTU
             log!("> MULTU");
             //compute!(hi:lo = rs * rt)
-            Some(None)
+            Some(Insn {
+              kind: Kind::Register,
+              inputs: vec![get_rs(op), get_rt(op)],
+              output: None,
+            })
           },
           0x1A => {
             //DIV
             log!("> DIV");
             //compute!(hi:lo = rs / rt signed)
-            Some(None)
+            Some(Insn {
+              kind: Kind::Register,
+              inputs: vec![get_rs(op), get_rt(op)],
+              output: None,
+            })
           },
           0x1B => {
             //DIVU
             log!("> DIVU");
             //compute!(hi:lo = rs / rt)
-            Some(None)
+            Some(Insn {
+              kind: Kind::Register,
+              inputs: vec![get_rs(op), get_rt(op)],
+              output: None,
+            })
           },
           0x20 => {
             //ADD
             log!("> ADD");
             //compute!(rd = rs checked_add rt trap)
-            Some(Some(Insn {
+            Some(Insn {
               kind: Kind::Register,
               inputs: vec![get_rs(op), get_rt(op)],
               output: Some(get_rd(op)),
-            }))
+            })
           },
           0x21 => {
             //ADDU
             log!("> ADDU");
             //compute!(rd = rs wrapping_add rt)
-            Some(Some(Insn {
+            Some(Insn {
               kind: Kind::Register,
               inputs: vec![get_rs(op), get_rt(op)],
               output: Some(get_rd(op)),
-            }))
+            })
           },
           0x22 => {
             //SUB
             log!("> SUB");
             //compute!(rd = rs checked_sub rt trap)
-            Some(Some(Insn {
+            Some(Insn {
               kind: Kind::Register,
               inputs: vec![get_rs(op), get_rt(op)],
               output: Some(get_rd(op)),
-            }))
+            })
           },
           0x23 => {
             //SUBU
             log!("> SUBU");
             //compute!(rd = rs wrapping_sub rt)
-            Some(Some(Insn {
+            Some(Insn {
               kind: Kind::Register,
               inputs: vec![get_rs(op), get_rt(op)],
               output: Some(get_rd(op)),
-            }))
+            })
           },
           0x24 => {
             //AND
             log!("> AND");
             //compute!(rd = rs and rt)
-            Some(Some(Insn {
+            Some(Insn {
               kind: Kind::Register,
               inputs: vec![get_rs(op), get_rt(op)],
               output: Some(get_rd(op)),
-            }))
+            })
           },
           0x25 => {
             //OR
             log!("> OR");
             //compute!(rd = rs or rt)
-            Some(Some(Insn {
+            Some(Insn {
               kind: Kind::Register,
               inputs: vec![get_rs(op), get_rt(op)],
               output: Some(get_rd(op)),
-            }))
+            })
           },
           0x26 => {
             //XOR
             log!("> XOR");
             //compute!(rd = rs xor rt)
-            Some(Some(Insn {
+            Some(Insn {
               kind: Kind::Register,
               inputs: vec![get_rs(op), get_rt(op)],
               output: Some(get_rd(op)),
-            }))
+            })
           },
           0x27 => {
             //NOR
             log!("> NOR");
             //compute!(rd = rs nor rt)
-            Some(Some(Insn {
+            Some(Insn {
               kind: Kind::Register,
               inputs: vec![get_rs(op), get_rt(op)],
               output: Some(get_rd(op)),
-            }))
+            })
           },
           0x2A => {
             //SLT
             log!("> SLT");
             //compute!(rd = rs signed_compare rt)
-            Some(Some(Insn {
+            Some(Insn {
               kind: Kind::Register,
               inputs: vec![get_rs(op), get_rt(op)],
               output: Some(get_rd(op)),
-            }))
+            })
           },
           0x2B => {
             //SLTU
             log!("> SLTU");
             //compute!(rd = rs compare rt)
-            Some(Some(Insn {
+            Some(Insn {
               kind: Kind::Register,
               inputs: vec![get_rs(op), get_rt(op)],
               output: Some(get_rd(op)),
-            }))
+            })
           },
           _ => {
             //invalid opcode
@@ -339,87 +447,86 @@ impl Dummy_JIT {
         //ADDI
         log!("> ADDI");
         //compute!(rt = rs checked_add signed imm16 trap)
-        Some(Some(Insn {
+        Some(Insn {
           kind: Kind::Immediate,
           inputs: vec![get_rs(op)],
           output: Some(get_rt(op)),
-        }))
+        })
       },
       0x09 => {
         //ADDIU
         log!("> ADDIU");
         //compute!(rt = rs wrapping_add signed imm16)
-        Some(Some(Insn {
+        Some(Insn {
           kind: Kind::Immediate,
           inputs: vec![get_rs(op)],
           output: Some(get_rt(op)),
-        }))
+        })
       },
       0x0A => {
         //SLTI
         log!("> SLTI");
         //compute!(rt = rs signed_compare imm16)
-        Some(Some(Insn {
+        Some(Insn {
           kind: Kind::Immediate,
           inputs: vec![get_rs(op)],
           output: Some(get_rt(op)),
-        }))
+        })
       },
       0x0B => {
         //SLTIU
         log!("> SLTIU");
         //compute!(rt = rs compare imm16)
-        Some(Some(Insn {
+        Some(Insn {
           kind: Kind::Immediate,
           inputs: vec![get_rs(op)],
           output: Some(get_rt(op)),
-        }))
+        })
       },
       0x0C => {
         //ANDI
         log!("> ANDI");
         //compute!(rt = rs and imm16)
-        Some(Some(Insn {
+        Some(Insn {
           kind: Kind::Immediate,
           inputs: vec![get_rs(op)],
           output: Some(get_rt(op)),
-        }))
+        })
       },
       0x0D => {
         //ORI
         log!("> ORI");
         //compute!(rt = rs or imm16)
-        Some(Some(Insn {
+        Some(Insn {
           kind: Kind::Immediate,
           inputs: vec![get_rs(op)],
           output: Some(get_rt(op)),
-        }))
+        })
       },
       0x0E => {
         //XORI
         log!("> XORI");
         //compute!(rt = rs xor imm16)
-        Some(Some(Insn {
+        Some(Insn {
           kind: Kind::Immediate,
           inputs: vec![get_rs(op)],
           output: Some(get_rt(op)),
-        }))
+        })
       },
       0x0F => {
         //LUI
         log!("> LUI");
         //compute!(rt = imm16 shl 16)
-        Some(Some(Insn {
+        Some(Insn {
           kind: Kind::Immediate,
           inputs: vec![],
           output: Some(get_rt(op)),
-        }))
+        })
       },
       0x10 => {
         //COP0
         log!("> COP0");
-        //cop!(cop0)
-        Some(None)
+        cop!(cop0)
       },
       0x11 => {
         //COP1
@@ -428,8 +535,7 @@ impl Dummy_JIT {
       0x12 => {
         //COP2
         log!("> COP2");
-        //cop!(gte)
-        Some(None)
+        cop!(gte)
       },
       0x13 => {
         //COP3
@@ -439,73 +545,121 @@ impl Dummy_JIT {
         //LB
         log!("> LB");
         //mov!(rt = [rs + imm16] read_byte_sign_extended)
-        Some(None)
+        Some(Insn {
+          kind: Kind::Immediate,
+          inputs: vec![get_rs(op)],
+          output: Some(get_rt(op)),
+        })
       },
       0x21 => {
         //LH
         log!("> LH");
         //mov!(rt = [rs + imm16] read_half_sign_extended)
-        Some(None)
+        Some(Insn {
+          kind: Kind::Immediate,
+          inputs: vec![get_rs(op)],
+          output: Some(get_rt(op)),
+        })
       },
       0x22 => {
         //LWL
         log!("> LWL");
         //mov!(rt = [rs + imm16] left)
-        Some(None)
+        Some(Insn {
+          kind: Kind::Immediate,
+          inputs: vec![get_rs(op)],
+          output: Some(get_rt(op)),
+        })
       },
       0x23 => {
         //LW
         log!("> LW");
         //mov!(rt = [rs + imm16] read_word)
-        Some(None)
+        Some(Insn {
+          kind: Kind::Immediate,
+          inputs: vec![get_rs(op)],
+          output: Some(get_rt(op)),
+        })
       },
       0x24 => {
         //LBU
         log!("> LBU");
         //mov!(rt = [rs + imm16] read_byte)
-        Some(None)
+        Some(Insn {
+          kind: Kind::Immediate,
+          inputs: vec![get_rs(op)],
+          output: Some(get_rt(op)),
+        })
       },
       0x25 => {
         //LHU
         log!("> LHU");
         //mov!(rt = [rs + imm16] read_half)
-        Some(None)
+        Some(Insn {
+          kind: Kind::Immediate,
+          inputs: vec![get_rs(op)],
+          output: Some(get_rt(op)),
+        })
       },
       0x26 => {
         //LWR
         log!("> LWR");
         //mov!(rt = [rs + imm16] right)
-        Some(None)
+        Some(Insn {
+          kind: Kind::Immediate,
+          inputs: vec![get_rs(op)],
+          output: Some(get_rt(op)),
+        })
       },
       0x28 => {
         //SB
         log!("> SB");
         //mov!([rs + imm16] = rt write_byte)
-        Some(None)
+        Some(Insn {
+          kind: Kind::Immediate,
+          inputs: vec![get_rt(op)],
+          output: None,
+        })
       },
       0x29 => {
         //SH
         log!("> SH");
         //mov!([rs + imm16] = rt write_half)
-        Some(None)
+        Some(Insn {
+          kind: Kind::Immediate,
+          inputs: vec![get_rt(op)],
+          output: None,
+        })
       },
       0x2A => {
         //SWL
         log!("> SWL");
         //mov!([rs + imm16] = rt left)
-        Some(None)
+        Some(Insn {
+          kind: Kind::Immediate,
+          inputs: vec![get_rt(op)],
+          output: None,
+        })
       },
       0x2B => {
         //SW
         log!("> SW");
         //mov!([rs + imm16] = rt write_word)
-        Some(None)
+        Some(Insn {
+          kind: Kind::Immediate,
+          inputs: vec![get_rt(op)],
+          output: None,
+        })
       },
       0x2E => {
         //SWR
         log!("> SWR");
         //mov!([rs + imm16] = rt right)
-        Some(None)
+        Some(Insn {
+          kind: Kind::Immediate,
+          inputs: vec![get_rt(op)],
+          output: None,
+        })
       },
       0x30 => {
         //LWC0
