@@ -1,9 +1,18 @@
+use std::ops::Add;
+use std::ops::Shl;
+use std::ops::Shr;
+use std::ops::Sub;
 use std::io;
 use std::collections::HashMap;
 use std::time::Instant;
 use std::time::Duration;
 use crate::console::Console;
 use crate::register::Register;
+use crate::register::BitBang;
+use crate::r3000::MaybeSet;
+use insn_ir::Insn;
+use insn_ir::Kind;
+use crate::common::*;
 
 mod insn_ir;
 mod opcodes;
@@ -108,6 +117,90 @@ impl Dummy_JIT {
         ranges_compiled: Default::default(),
     })
   }
+  fn compile_optimize_stub(&mut self, operations: &mut Vec<(Register, Insn)>, logging: bool) -> Vec<Box<dyn Fn(&mut Console)>> {
+    let mut ret = Vec::new();
+    let mut const_registers: [Option<u32>; 32] = [None; 32];
+    for (op, tag) in operations {
+      const_registers[0] = Some(0);
+      match tag.kind() {
+        Kind::Immediate => {
+          if tag.inputs_len() == 0 {
+            //LUI
+            assert!(get_primary_field(*op) == 0x0F);
+            const_registers[tag.output().expect("LUI") as usize] = Some(get_imm16(*op) << 16);
+            ret.push(self.compile_opcode(*op, logging).expect(""));
+          } else if tag.inputs_len() == 1 {
+            //ANDI, ORI, ADDI, ADDIU, etc.
+            let operator = get_primary_field(*op);
+            match operator {
+              0x09..=0x0E => {
+                if const_registers[tag.input_i(0)].is_some() && tag.output().is_some() {
+                  //compute result ahead-of-time
+                  let output = tag.output().expect("");
+                  let result = match operator {
+                    0x09 => {
+                      const_registers[tag.input_i(0)].expect("").wrapping_add(get_imm16(*op))
+                    },
+                    0x0A => {
+                      const_registers[tag.input_i(0)].expect("").signed_compare(get_imm16(*op))
+                    },
+                    0x0B => {
+                      const_registers[tag.input_i(0)].expect("").compare(get_imm16(*op))
+                    },
+                    0x0C => {
+                      const_registers[tag.input_i(0)].expect("").and(get_imm16(*op))
+                    },
+                    0x0D => {
+                      const_registers[tag.input_i(0)].expect("").or(get_imm16(*op))
+                    },
+                    0x0E => {
+                      const_registers[tag.input_i(0)].expect("").xor(get_imm16(*op))
+                    },
+                    _ => {
+                      unreachable!("")
+                    },
+                  };
+                  ret.push(Box::new(move |vm| {
+                    let out = vm.r3000.nth_reg_mut(output);
+                    vm.modified_register = out.maybe_set(result);
+                    if logging {
+                      println!("> optimized register load R{} = {:#x}", output, result);
+                    }
+                  }));
+                  //mark output as constant
+                  const_registers[output as usize] = Some(result);
+                } else {
+                  if tag.output().is_some() {
+                    let output = tag.output().expect("");
+                    const_registers[output as usize] = None;
+                  }
+                  ret.push(self.compile_opcode(*op, logging).expect(""));
+                }
+              },
+              _ => {
+                if tag.output().is_some() {
+                  let output = tag.output().expect("");
+                  const_registers[output as usize] = None;
+                }
+                ret.push(self.compile_opcode(*op, logging).expect(""));
+              },
+            };
+          }
+        },
+        Kind::Register => {
+          if tag.output().is_some() {
+            let output = tag.output().expect("");
+            const_registers[output as usize] = None;
+          }
+          ret.push(self.compile_opcode(*op, logging).expect(""));
+        },
+        _ => {
+          unreachable!("")
+        },
+      }
+    };
+    ret
+  }
   fn compile_stub(&mut self, logging: bool) -> Duration {
     let t0 = Instant::now();
     let mut operations = Vec::new();
@@ -126,10 +219,11 @@ impl Dummy_JIT {
       tagged = self.tag_insn(op, logging);
     }
     //do stub analysis and optimizations here
+    let mut compiled_stub = self.compile_optimize_stub(&mut operations, logging);
 
-    //compile tagged stub
-    let mut compiled_stub = Vec::new();
-    compiled_stub = operations.iter().map(|(op, tag)| self.compile_opcode(*op, logging).expect("")).collect();
+    ////compile tagged stub
+    //let mut compiled_stub = Vec::new();
+    //compiled_stub = operations.iter().map(|(op, tag)| self.compile_opcode(*op, logging).expect("")).collect();
     //println!("jump {:#x} at {:#x}", op, address);
     //get the jump instruction that ended the block
     let jump_op = op;

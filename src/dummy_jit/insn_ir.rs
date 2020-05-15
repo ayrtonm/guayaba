@@ -11,7 +11,7 @@ use crate::dummy_jit::Dummy_JIT;
 use crate::console::Console;
 use crate::common::*;
 
-enum Kind {
+pub enum Kind {
   Immediate,
   Register,
   Jump,
@@ -21,6 +21,21 @@ pub struct Insn {
   kind: Kind,
   inputs: Vec<u32>,
   output: Option<u32>,
+}
+
+impl Insn {
+  pub fn kind(&self) -> &Kind {
+    &self.kind
+  }
+  pub fn input_i(&self, n: usize) -> usize {
+    self.inputs[n] as usize
+  }
+  pub fn inputs_len(&self) -> usize {
+    self.inputs.len()
+  }
+  pub fn output(&self) -> Option<u32> {
+    self.output
+  }
 }
 
 impl Dummy_JIT {
