@@ -114,22 +114,27 @@ impl Dummy_JIT {
     let start = self.console.r3000.pc();
     let mut op = self.console.resolve_memresponse(self.console.memory.read_word(start));
     let mut address = start;
-    let mut compiled = self.compile_opcode(op, logging);
+    let mut tagged = self.tag_insn(op, logging);
     //add all instructions before the next jump to the stub
-    while compiled.is_some() {
+    while tagged.is_some() {
       if op != 0x00 {
-        operations.push(compiled.take().expect(""));
+        operations.push((op, tagged.take().expect("")));
       }
       address = address.wrapping_add(4);
       op = self.console.resolve_memresponse(self.console.memory.read_word(address));
       //println!("{:#x}", op);
-      compiled = self.compile_opcode(op, logging);
+      tagged = self.tag_insn(op, logging);
     }
+    //do stub analysis and optimizations here
+
+    //compile tagged stub
+    let mut compiled_stub = Vec::new();
+    compiled_stub = operations.iter().map(|(op, tag)| self.compile_opcode(*op, logging).expect("")).collect();
     //println!("jump {:#x} at {:#x}", op, address);
     //get the jump instruction that ended the block
     let jump_op = op;
     let compiled_jump = self.compile_jump(op, logging);
-    operations.push(compiled_jump);
+    compiled_stub.push(compiled_jump);
 
     //if the jump was not a SYSCALL
     if jump_op != 0xc {
@@ -137,9 +142,9 @@ impl Dummy_JIT {
       address = address.wrapping_add(4);
       let op = self.console.resolve_memresponse(self.console.memory.read_word(address));
       //println!("branch delay slot contained {:#x}", op);
-      compiled = self.compile_opcode(op, logging);
+      let compiled = self.compile_opcode(op, logging);
       //println!("{:#x} followed by {:#x}", jump_op, op);
-      operations.push(compiled.expect("Consecutive jumps are not allowed in the MIPS ISA"));
+      compiled_stub.push(compiled.expect("Consecutive jumps are not allowed in the MIPS ISA"));
     }
 
     //println!("compiled a block with {} operations for {:#x}", operations.len(), start);
@@ -148,7 +153,7 @@ impl Dummy_JIT {
     //  self.stubs.clear();
     //  self.ranges_compiled.clear();
     //};
-    self.stubs.insert(Console::physical(start), Stub { operations, final_pc: address });
+    self.stubs.insert(Console::physical(start), Stub { operations: compiled_stub, final_pc: address });
     //let end = Console::physical(address);
     //self.ranges_compiled.get_mut(&end)
     //                    .map(|v| {
