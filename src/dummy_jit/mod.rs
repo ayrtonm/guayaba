@@ -119,86 +119,182 @@ impl Dummy_JIT {
   }
   fn compile_optimize_stub(&mut self, operations: &mut Vec<(Register, Insn)>, logging: bool) -> Vec<Box<dyn Fn(&mut Console)>> {
     let mut ret = Vec::new();
-    let mut const_registers: [Option<u32>; 32] = [None; 32];
+    let mut const_registers: [Option<Register>; 32] = [None; 32];
     for (op, tag) in operations {
       const_registers[0] = Some(0);
-      match tag.kind() {
-        Kind::Immediate => {
-          if tag.inputs_len() == 0 {
-            //LUI
-            assert!(get_primary_field(*op) == 0x0F);
-            const_registers[tag.output().expect("LUI") as usize] = Some(get_imm16(*op) << 16);
-            ret.push(self.compile_opcode(*op, logging).expect(""));
-          } else if tag.inputs_len() == 1 {
-            //ANDI, ORI, ADDI, ADDIU, etc.
-            let operator = get_primary_field(*op);
-            match operator {
-              0x09..=0x0E => {
-                if const_registers[tag.input_i(0)].is_some() && tag.output().is_some() {
-                  //compute result ahead-of-time
-                  let output = tag.output().expect("");
-                  let result = match operator {
-                    0x09 => {
-                      const_registers[tag.input_i(0)].expect("").wrapping_add(get_imm16(*op))
-                    },
-                    0x0A => {
-                      const_registers[tag.input_i(0)].expect("").signed_compare(get_imm16(*op))
-                    },
-                    0x0B => {
-                      const_registers[tag.input_i(0)].expect("").compare(get_imm16(*op))
-                    },
-                    0x0C => {
-                      const_registers[tag.input_i(0)].expect("").and(get_imm16(*op))
-                    },
-                    0x0D => {
-                      const_registers[tag.input_i(0)].expect("").or(get_imm16(*op))
-                    },
-                    0x0E => {
-                      const_registers[tag.input_i(0)].expect("").xor(get_imm16(*op))
-                    },
-                    _ => {
-                      unreachable!("")
-                    },
-                  };
-                  ret.push(Box::new(move |vm| {
-                    let out = vm.r3000.nth_reg_mut(output);
-                    vm.modified_register = out.maybe_set(result);
-                    if logging {
-                      println!("> optimized register load R{} = {:#x}", output, result);
-                    }
-                  }));
-                  //mark output as constant
-                  const_registers[output as usize] = Some(result);
-                } else {
-                  if tag.output().is_some() {
-                    let output = tag.output().expect("");
-                    const_registers[output as usize] = None;
-                  }
+      match tag.inputs_len() {
+        0 => {
+          match tag.output() {
+            Some(output) => {
+              match tag.kind() {
+                Kind::Immediate => {
+                  //LUI
+                  assert!(get_primary_field(*op) == 0x0F);
+                  const_registers[output as usize] = Some(get_imm16(*op) << 16);
                   ret.push(self.compile_opcode(*op, logging).expect(""));
-                }
-              },
-              _ => {
-                if tag.output().is_some() {
-                  let output = tag.output().expect("");
+                },
+                _ => {
                   const_registers[output as usize] = None;
-                }
-                ret.push(self.compile_opcode(*op, logging).expect(""));
-              },
-            };
+                  ret.push(self.compile_opcode(*op, logging).expect(""));
+                },
+              }
+            },
+            None => {
+              ret.push(self.compile_opcode(*op, logging).expect(""));
+            },
           }
         },
-        Kind::Register => {
-          if tag.output().is_some() {
-            let output = tag.output().expect("");
-            const_registers[output as usize] = None;
+        1 => {
+          match tag.output() {
+            Some(output) => {
+              match get_primary_field(*op) {
+                0x09 => {
+                  match const_registers[tag.input_i(0)] {
+                    Some(constant) => {
+                      let result = constant.wrapping_add(get_imm16(*op).half_sign_extended());
+                      ret.push(Box::new(move |vm| {
+                        let out = vm.r3000.nth_reg_mut(output);
+                        vm.modified_register = out.maybe_set(result);
+                        if logging {
+                          println!("> optimized register load R{} = {:#x}", output, result);
+                        }
+                      }));
+                      //mark output as constant
+                      const_registers[output as usize] = Some(result);
+                    },
+                    None => {
+                      const_registers[output as usize] = None;
+                      ret.push(self.compile_opcode(*op, logging).expect(""));
+                    },
+                  }
+                },
+                0x0A => {
+                  match const_registers[tag.input_i(0)] {
+                    Some(constant) => {
+                      let result = constant.signed_compare(get_imm16(*op));
+                      ret.push(Box::new(move |vm| {
+                        let out = vm.r3000.nth_reg_mut(output);
+                        vm.modified_register = out.maybe_set(result);
+                        if logging {
+                          println!("> optimized register load R{} = {:#x}", output, result);
+                        }
+                      }));
+                      //mark output as constant
+                      const_registers[output as usize] = Some(result);
+                    },
+                    None => {
+                      const_registers[output as usize] = None;
+                      ret.push(self.compile_opcode(*op, logging).expect(""));
+                    },
+                  }
+                },
+                0x0B => {
+                  match const_registers[tag.input_i(0)] {
+                    Some(constant) => {
+                      let result = constant.compare(get_imm16(*op));
+                      ret.push(Box::new(move |vm| {
+                        let out = vm.r3000.nth_reg_mut(output);
+                        vm.modified_register = out.maybe_set(result);
+                        if logging {
+                          println!("> optimized register load R{} = {:#x}", output, result);
+                        }
+                      }));
+                      //mark output as constant
+                      const_registers[output as usize] = Some(result);
+                    },
+                    None => {
+                      const_registers[output as usize] = None;
+                      ret.push(self.compile_opcode(*op, logging).expect(""));
+                    },
+                  }
+                },
+                0x0C => {
+                  match const_registers[tag.input_i(0)] {
+                    Some(constant) => {
+                      let result = constant.and(get_imm16(*op));
+                      ret.push(Box::new(move |vm| {
+                        let out = vm.r3000.nth_reg_mut(output);
+                        vm.modified_register = out.maybe_set(result);
+                        if logging {
+                          println!("> optimized register load R{} = {:#x}", output, result);
+                        }
+                      }));
+                      //mark output as constant
+                      const_registers[output as usize] = Some(result);
+                    },
+                    None => {
+                      const_registers[output as usize] = None;
+                      ret.push(self.compile_opcode(*op, logging).expect(""));
+                    },
+                  }
+                },
+                0x0D => {
+                  match const_registers[tag.input_i(0)] {
+                    Some(constant) => {
+                      let result = constant.or(get_imm16(*op));
+                      ret.push(Box::new(move |vm| {
+                        let out = vm.r3000.nth_reg_mut(output);
+                        vm.modified_register = out.maybe_set(result);
+                        if logging {
+                          println!("> optimized register load R{} = {:#x}", output, result);
+                        }
+                      }));
+                      //mark output as constant
+                      const_registers[output as usize] = Some(result);
+                    },
+                    None => {
+                      const_registers[output as usize] = None;
+                      ret.push(self.compile_opcode(*op, logging).expect(""));
+                    },
+                  }
+                },
+                0x0E => {
+                  match const_registers[tag.input_i(0)] {
+                    Some(constant) => {
+                      let result = constant.xor(get_imm16(*op));
+                      ret.push(Box::new(move |vm| {
+                        let out = vm.r3000.nth_reg_mut(output);
+                        vm.modified_register = out.maybe_set(result);
+                        if logging {
+                          println!("> optimized register load R{} = {:#x}", output, result);
+                        }
+                      }));
+                      //mark output as constant
+                      const_registers[output as usize] = Some(result);
+                    },
+                    None => {
+                      const_registers[output as usize] = None;
+                      ret.push(self.compile_opcode(*op, logging).expect(""));
+                    },
+                  }
+                },
+                _ => {
+                  const_registers[output as usize] = None;
+                  ret.push(self.compile_opcode(*op, logging).expect(""));
+                },
+              }
+            },
+            None => {
+              ret.push(self.compile_opcode(*op, logging).expect(""));
+            },
           }
-          ret.push(self.compile_opcode(*op, logging).expect(""));
+        },
+        2 => {
+          match tag.output() {
+            Some(output) => {
+              const_registers[output as usize] = None;
+              ret.push(self.compile_opcode(*op, logging).expect(""));
+            },
+            None => {
+              ret.push(self.compile_opcode(*op, logging).expect(""));
+            },
+          }
         },
         _ => {
           unreachable!("")
         },
-      }
-    };
+      };
+    }
     ret
   }
   fn compile_stub(&mut self, logging: bool) -> Duration {
