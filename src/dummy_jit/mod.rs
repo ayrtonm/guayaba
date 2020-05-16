@@ -49,24 +49,21 @@ impl Dummy_JIT {
     println!("running in dummy JIT mode");
     loop {
       let address = Console::physical(self.console.r3000.pc());
-      //if self.console.overwritten.len() >= 1000 {
-      //  self.cache_invalidation();
-      //}
-      //let maybe_invalidated_stub = self.stubs.get(&address);
-      //match maybe_invalidated_stub {
-      //  Some(stub) => {
-      //    let mut intersection = self.console.overwritten.clone();
-      //    //these are the executable addresses that have been overwritten
-      //    //this will be no bigger than the size of the stub
-      //    intersection.retain(|&t| address <= t && t <= Console::physical(stub.final_pc()));
+      let maybe_invalidated_stub = self.stubs.get(&address);
+      match maybe_invalidated_stub {
+        Some(stub) => {
+          let mut intersection = self.console.overwritten.clone();
+          //these are the executable addresses that have been overwritten
+          //this will be no bigger than the size of the stub
+          intersection.retain(|&t| address <= t && t <= Console::physical(stub.final_pc()));
 
-      //    if !intersection.is_empty() {
-      //      self.cache_invalidation();
-      //    };
-      //  },
-      //  None => {
-      //  },
-      //}
+          if !intersection.is_empty() {
+            self.cache_invalidation();
+          };
+        },
+        None => {
+        },
+      }
       let maybe_stub = self.stubs.get(&address);
       match maybe_stub {
         Some(stub) => {
@@ -144,9 +141,6 @@ impl Dummy_JIT {
         self.compile_stub(&mut operations, logging)
       };
 
-    ////compile tagged stub
-    //let mut compiled_stub = Vec::new();
-    //compiled_stub = operations.iter().map(|(op, tag)| self.compile_opcode(*op, logging).expect("")).collect();
     //println!("jump {:#x} at {:#x}", op, address);
     //get the jump instruction that ended the block
     let jump_op = op;
@@ -178,16 +172,15 @@ impl Dummy_JIT {
       len,
     };
     self.stubs.insert(Console::physical(start), stub);
-    //let end = Console::physical(address);
-    //self.ranges_compiled.get_mut(&end)
-    //                    .map(|v| {
-    //                      v.push(Console::physical(start));
-    //                    })
-    //                    .or_else(|| {
-    //                      self.ranges_compiled.insert(end, vec![Console::physical(start)]);
-    //                      None
-    //                    });
-    //self.ranges_compiled.push((Console::physical(start), Console::physical(address));
+    let end = Console::physical(address);
+    self.ranges_compiled.get_mut(&end)
+                        .map(|v| {
+                          v.push(Console::physical(start));
+                        })
+                        .or_else(|| {
+                          self.ranges_compiled.insert(end, vec![Console::physical(start)]);
+                          None
+                        });
     let t1 = Instant::now();
     t1 - t0
   }
@@ -201,7 +194,6 @@ impl Dummy_JIT {
                             .iter()
                             .filter(|&s| *s <= addr)
                             .for_each(|&s| {
-                              println!("removed a stub");
                               invalidated.push(s);
                             });
       }
