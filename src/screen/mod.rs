@@ -140,6 +140,8 @@ impl Screen {
       gl::BindVertexArray(vao);
       gl::DrawArrays(gl::TRIANGLES, 0, n_vertices as i32);
     }
+  }
+  pub fn refresh_window(&mut self) {
     self.window.gl_swap_window();
   }
   pub fn event_pump(&mut self) -> &mut sdl2::EventPump {

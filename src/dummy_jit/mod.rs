@@ -17,6 +17,7 @@ mod optimize;
 struct Stub {
   operations: Vec<Box<dyn Fn(&mut Console)>>,
   final_pc: Register,
+  len: u32,
 }
 
 impl Stub {
@@ -25,6 +26,9 @@ impl Stub {
   }
   fn final_pc(&self) -> Register {
     self.final_pc
+  }
+  fn len(&self) -> u32{
+    self.len
   }
 }
 
@@ -41,6 +45,13 @@ impl Dummy_JIT {
     let start_time = Instant::now();
     let mut down_time = start_time - start_time;
     let mut compile_time = start_time - start_time;
+    let mut lookup_time = start_time - start_time;
+    let mut exec_time = start_time - start_time;
+    let mut flush_time = start_time - start_time;
+    let mut gpu_time = start_time - start_time;
+    let mut cd_time = start_time - start_time;
+    const refresh_rate: i64 = 550_000;
+    let mut refresh_timer: i64 = refresh_rate;
     println!("running in dummy JIT mode");
     loop {
       let address = Console::physical(self.console.r3000.pc());
@@ -72,24 +83,37 @@ impl Dummy_JIT {
           let operations = stub.operations();
           *self.console.r3000.pc_mut() = stub.final_pc();
           for f in operations {
+            //let t0 = Instant::now();
             self.console.r3000.flush_write_cache(&mut self.console.delayed_writes,
                                                &mut self.console.modified_register);
+            //let t1 = Instant::now();
             f(&mut self.console);
+            //let t2 = Instant::now();
             match self.console.gpu.exec_next_gp0_command() {
               Some(object) => self.console.screen.draw(object),
               None => (),
             };
+            //let t3 = Instant::now();
             self.console.cd.exec_command();
-            self.console.i += 1;
-            n.map(|n| {
-              if self.console.i == n {
-                let end_time = Instant::now();
-                panic!("Executed {} steps in {:?}\nwith {:?} of down time and {:?} of compile time",
-                       self.console.i, end_time - start_time, down_time, compile_time);
-              };
-            });
-            //println!("on step {} of block", self.i);
+            //let t4 = Instant::now();
+            //flush_time += t1 - t0;
+            //exec_time += t2 - t1;
+            //gpu_time += t3 - t2;
+            //cd_time += t4 - t3;
           }
+          refresh_timer -= stub.len() as i64;
+          if refresh_timer < 0 {
+            self.console.screen.refresh_window();
+            refresh_timer = refresh_rate;
+          }
+          self.console.i += stub.len();
+          n.map(|n| {
+            if self.console.i >= n {
+              let end_time = Instant::now();
+              panic!("Executed {} steps in {:?}\nwith {:?} of flush time, {:?} of exec time, {:?} of GPU time and {:?} of CD time",
+                     self.console.i, end_time - start_time, flush_time, exec_time, gpu_time, cd_time);
+            };
+          });
           *self.console.r3000.pc_mut() = self.console.next_pc
                                                      .map_or_else(|| self.console.r3000.pc().wrapping_add(4),
                                                                   |next_pc| next_pc);
@@ -99,7 +123,8 @@ impl Dummy_JIT {
         },
         None => {
           //if the stub was invalidated, compile another one
-          compile_time += self.parse_stub(optimize, logging);
+          //compile_time += self.parse_stub(optimize, logging);
+          self.parse_stub(optimize, logging);
         },
       }
     }
@@ -113,8 +138,8 @@ impl Dummy_JIT {
         ranges_compiled: Default::default(),
     })
   }
-  fn parse_stub(&mut self, optimize: bool, logging: bool) -> Duration {
-    let t0 = Instant::now();
+  fn parse_stub(&mut self, optimize: bool, logging: bool) {
+    //let t0 = Instant::now();
     let mut operations = Vec::new();
     let start = self.console.r3000.pc();
     let mut op = self.console.resolve_memresponse(self.console.memory.read_word(start));
@@ -147,6 +172,7 @@ impl Dummy_JIT {
     let compiled_jump = self.compile_jump(op, logging);
     compiled_stub.push(compiled_jump);
 
+    let mut len = operations.len() as u32 + 1;
     //if the jump was not a SYSCALL
     if jump_op != 0xc {
       //add the branch delay slot to the stub
@@ -156,6 +182,7 @@ impl Dummy_JIT {
       let compiled = self.compile_opcode(op, logging);
       //println!("{:#x} followed by {:#x}", jump_op, op);
       compiled_stub.push(compiled.expect("Consecutive jumps are not allowed in the MIPS ISA"));
+      len += 1;
     }
 
     //println!("compiled a block with {} operations for {:#x}", operations.len(), start);
@@ -164,7 +191,12 @@ impl Dummy_JIT {
     //  self.stubs.clear();
     //  self.ranges_compiled.clear();
     //};
-    self.stubs.insert(Console::physical(start), Stub { operations: compiled_stub, final_pc: address });
+    let stub = Stub {
+      operations: compiled_stub,
+      final_pc: address,
+      len,
+    };
+    self.stubs.insert(Console::physical(start), stub);
     //let end = Console::physical(address);
     //self.ranges_compiled.get_mut(&end)
     //                    .map(|v| {
@@ -175,8 +207,8 @@ impl Dummy_JIT {
     //                      None
     //                    });
     //self.ranges_compiled.push((Console::physical(start), Console::physical(address));
-    let t1 = Instant::now();
-    t1 - t0
+    //let t1 = Instant::now();
+    //t1 - t0
   }
   fn cache_invalidation(&mut self) {
     let mut invalidated = Vec::new();

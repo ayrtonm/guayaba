@@ -11,6 +11,8 @@ pub struct Interpreter {
 impl Interpreter {
   pub fn run(&mut self, n: Option<u32>, logging: bool) {
     let start_time = Instant::now();
+    const refresh_rate: i64 = 550_000;
+    let mut refresh_timer: i64 = refresh_rate;
     loop {
       if logging {
         println!("  ");
@@ -24,6 +26,11 @@ impl Interpreter {
           panic!("Executed {} steps in {:?}", self.console.i, end_time - start_time);
         };
       });
+      refresh_timer -= 1;
+      if refresh_timer < 0 {
+        self.console.screen.refresh_window();
+        refresh_timer = refresh_rate;
+      }
       if !self.console.handle_events() {
         return
       }
