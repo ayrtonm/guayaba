@@ -632,7 +632,7 @@ impl Dummy_JIT {
         //mov!([rs + imm16] = rt write_byte)
         Some(Insn {
           kind: Kind::Immediate,
-          inputs: vec![get_rt(op)],
+          inputs: vec![get_rs(op), get_rt(op)],
           output: None,
         })
       },
@@ -642,7 +642,7 @@ impl Dummy_JIT {
         //mov!([rs + imm16] = rt write_half)
         Some(Insn {
           kind: Kind::Immediate,
-          inputs: vec![get_rt(op)],
+          inputs: vec![get_rs(op), get_rt(op)],
           output: None,
         })
       },
@@ -652,7 +652,7 @@ impl Dummy_JIT {
         //mov!([rs + imm16] = rt left)
         Some(Insn {
           kind: Kind::Immediate,
-          inputs: vec![get_rt(op)],
+          inputs: vec![get_rs(op), get_rt(op)],
           output: None,
         })
       },
@@ -662,7 +662,7 @@ impl Dummy_JIT {
         //mov!([rs + imm16] = rt write_word)
         Some(Insn {
           kind: Kind::Immediate,
-          inputs: vec![get_rt(op)],
+          inputs: vec![get_rs(op), get_rt(op)],
           output: None,
         })
       },
@@ -672,7 +672,7 @@ impl Dummy_JIT {
         //mov!([rs + imm16] = rt right)
         Some(Insn {
           kind: Kind::Immediate,
-          inputs: vec![get_rt(op)],
+          inputs: vec![get_rs(op), get_rt(op)],
           output: None,
         })
       },

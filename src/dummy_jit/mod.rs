@@ -37,7 +37,7 @@ pub struct Dummy_JIT {
 }
 
 impl Dummy_JIT {
-  pub fn run(&mut self, n: Option<u32>, logging: bool) {
+  pub fn run(&mut self, n: Option<u32>, optimize: bool, logging: bool) {
     let start_time = Instant::now();
     let mut down_time = start_time - start_time;
     let mut compile_time = start_time - start_time;
@@ -99,7 +99,7 @@ impl Dummy_JIT {
         },
         None => {
           //if the stub was invalidated, compile another one
-          compile_time += self.compile_stub(logging);
+          compile_time += self.parse_stub(optimize, logging);
         },
       }
     }
@@ -113,7 +113,7 @@ impl Dummy_JIT {
         ranges_compiled: Default::default(),
     })
   }
-  fn compile_stub(&mut self, logging: bool) -> Duration {
+  fn parse_stub(&mut self, optimize: bool, logging: bool) -> Duration {
     let t0 = Instant::now();
     let mut operations = Vec::new();
     let start = self.console.r3000.pc();
@@ -131,7 +131,12 @@ impl Dummy_JIT {
       tagged = self.tag_insn(op, logging);
     }
     //do stub analysis and optimizations here
-    let mut compiled_stub = self.compile_optimized_stub(&mut operations, logging);
+    let mut compiled_stub = 
+      if optimize {
+        self.compile_optimized_stub(&mut operations, logging)
+      } else {
+        self.compile_stub(&mut operations, logging)
+      };
 
     ////compile tagged stub
     //let mut compiled_stub = Vec::new();

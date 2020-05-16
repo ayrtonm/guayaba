@@ -35,14 +35,16 @@ const DEFAULT_Y: u32 = 512;
 const DEFAULT_RESOLUTION: [u32; 2] = [DEFAULT_X, DEFAULT_Y];
 const HELP_FLAGS: [&str;2] = ["-h", "--help"];
 const JIT_FLAGS: [&str;2] = ["-j", "--jit"];
+const OPT_FLAGS: [&str;2] = ["-o", "--optimize"];
 const BIOS_FLAGS: [&str;2] = ["-b", "--bios"];
 const INFILE_FLAGS: [&str;2] = ["-i", "--input"];
 const STEPS_FLAGS: [&str;2] = ["-n", "--steps"];
 const LOG_FLAGS: [&str;2] = ["-l", "--log"];
 const GPULOG_FLAGS: [&str;2] = ["-g", "--gpu"];
 const RESOLUTION_FLAGS: [&str;2] = ["-s", "--size"];
-const ALL_FLAGS: [([&str;2],Option<&str>);8] = [(HELP_FLAGS, None),
+const ALL_FLAGS: [([&str;2],Option<&str>);9] = [(HELP_FLAGS, None),
                                                 (JIT_FLAGS, None),
+                                                (OPT_FLAGS, None),
                                                 (BIOS_FLAGS, Some("BIOS")),
                                                 (INFILE_FLAGS, Some("INFILE")),
                                                 (LOG_FLAGS, None),
@@ -69,6 +71,7 @@ fn main() -> io::Result<()> {
   let infile = get_arg(&args, &INFILE_FLAGS);
   let help = check_flag(&args, &HELP_FLAGS);
   let jit = check_flag(&args, &JIT_FLAGS);
+  let opt = check_flag(&args, &OPT_FLAGS);
   let steps = get_arg(&args, &STEPS_FLAGS).map(|steps| steps.parse::<u32>().ok())
                                           .flatten();
   let logging = check_flag(&args, &LOG_FLAGS);
@@ -86,7 +89,7 @@ fn main() -> io::Result<()> {
     }
   );
 
-  if help {
+  if help || (opt && !jit) {
     print_help();
   } else {
     match bios {
@@ -94,7 +97,7 @@ fn main() -> io::Result<()> {
         if !jit {
           Interpreter::new(bios_filename, infile, gpu_logging, wx, wy)?.run(steps, logging);
         } else {
-          Dummy_JIT::new(bios_filename, infile, gpu_logging, wx, wy)?.run(steps, logging);
+          Dummy_JIT::new(bios_filename, infile, gpu_logging, wx, wy)?.run(steps, opt, logging);
         }
       },
       None => {
