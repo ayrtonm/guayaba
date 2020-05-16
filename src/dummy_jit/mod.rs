@@ -43,19 +43,12 @@ pub struct Dummy_JIT {
 impl Dummy_JIT {
   pub fn run(&mut self, n: Option<u32>, optimize: bool, logging: bool) {
     let start_time = Instant::now();
-    let mut down_time = start_time - start_time;
     let mut compile_time = start_time - start_time;
-    let mut lookup_time = start_time - start_time;
-    let mut exec_time = start_time - start_time;
-    let mut flush_time = start_time - start_time;
-    let mut gpu_time = start_time - start_time;
-    let mut cd_time = start_time - start_time;
     const refresh_rate: i64 = 550_000;
     let mut refresh_timer: i64 = refresh_rate;
     println!("running in dummy JIT mode");
     loop {
       let address = Console::physical(self.console.r3000.pc());
-      //let t0 = Instant::now();
       //if self.console.overwritten.len() >= 1000 {
       //  self.cache_invalidation();
       //}
@@ -74,32 +67,20 @@ impl Dummy_JIT {
       //  None => {
       //  },
       //}
-      //let t1 = Instant::now();
-      //down_time += t1 - t0;
       let maybe_stub = self.stubs.get(&address);
       match maybe_stub {
         Some(stub) => {
-          //println!("running block {:#x}", self.console.r3000.pc());
           let operations = stub.operations();
           *self.console.r3000.pc_mut() = stub.final_pc();
           for f in operations {
-            //let t0 = Instant::now();
             self.console.r3000.flush_write_cache(&mut self.console.delayed_writes,
                                                &mut self.console.modified_register);
-            //let t1 = Instant::now();
             f(&mut self.console);
-            //let t2 = Instant::now();
             match self.console.gpu.exec_next_gp0_command() {
               Some(object) => self.console.screen.draw(object),
               None => (),
             };
-            //let t3 = Instant::now();
             self.console.cd.exec_command();
-            //let t4 = Instant::now();
-            //flush_time += t1 - t0;
-            //exec_time += t2 - t1;
-            //gpu_time += t3 - t2;
-            //cd_time += t4 - t3;
           }
           refresh_timer -= stub.len() as i64;
           if refresh_timer < 0 {
@@ -110,12 +91,13 @@ impl Dummy_JIT {
           n.map(|n| {
             if self.console.i >= n {
               let end_time = Instant::now();
-              panic!("Executed {} steps in {:?}\nwith {:?} of flush time, {:?} of exec time, {:?} of GPU time and {:?} of CD time",
-                     self.console.i, end_time - start_time, flush_time, exec_time, gpu_time, cd_time);
+              panic!("Executed {} steps in {:?}\nwith {:?} of compile time",
+                     self.console.i, end_time - start_time, compile_time);
             };
           });
           *self.console.r3000.pc_mut() = self.console.next_pc
-                                                     .map_or_else(|| self.console.r3000.pc().wrapping_add(4),
+                                                     .map_or_else(|| self.console.r3000.pc()
+                                                                                       .wrapping_add(4),
                                                                   |next_pc| next_pc);
           if !self.console.handle_events() {
             return
@@ -123,8 +105,7 @@ impl Dummy_JIT {
         },
         None => {
           //if the stub was invalidated, compile another one
-          //compile_time += self.parse_stub(optimize, logging);
-          self.parse_stub(optimize, logging);
+          compile_time += self.parse_stub(optimize, logging);
         },
       }
     }
@@ -138,8 +119,8 @@ impl Dummy_JIT {
         ranges_compiled: Default::default(),
     })
   }
-  fn parse_stub(&mut self, optimize: bool, logging: bool) {
-    //let t0 = Instant::now();
+  fn parse_stub(&mut self, optimize: bool, logging: bool) -> Duration {
+    let t0 = Instant::now();
     let mut operations = Vec::new();
     let start = self.console.r3000.pc();
     let mut op = self.console.resolve_memresponse(self.console.memory.read_word(start));
@@ -207,8 +188,8 @@ impl Dummy_JIT {
     //                      None
     //                    });
     //self.ranges_compiled.push((Console::physical(start), Console::physical(address));
-    //let t1 = Instant::now();
-    //t1 - t0
+    let t1 = Instant::now();
+    t1 - t0
   }
   fn cache_invalidation(&mut self) {
     let mut invalidated = Vec::new();
