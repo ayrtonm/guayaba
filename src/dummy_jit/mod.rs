@@ -52,12 +52,11 @@ impl Dummy_JIT {
       let maybe_invalidated_stub = self.stubs.get(&address);
       match maybe_invalidated_stub {
         Some(stub) => {
-          let mut intersection = self.console.overwritten.clone();
+          //self.console.overwritten.retain(|&t| address <= t && t <= stub.final_pc());
           //these are the executable addresses that have been overwritten
           //this will be no bigger than the size of the stub
-          intersection.retain(|&t| address <= t && t <= Console::physical(stub.final_pc()));
 
-          if !intersection.is_empty() {
+          if !self.console.overwritten.iter().filter(|&&t| address <= t && t <= stub.final_pc()).count() != 0 {
             self.cache_invalidation();
           };
         },
@@ -162,13 +161,13 @@ impl Dummy_JIT {
 
     //println!("compiled a block with {} operations for {:#x}", operations.len(), start);
     //let's try limiting the size of the cache
-    //if self.stubs.len() >= 128 {
-    //  self.stubs.clear();
-    //  self.ranges_compiled.clear();
-    //};
+    if self.stubs.len() >= 128 {
+      self.stubs.clear();
+      self.ranges_compiled.clear();
+    };
     let stub = Stub {
       operations: compiled_stub,
-      final_pc: address,
+      final_pc: Console::physical(address),
       len,
     };
     self.stubs.insert(Console::physical(start), stub);
@@ -200,9 +199,8 @@ impl Dummy_JIT {
     });
     self.console.overwritten.clear();
     for i in invalidated {
-      self.stubs.remove(&i);
-      //let value = self.stubs.remove(&i).unwrap();
-      //self.ranges_compiled.remove(&value.final_pc());
+      let value = self.stubs.remove(&i).unwrap();
+      self.ranges_compiled.remove(&value.final_pc()).unwrap();
     }
   }
 }
