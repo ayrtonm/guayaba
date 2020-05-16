@@ -44,11 +44,13 @@ impl Dummy_JIT {
   pub fn run(&mut self, n: Option<u32>, optimize: bool, logging: bool) {
     let start_time = Instant::now();
     let mut compile_time = start_time - start_time;
+    let mut cache_time = start_time - start_time;
     const refresh_rate: i64 = 550_000;
     let mut refresh_timer: i64 = refresh_rate;
     println!("running in dummy JIT mode");
     loop {
       let address = Console::physical(self.console.r3000.pc());
+      let t0 = Instant::now();
       let maybe_invalidated_stub = self.stubs.get(&address);
       match maybe_invalidated_stub {
         Some(stub) => {
@@ -63,6 +65,8 @@ impl Dummy_JIT {
         None => {
         },
       }
+      let t1 = Instant::now();
+      cache_time += t1 - t0;
       let maybe_stub = self.stubs.get(&address);
       match maybe_stub {
         Some(stub) => {
@@ -87,8 +91,8 @@ impl Dummy_JIT {
           n.map(|n| {
             if self.console.i >= n {
               let end_time = Instant::now();
-              panic!("Executed {} steps in {:?}\nwith {:?} of compile time",
-                     self.console.i, end_time - start_time, compile_time);
+              panic!("Executed {} steps in {:?}\nwith {:?} of compile time and {:?} of cache time",
+                     self.console.i, end_time - start_time, compile_time, cache_time);
             };
           });
           *self.console.r3000.pc_mut() = self.console.next_pc
@@ -158,13 +162,6 @@ impl Dummy_JIT {
       compiled_stub.push(compiled.expect("Consecutive jumps are not allowed in the MIPS ISA"));
       len += 1;
     }
-
-    //println!("compiled a block with {} operations for {:#x}", operations.len(), start);
-    //let's try limiting the size of the cache
-    if self.stubs.len() >= 128 {
-      self.stubs.clear();
-      self.ranges_compiled.clear();
-    };
     let stub = Stub {
       operations: compiled_stub,
       final_pc: Console::physical(address),
