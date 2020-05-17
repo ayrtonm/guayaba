@@ -1,14 +1,4 @@
-use std::ops::Add;
-use std::ops::Shl;
-use std::ops::Shr;
-use std::ops::Sub;
-use crate::register::BitBang;
-use crate::r3000::MaybeSet;
-use crate::r3000::DelayedWrite;
-use crate::r3000::Name;
-use crate::cop0::Cop0Exception;
-use crate::caching_interpreter::Caching_Interpreter;
-use crate::console::Console;
+use crate::caching_interpreter::CachingInterpreter;
 use crate::common::*;
 
 pub enum Kind {
@@ -38,7 +28,7 @@ impl Insn {
   }
 }
 
-impl Caching_Interpreter {
+impl CachingInterpreter {
   //the option determines if it's an insn that ends a block
   pub(super) fn tag_insn(&mut self, op: u32, logging: bool) -> Option<Insn> {
     macro_rules! log {

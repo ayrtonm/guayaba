@@ -1,7 +1,3 @@
-use std::ops::Add;
-use std::ops::Shl;
-use std::ops::Shr;
-use std::ops::Sub;
 use std::io;
 use std::collections::HashMap;
 use std::time::Instant;
@@ -32,7 +28,7 @@ impl Stub {
   }
 }
 
-pub struct Caching_Interpreter {
+pub struct CachingInterpreter {
   console: Console,
   //maps start addresses to stubs for efficient execution
   stubs: HashMap<Register, Stub>,
@@ -40,7 +36,7 @@ pub struct Caching_Interpreter {
   ranges_compiled: HashMap<Register, Vec<Register>>,
 }
 
-impl Caching_Interpreter {
+impl CachingInterpreter {
   pub fn run(&mut self, n: Option<u32>, optimize: bool, logging: bool) {
     let start_time = Instant::now();
     let mut compile_time = start_time - start_time;

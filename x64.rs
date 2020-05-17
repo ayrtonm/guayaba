@@ -3,11 +3,13 @@ use std::io;
 use memmap::{Mmap, MmapMut};
 
 fn main() -> io::Result<()> {
-  let mut mmap = MmapMut::map_anon(4096)?;
-  mmap[0] = 0x48;
-  mmap[1] = 0x8b;
-  mmap[2] = 0xc7;
-  mmap[3] = 0xc3;
+  let mut buffer = Vec::new();
+  buffer.push(0x48);
+  buffer.push(0x8b);
+  buffer.push(0xc7);
+  buffer.push(0xc3);
+  let mut mmap = MmapMut::map_anon(buffer.len())?;
+  mmap.copy_from_slice(&buffer);
   let mmap: Mmap = mmap.make_exec()?;
   let addr = mmap.as_ptr();
   unsafe {

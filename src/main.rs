@@ -2,12 +2,14 @@ use std::io;
 use std::env;
 use std::convert::TryInto;
 use interpreter::Interpreter;
-use caching_interpreter::Caching_Interpreter;
+use caching_interpreter::CachingInterpreter;
+use x64_jit::X64JIT;
 
 mod console;
 mod common;
 mod interpreter;
 mod caching_interpreter;
+mod x64_jit;
 mod r3000;
 mod cop0;
 mod register;
@@ -37,7 +39,9 @@ const DEFAULT_RESOLUTION: [u32; 2] = [DEFAULT_X, DEFAULT_Y];
 const HELP_FLAGS: [&str;2] = ["-h", "--help"];
 //use the caching interpreter
 const CACHE_FLAGS: [&str;2] = ["-c", "--cache"];
-//optimize the caching interpreter
+//use the x64 JIT
+const JIT_FLAGS: [&str;2] = ["-j", "--jit"];
+//optimize the caching interpreter or x64 JIT
 const OPT_FLAGS: [&str;2] = ["-o", "--optimize"];
 //specify the BIOS
 const BIOS_FLAGS: [&str;2] = ["-b", "--bios"];
@@ -51,8 +55,9 @@ const LOG_FLAGS: [&str;2] = ["-l", "--log"];
 const GPULOG_FLAGS: [&str;2] = ["-g", "--gpu"];
 //set resolution
 const RESOLUTION_FLAGS: [&str;2] = ["-s", "--size"];
-const ALL_FLAGS: [([&str;2],Option<&str>);9] = [(HELP_FLAGS, None),
+const ALL_FLAGS: [([&str;2],Option<&str>);10] = [(HELP_FLAGS, None),
                                                 (CACHE_FLAGS, None),
+                                                (JIT_FLAGS, None),
                                                 (OPT_FLAGS, None),
                                                 (BIOS_FLAGS, Some("BIOS")),
                                                 (INFILE_FLAGS, Some("INFILE")),
@@ -80,6 +85,7 @@ fn main() -> io::Result<()> {
   let infile = get_arg(&args, &INFILE_FLAGS);
   let help = check_flag(&args, &HELP_FLAGS);
   let cache = check_flag(&args, &CACHE_FLAGS);
+  let jit = check_flag(&args, &JIT_FLAGS);
   let opt = check_flag(&args, &OPT_FLAGS);
   let steps = get_arg(&args, &STEPS_FLAGS).map(|steps| steps.parse::<u32>().ok())
                                           .flatten();
@@ -98,13 +104,16 @@ fn main() -> io::Result<()> {
     }
   );
 
-  if help || (opt && !cache) {
+  if help || (opt && !(cache || jit)) {
     print_help();
   } else {
     match bios {
       Some(bios_filename) => {
         if cache {
-          Caching_Interpreter::new(bios_filename, infile, gpu_logging, wx, wy)?
+          CachingInterpreter::new(bios_filename, infile, gpu_logging, wx, wy)?
+                              .run(steps, opt, logging);
+        } else if jit {
+          X64JIT::new(bios_filename, infile, gpu_logging, wx, wy)?
                               .run(steps, opt, logging);
         } else {
           Interpreter::new(bios_filename, infile, gpu_logging, wx, wy)?

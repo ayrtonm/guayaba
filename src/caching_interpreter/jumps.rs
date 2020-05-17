@@ -1,12 +1,11 @@
-use crate::register::Register;
 use crate::register::BitBang;
 use crate::r3000::MaybeSet;
 use crate::cop0::Cop0Exception;
-use crate::caching_interpreter::Caching_Interpreter;
+use crate::caching_interpreter::CachingInterpreter;
 use crate::console::Console;
 use crate::common::*;
 
-impl Caching_Interpreter {
+impl CachingInterpreter {
   pub(super) fn compile_jump(&self, op: u32, logging: bool) -> Box<dyn Fn(&mut Console)> {
     macro_rules! log {
       () => ($crate::print!("\n"));

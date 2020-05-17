@@ -7,11 +7,11 @@ use crate::r3000::MaybeSet;
 use crate::r3000::DelayedWrite;
 use crate::r3000::Name;
 use crate::cop0::Cop0Exception;
-use crate::caching_interpreter::Caching_Interpreter;
+use crate::caching_interpreter::CachingInterpreter;
 use crate::console::Console;
 use crate::common::*;
 
-impl Caching_Interpreter {
+impl CachingInterpreter {
   //if program counter should incremented normally, return None
   //otherwise return Some(new program counter)
   pub(super) fn compile_opcode(&mut self, op: u32, logging: bool) -> Option<Box<dyn Fn(&mut Console)>> {
