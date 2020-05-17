@@ -128,194 +128,158 @@ impl CachingInterpreter {
     let mut const_registers: [Option<Register>; 32] = [None; 32];
     for (i, (op, tag)) in operations.iter().enumerate() {
       const_registers[0] = Some(0);
-      match tag.inputs_len() {
-        0 => {
-          match tag.output() {
-            Some(output) => {
-              match tag.kind() {
-                Kind::Immediate => {
-                  //LUI
-                  assert!(get_primary_field(*op) == 0x0F);
-                  let result = get_imm16(*op) << 16;
-                  const_registers[output as usize] = Some(result);
+      let opcode = get_primary_field(*op);
+      match opcode {
+        0x00 => {
+          let second_opcode = get_secondary_field(*op);
+          match second_opcode {
+            0x21 | 0x23..=0x27 | 0x2A | 0x2B => {
+              match (const_registers[tag.input_i(0)], const_registers[tag.input_i(1)]) {
+                (Some(c1), Some(c2)) => {
+                  let result = match second_opcode {
+                    0x21 => c1.wrapping_add(c2),
+                    0x23 => c1.wrapping_sub(c2),
+                    0x24 => c1.and(c2),
+                    0x25 => c1.or(c2),
+                    0x26 => c1.xor(c2),
+                    0x27 => c1.nor(c2),
+                    0x2A => c1.signed_compare(c2),
+                    0x2B => c1.compare(c2),
+                    _ => unreachable!("{:x}", get_secondary_field(*op)),
+                  };
+                  let output = tag.output().expect("");
                   CachingInterpreter::emit_store_constant(&mut ret, result, output, logging);
+                  const_registers[output as usize] = Some(result);
                 },
                 _ => {
+                  let output = tag.output().expect("");
                   const_registers[output as usize] = None;
                   ret.push(self.compile_opcode(*op, logging).expect(""));
                 },
               }
             },
-            None => {
-              ret.push(self.compile_opcode(*op, logging).expect(""));
-            },
-          }
-        },
-        1 => {
-          let opcode = get_primary_field(*op);
-          match tag.output() {
-            Some(output) => {
-              match opcode {
-                0x09..=0x0E => {
-                  match const_registers[tag.input_i(0)] {
-                    Some(constant) => {
-                      let result = match opcode {
-                        0x09 => constant.wrapping_add(get_imm16(*op).half_sign_extended()),
-                        0x0A => constant.signed_compare(get_imm16(*op)),
-                        0x0B => constant.compare(get_imm16(*op)),
-                        0x0C => constant.and(get_imm16(*op)),
-                        0x0D => constant.or(get_imm16(*op)),
-                        0x0E => constant.xor(get_imm16(*op)),
-                        _ => unreachable!(""),
-                      };
-                      //if previous operation was a LUI with the same output
-                      if i != 0 {
-                        if get_primary_field(operations[i - 1].0) == 0x0F &&
-                          operations[i - 1].1.output() == Some(output) {
-                          ret.pop();
-                        }
-                      }
-                      CachingInterpreter::emit_store_constant(&mut ret, result, output, logging);
-                      //mark output as constant
-                      const_registers[output as usize] = Some(result);
-                    },
-                    None => {
-                      const_registers[output as usize] = None;
-                      ret.push(self.compile_opcode(*op, logging).expect(""));
-                    },
-                  }
-                },
-                0x23 => {
-                  match const_registers[tag.input_i(0)] {
-                    Some(addr) => {
-                      const_registers[output as usize] = None;
-                      CachingInterpreter::emit_optimized_read_word(&mut ret, *op, addr, logging);
-                    },
-                    None => {
-                      const_registers[output as usize] = None;
-                      ret.push(self.compile_opcode(*op, logging).expect(""));
-                    },
-                  }
-                },
-                0x24 => {
-                  match const_registers[tag.input_i(0)] {
-                    Some(addr) => {
-                      const_registers[output as usize] = None;
-                      CachingInterpreter::emit_optimized_read_byte(&mut ret, *op, addr, logging);
-                    },
-                    None => {
-                      const_registers[output as usize] = None;
-                      ret.push(self.compile_opcode(*op, logging).expect(""));
-                    },
-                  }
-                },
-                0x25 => {
-                  match const_registers[tag.input_i(0)] {
-                    Some(addr) => {
-                      const_registers[output as usize] = None;
-                      CachingInterpreter::emit_optimized_read_half(&mut ret, *op, addr, logging);
-                    },
-                    None => {
-                      const_registers[output as usize] = None;
-                      ret.push(self.compile_opcode(*op, logging).expect(""));
-                    },
-                  }
-                },
-                _ => {
-                  const_registers[output as usize] = None;
-                  ret.push(self.compile_opcode(*op, logging).expect(""));
-                },
+            _ => {
+              match tag.output() {
+                Some(output) => const_registers[output as usize] = None,
+                None => {},
               }
-            },
-            None => {
               ret.push(self.compile_opcode(*op, logging).expect(""));
             },
           }
         },
-        2 => {
-          match tag.output() {
-            Some(output) => {
-              if get_primary_field(*op) == 0x00 {
-                let opcode = get_secondary_field(*op);
-                match opcode {
-                  0x21 | 0x23..=0x27 | 0x2A | 0x2B => {
-                    match (const_registers[tag.input_i(0)], const_registers[tag.input_i(1)]) {
-                      (Some(c1), Some(c2)) => {
-                        let result = match opcode {
-                          0x21 => c1.wrapping_add(c2),
-                          0x23 => c1.wrapping_sub(c2),
-                          0x24 => c1.and(c2),
-                          0x25 => c1.or(c2),
-                          0x26 => c1.xor(c2),
-                          0x27 => c1.nor(c2),
-                          0x2A => c1.signed_compare(c2),
-                          0x2B => c1.compare(c2),
-                          _ => unreachable!(""),
-                        };
-                        CachingInterpreter::emit_store_constant(&mut ret, result, output, logging);
-                        const_registers[output as usize] = Some(result);
-                      },
-                      _ => {
-                        const_registers[output as usize] = None;
-                        ret.push(self.compile_opcode(*op, logging).expect(""));
-                      },
-                    }
-                  },
-                  0x28 => {
-                    match (const_registers[tag.input_i(0)], const_registers[tag.input_i(1)]) {
-                      (Some(addr), _) => {
-                        CachingInterpreter::emit_optimized_write_byte(&mut ret, *op, addr, logging);
-                      },
-                      _ => {
-                        ret.push(self.compile_opcode(*op, logging).expect(""));
-                      },
-                    }
-                  },
-                  0x29 => {
-                    match (const_registers[tag.input_i(0)], const_registers[tag.input_i(1)]) {
-                      (Some(addr), _) => {
-                        CachingInterpreter::emit_optimized_write_half(&mut ret, *op, addr, logging);
-                      },
-                      _ => {
-                        ret.push(self.compile_opcode(*op, logging).expect(""));
-                      },
-                    }
-                  },
-                  0x2B => {
-                    match (const_registers[tag.input_i(0)], const_registers[tag.input_i(1)]) {
-                      (Some(addr), _) => {
-                        CachingInterpreter::emit_optimized_write_word(&mut ret, *op, addr, logging);
-                      },
-                      _ => {
-                        ret.push(self.compile_opcode(*op, logging).expect(""));
-                      },
-                    }
-                  },
-                  _ => {
-                    const_registers[output as usize] = None;
-                    ret.push(self.compile_opcode(*op, logging).expect(""));
-                  },
+        0x09..=0x0E => {
+          match const_registers[tag.input_i(0)] {
+            Some(constant) => {
+              let result = match opcode {
+                0x09 => constant.wrapping_add(get_imm16(*op).half_sign_extended()),
+                0x0A => constant.signed_compare(get_imm16(*op)),
+                0x0B => constant.compare(get_imm16(*op)),
+                0x0C => constant.and(get_imm16(*op)),
+                0x0D => constant.or(get_imm16(*op)),
+                0x0E => constant.xor(get_imm16(*op)),
+                _ => unreachable!(""),
+              };
+              let output = tag.output().expect("");
+              //if previous operation was a LUI with the same output
+              if i != 0 {
+                if get_primary_field(operations[i - 1].0) == 0x0F &&
+                  operations[i - 1].1.output() == Some(output) {
+                  ret.pop();
                 }
-              } else {
-                const_registers[output as usize] = None;
-                ret.push(self.compile_opcode(*op, logging).expect(""));
               }
+              CachingInterpreter::emit_store_constant(&mut ret, result, output, logging);
+              //mark output as constant
+              const_registers[output as usize] = Some(result);
             },
             None => {
+              let output = tag.output().expect("");
+              const_registers[output as usize] = None;
+              ret.push(self.compile_opcode(*op, logging).expect(""));
+            },
+          }
+        },
+        0x0F => {
+          //LUI
+          let result = get_imm16(*op) << 16;
+          let output = tag.output().expect("");
+          const_registers[output as usize] = Some(result);
+          CachingInterpreter::emit_store_constant(&mut ret, result, output, logging);
+        },
+        0x23 => {
+          let output = tag.output().expect("");
+          const_registers[output as usize] = None;
+          match const_registers[tag.input_i(0)] {
+            Some(addr) => {
+              CachingInterpreter::emit_optimized_read_word(&mut ret, *op, addr, logging);
+            },
+            None => {
+              ret.push(self.compile_opcode(*op, logging).expect(""));
+            },
+          }
+        },
+        0x24 => {
+          let output = tag.output().expect("");
+          const_registers[output as usize] = None;
+          match const_registers[tag.input_i(0)] {
+            Some(addr) => {
+              CachingInterpreter::emit_optimized_read_byte(&mut ret, *op, addr, logging);
+            },
+            None => {
+              ret.push(self.compile_opcode(*op, logging).expect(""));
+            },
+          }
+        },
+        0x25 => {
+          let output = tag.output().expect("");
+          const_registers[output as usize] = None;
+          match const_registers[tag.input_i(0)] {
+            Some(addr) => {
+              CachingInterpreter::emit_optimized_read_half(&mut ret, *op, addr, logging);
+            },
+            None => {
+              ret.push(self.compile_opcode(*op, logging).expect(""));
+            },
+          }
+        },
+        0x28 => {
+          match (const_registers[tag.input_i(0)], const_registers[tag.input_i(1)]) {
+            (Some(addr), _) => {
+              CachingInterpreter::emit_optimized_write_byte(&mut ret, *op, addr, logging);
+            },
+            _ => {
+              ret.push(self.compile_opcode(*op, logging).expect(""));
+            },
+          }
+        },
+        0x29 => {
+          match (const_registers[tag.input_i(0)], const_registers[tag.input_i(1)]) {
+            (Some(addr), _) => {
+              CachingInterpreter::emit_optimized_write_half(&mut ret, *op, addr, logging);
+            },
+            _ => {
+              ret.push(self.compile_opcode(*op, logging).expect(""));
+            },
+          }
+        },
+        0x2B => {
+          match (const_registers[tag.input_i(0)], const_registers[tag.input_i(1)]) {
+            (Some(addr), _) => {
+              CachingInterpreter::emit_optimized_write_word(&mut ret, *op, addr, logging);
+            },
+            _ => {
               ret.push(self.compile_opcode(*op, logging).expect(""));
             },
           }
         },
         _ => {
-          unreachable!("")
+          match tag.output() {
+            Some(output) => const_registers[output as usize] = None,
+            None => {},
+          }
+          ret.push(self.compile_opcode(*op, logging).expect(""));
         },
-      };
+      }
     }
-    //if ret.len() != 0 {
-    //  println!("{}/{} = {}",
-    //            ret.len(), operations.len(),
-    //            (ret.len() as f64)/(operations.len() as f64));
-    //}
     ret
   }
 }
