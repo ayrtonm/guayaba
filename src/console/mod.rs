@@ -37,6 +37,7 @@ pub struct Console {
 }
 
 impl Console {
+  pub const REFRESH_RATE: i64 = 550_000;
   pub fn new(bios_filename: &String, infile: Option<&String>, gpu_logging: bool,
              wx: u32, wy: u32) -> io::Result<Self> {
     let r3000 = R3000::new();

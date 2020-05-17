@@ -11,8 +11,7 @@ pub struct Interpreter {
 impl Interpreter {
   pub fn run(&mut self, n: Option<u32>, logging: bool) {
     let start_time = Instant::now();
-    const refresh_rate: i64 = 550_000;
-    let mut refresh_timer: i64 = refresh_rate;
+    let mut refresh_timer: i64 = Console::REFRESH_RATE;
     loop {
       if logging {
         println!("  ");
@@ -29,7 +28,7 @@ impl Interpreter {
       refresh_timer -= 1;
       if refresh_timer < 0 {
         self.console.screen.refresh_window();
-        refresh_timer = refresh_rate;
+        refresh_timer = Console::REFRESH_RATE;
       }
       if !self.console.handle_events() {
         return

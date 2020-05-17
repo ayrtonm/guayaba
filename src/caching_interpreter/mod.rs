@@ -32,7 +32,7 @@ impl Stub {
   }
 }
 
-pub struct Dummy_JIT {
+pub struct Caching_Interpreter {
   console: Console,
   //maps start addresses to stubs for efficient execution
   stubs: HashMap<Register, Stub>,
@@ -40,13 +40,12 @@ pub struct Dummy_JIT {
   ranges_compiled: HashMap<Register, Vec<Register>>,
 }
 
-impl Dummy_JIT {
+impl Caching_Interpreter {
   pub fn run(&mut self, n: Option<u32>, optimize: bool, logging: bool) {
     let start_time = Instant::now();
     let mut compile_time = start_time - start_time;
     let mut cache_time = start_time - start_time;
-    const refresh_rate: i64 = 550_000;
-    let mut refresh_timer: i64 = refresh_rate;
+    let mut refresh_timer: i64 = Console::REFRESH_RATE;
     println!("running in dummy JIT mode");
     loop {
       let address = Console::physical(self.console.r3000.pc());
@@ -68,7 +67,7 @@ impl Dummy_JIT {
           refresh_timer -= stub.len() as i64;
           if refresh_timer < 0 {
             self.console.screen.refresh_window();
-            refresh_timer = refresh_rate;
+            refresh_timer = Console::REFRESH_RATE;
           }
           self.console.i += stub.len();
           n.map(|n| {

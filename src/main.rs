@@ -2,12 +2,12 @@ use std::io;
 use std::env;
 use std::convert::TryInto;
 use interpreter::Interpreter;
-use dummy_jit::Dummy_JIT;
+use caching_interpreter::Caching_Interpreter;
 
 mod console;
 mod common;
 mod interpreter;
-mod dummy_jit;
+mod caching_interpreter;
 mod r3000;
 mod cop0;
 mod register;
@@ -33,17 +33,26 @@ fn check_flag(args: &Vec<String>, flags: &[&str]) -> bool {
 const DEFAULT_X: u32 = 1024;
 const DEFAULT_Y: u32 = 512;
 const DEFAULT_RESOLUTION: [u32; 2] = [DEFAULT_X, DEFAULT_Y];
+//print help
 const HELP_FLAGS: [&str;2] = ["-h", "--help"];
-const JIT_FLAGS: [&str;2] = ["-j", "--jit"];
+//use the caching interpreter
+const CACHE_FLAGS: [&str;2] = ["-c", "--cache"];
+//optimize the caching interpreter
 const OPT_FLAGS: [&str;2] = ["-o", "--optimize"];
+//specify the BIOS
 const BIOS_FLAGS: [&str;2] = ["-b", "--bios"];
+//specify the input file
 const INFILE_FLAGS: [&str;2] = ["-i", "--input"];
+//run for a given number of steps
 const STEPS_FLAGS: [&str;2] = ["-n", "--steps"];
+//print logging info
 const LOG_FLAGS: [&str;2] = ["-l", "--log"];
+//print GPU logging info
 const GPULOG_FLAGS: [&str;2] = ["-g", "--gpu"];
+//set resolution
 const RESOLUTION_FLAGS: [&str;2] = ["-s", "--size"];
 const ALL_FLAGS: [([&str;2],Option<&str>);9] = [(HELP_FLAGS, None),
-                                                (JIT_FLAGS, None),
+                                                (CACHE_FLAGS, None),
                                                 (OPT_FLAGS, None),
                                                 (BIOS_FLAGS, Some("BIOS")),
                                                 (INFILE_FLAGS, Some("INFILE")),
@@ -70,7 +79,7 @@ fn main() -> io::Result<()> {
   let bios = get_arg(&args, &BIOS_FLAGS);
   let infile = get_arg(&args, &INFILE_FLAGS);
   let help = check_flag(&args, &HELP_FLAGS);
-  let jit = check_flag(&args, &JIT_FLAGS);
+  let cache = check_flag(&args, &CACHE_FLAGS);
   let opt = check_flag(&args, &OPT_FLAGS);
   let steps = get_arg(&args, &STEPS_FLAGS).map(|steps| steps.parse::<u32>().ok())
                                           .flatten();
@@ -89,15 +98,17 @@ fn main() -> io::Result<()> {
     }
   );
 
-  if help || (opt && !jit) {
+  if help || (opt && !cache) {
     print_help();
   } else {
     match bios {
       Some(bios_filename) => {
-        if !jit {
-          Interpreter::new(bios_filename, infile, gpu_logging, wx, wy)?.run(steps, logging);
+        if cache {
+          Caching_Interpreter::new(bios_filename, infile, gpu_logging, wx, wy)?
+                              .run(steps, opt, logging);
         } else {
-          Dummy_JIT::new(bios_filename, infile, gpu_logging, wx, wy)?.run(steps, opt, logging);
+          Interpreter::new(bios_filename, infile, gpu_logging, wx, wy)?
+                      .run(steps, logging);
         }
       },
       None => {

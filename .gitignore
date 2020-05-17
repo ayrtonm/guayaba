@@ -1,3 +1,4 @@
 /target
 src/open_files.sh
 find_directives.sh
+Cargo.lock

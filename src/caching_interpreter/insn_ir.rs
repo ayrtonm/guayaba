@@ -7,7 +7,7 @@ use crate::r3000::MaybeSet;
 use crate::r3000::DelayedWrite;
 use crate::r3000::Name;
 use crate::cop0::Cop0Exception;
-use crate::dummy_jit::Dummy_JIT;
+use crate::caching_interpreter::Caching_Interpreter;
 use crate::console::Console;
 use crate::common::*;
 
@@ -38,7 +38,7 @@ impl Insn {
   }
 }
 
-impl Dummy_JIT {
+impl Caching_Interpreter {
   //the option determines if it's an insn that ends a block
   pub(super) fn tag_insn(&mut self, op: u32, logging: bool) -> Option<Insn> {
     macro_rules! log {

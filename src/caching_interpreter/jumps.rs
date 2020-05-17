@@ -2,11 +2,11 @@ use crate::register::Register;
 use crate::register::BitBang;
 use crate::r3000::MaybeSet;
 use crate::cop0::Cop0Exception;
-use crate::dummy_jit::Dummy_JIT;
+use crate::caching_interpreter::Caching_Interpreter;
 use crate::console::Console;
 use crate::common::*;
 
-impl Dummy_JIT {
+impl Caching_Interpreter {
   pub(super) fn compile_jump(&self, op: u32, logging: bool) -> Box<dyn Fn(&mut Console)> {
     macro_rules! log {
       () => ($crate::print!("\n"));

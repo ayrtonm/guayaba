@@ -3,13 +3,13 @@ use crate::register::BitBang;
 use crate::r3000::MaybeSet;
 use crate::r3000::DelayedWrite;
 use crate::r3000::Name;
-use crate::dummy_jit::Dummy_JIT;
+use crate::caching_interpreter::Caching_Interpreter;
 use crate::console::Console;
 use super::insn_ir::Insn;
 use super::insn_ir::Kind;
 use crate::common::*;
 
-impl Dummy_JIT {
+impl Caching_Interpreter {
   pub(super) fn compile_stub(&mut self, operations: &mut Vec<(Register, Insn)>, logging: bool) -> Vec<Box<dyn Fn(&mut Console)>> {
     let mut ret = Vec::new();
     for (op, _) in operations {
@@ -138,7 +138,7 @@ impl Dummy_JIT {
                   assert!(get_primary_field(*op) == 0x0F);
                   let result = get_imm16(*op) << 16;
                   const_registers[output as usize] = Some(result);
-                  Dummy_JIT::emit_store_constant(&mut ret, result, output, logging);
+                  Caching_Interpreter::emit_store_constant(&mut ret, result, output, logging);
                 },
                 _ => {
                   const_registers[output as usize] = None;
@@ -175,7 +175,7 @@ impl Dummy_JIT {
                           ret.pop();
                         }
                       }
-                      Dummy_JIT::emit_store_constant(&mut ret, result, output, logging);
+                      Caching_Interpreter::emit_store_constant(&mut ret, result, output, logging);
                       //mark output as constant
                       const_registers[output as usize] = Some(result);
                     },
@@ -189,7 +189,7 @@ impl Dummy_JIT {
                   match const_registers[tag.input_i(0)] {
                     Some(addr) => {
                       const_registers[output as usize] = None;
-                      Dummy_JIT::emit_optimized_read_word(&mut ret, *op, addr, logging);
+                      Caching_Interpreter::emit_optimized_read_word(&mut ret, *op, addr, logging);
                     },
                     None => {
                       const_registers[output as usize] = None;
@@ -201,7 +201,7 @@ impl Dummy_JIT {
                   match const_registers[tag.input_i(0)] {
                     Some(addr) => {
                       const_registers[output as usize] = None;
-                      Dummy_JIT::emit_optimized_read_byte(&mut ret, *op, addr, logging);
+                      Caching_Interpreter::emit_optimized_read_byte(&mut ret, *op, addr, logging);
                     },
                     None => {
                       const_registers[output as usize] = None;
@@ -213,7 +213,7 @@ impl Dummy_JIT {
                   match const_registers[tag.input_i(0)] {
                     Some(addr) => {
                       const_registers[output as usize] = None;
-                      Dummy_JIT::emit_optimized_read_half(&mut ret, *op, addr, logging);
+                      Caching_Interpreter::emit_optimized_read_half(&mut ret, *op, addr, logging);
                     },
                     None => {
                       const_registers[output as usize] = None;
@@ -252,7 +252,7 @@ impl Dummy_JIT {
                           0x2B => c1.compare(c2),
                           _ => unreachable!(""),
                         };
-                        Dummy_JIT::emit_store_constant(&mut ret, result, output, logging);
+                        Caching_Interpreter::emit_store_constant(&mut ret, result, output, logging);
                         const_registers[output as usize] = Some(result);
                       },
                       _ => {
@@ -264,7 +264,7 @@ impl Dummy_JIT {
                   0x28 => {
                     match (const_registers[tag.input_i(0)], const_registers[tag.input_i(1)]) {
                       (Some(addr), _) => {
-                        Dummy_JIT::emit_optimized_write_byte(&mut ret, *op, addr, logging);
+                        Caching_Interpreter::emit_optimized_write_byte(&mut ret, *op, addr, logging);
                       },
                       _ => {
                         ret.push(self.compile_opcode(*op, logging).expect(""));
@@ -274,7 +274,7 @@ impl Dummy_JIT {
                   0x29 => {
                     match (const_registers[tag.input_i(0)], const_registers[tag.input_i(1)]) {
                       (Some(addr), _) => {
-                        Dummy_JIT::emit_optimized_write_half(&mut ret, *op, addr, logging);
+                        Caching_Interpreter::emit_optimized_write_half(&mut ret, *op, addr, logging);
                       },
                       _ => {
                         ret.push(self.compile_opcode(*op, logging).expect(""));
@@ -284,7 +284,7 @@ impl Dummy_JIT {
                   0x2B => {
                     match (const_registers[tag.input_i(0)], const_registers[tag.input_i(1)]) {
                       (Some(addr), _) => {
-                        Dummy_JIT::emit_optimized_write_word(&mut ret, *op, addr, logging);
+                        Caching_Interpreter::emit_optimized_write_word(&mut ret, *op, addr, logging);
                       },
                       _ => {
                         ret.push(self.compile_opcode(*op, logging).expect(""));
