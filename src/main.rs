@@ -104,7 +104,9 @@ fn main() -> io::Result<()> {
     }
   );
 
-  if help || (opt && !(cache || jit)) {
+  //if the optimize flag was enabled without a JIT
+  //or if two types of JIT are enabled, print help
+  if help || (opt && !(cache || jit))|| (cache && jit) {
     print_help();
   } else {
     match bios {

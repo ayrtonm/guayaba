@@ -74,22 +74,7 @@ impl CachingInterpreter {
             };
           });
           if self.console.overwritten.iter().any(|&t| address <= t && t <= stub.final_pc()) {
-            let deleted_stub = self.stubs.remove(&address).unwrap();
-            let overlapping_blocks = self.ranges_compiled.get(&deleted_stub.final_pc())
-                                                         .unwrap()
-                                                         .iter()
-                                                         .copied()
-                                                         .filter(|&start| address <= start)
-                                                         .collect::<Vec<Register>>();
-            overlapping_blocks.iter()
-                              .for_each(|s| {
-                                self.stubs.remove(&s).unwrap();
-                              });
-            self.ranges_compiled
-                .entry(deleted_stub.final_pc())
-                .and_modify(|v| {
-                  v.retain(|&start| start < address);
-                });
+            self.cache_invalidation(address);
           }
           self.console.overwritten.clear();
           *self.console
@@ -136,12 +121,11 @@ impl CachingInterpreter {
       tagged = self.tag_insn(op, logging);
     }
     //do stub analysis and optimizations here
-    let mut compiled_stub = 
-      if optimize {
-        self.compile_optimized_stub(&mut operations, logging)
-      } else {
-        self.compile_stub(&mut operations, logging)
-      };
+    let mut compiled_stub = if optimize {
+      self.compile_optimized_stub(&mut operations, logging)
+    } else {
+      self.compile_stub(&mut operations, logging)
+    };
 
     //println!("jump {:#x} at {:#x}", op, address);
     //get the jump instruction that ended the block
@@ -179,24 +163,22 @@ impl CachingInterpreter {
     let t1 = Instant::now();
     t1 - t0
   }
-  fn cache_invalidation(&mut self) {
-    let mut invalidated = Vec::new();
-    self.console.overwritten.iter()
-    .for_each(|&addr| {
-      for &e in self.ranges_compiled.keys().filter(|&e| addr <= *e) {
-        self.ranges_compiled.get(&e)
-                            .unwrap()
-                            .iter()
-                            .filter(|&s| *s <= addr)
-                            .for_each(|&s| {
-                              invalidated.push(s);
-                            });
-      }
-    });
-    self.console.overwritten.clear();
-    for i in invalidated {
-      let value = self.stubs.remove(&i).unwrap();
-      self.ranges_compiled.remove(&value.final_pc()).unwrap();
-    }
+  fn cache_invalidation(&mut self, address: Register) {
+    let deleted_stub = self.stubs.remove(&address).unwrap();
+    let overlapping_blocks = self.ranges_compiled.get(&deleted_stub.final_pc())
+                                                 .unwrap()
+                                                 .iter()
+                                                 .copied()
+                                                 .filter(|&start| address <= start)
+                                                 .collect::<Vec<Register>>();
+    overlapping_blocks.iter()
+                      .for_each(|s| {
+                        self.stubs.remove(&s).unwrap();
+                      });
+    self.ranges_compiled
+        .entry(deleted_stub.final_pc())
+        .and_modify(|v| {
+          v.retain(|&start| start < address);
+        });
   }
 }
