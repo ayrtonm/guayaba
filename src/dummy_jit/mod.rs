@@ -50,23 +50,6 @@ impl Dummy_JIT {
     println!("running in dummy JIT mode");
     loop {
       let address = Console::physical(self.console.r3000.pc());
-      let t0 = Instant::now();
-      let maybe_invalidated_stub = self.stubs.get(&address);
-      match maybe_invalidated_stub {
-        Some(stub) => {
-          //self.console.overwritten.retain(|&t| address <= t && t <= stub.final_pc());
-          //these are the executable addresses that have been overwritten
-          //this will be no bigger than the size of the stub
-
-          if !self.console.overwritten.iter().filter(|&&t| address <= t && t <= stub.final_pc()).count() != 0 {
-            self.cache_invalidation();
-          };
-        },
-        None => {
-        },
-      }
-      let t1 = Instant::now();
-      cache_time += t1 - t0;
       let maybe_stub = self.stubs.get(&address);
       match maybe_stub {
         Some(stub) => {
@@ -95,10 +78,31 @@ impl Dummy_JIT {
                      self.console.i, end_time - start_time, compile_time, cache_time);
             };
           });
-          *self.console.r3000.pc_mut() = self.console.next_pc
-                                                     .map_or_else(|| self.console.r3000.pc()
-                                                                                       .wrapping_add(4),
-                                                                  |next_pc| next_pc);
+          if self.console.overwritten.iter().any(|&t| address <= t && t <= stub.final_pc()) {
+            let deleted_stub = self.stubs.remove(&address).unwrap();
+            let overlapping_blocks = self.ranges_compiled.get(&deleted_stub.final_pc())
+                                                         .unwrap()
+                                                         .iter()
+                                                         .copied()
+                                                         .filter(|&start| address <= start)
+                                                         .collect::<Vec<Register>>();
+            overlapping_blocks.iter()
+                              .for_each(|s| {
+                                self.stubs.remove(&s).unwrap();
+                              });
+            self.ranges_compiled
+                .entry(deleted_stub.final_pc())
+                .and_modify(|v| {
+                  v.retain(|&start| start < address);
+                });
+          }
+          self.console.overwritten.clear();
+          *self.console
+               .r3000
+               .pc_mut() = self.console
+                               .next_pc
+                               .map_or_else(|| self.console.r3000.pc().wrapping_add(4),
+                                            |next_pc| next_pc);
           if !self.console.handle_events() {
             return
           }

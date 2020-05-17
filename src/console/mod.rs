@@ -32,8 +32,8 @@ pub struct Console {
   pub next_pc: Option<Register>,
   pub delayed_writes: VecDeque<DelayedWrite>,
   pub modified_register: Option<Name>,
-  pub i: u32,
   pub overwritten: HashSet<Register>,
+  pub i: u32,
 }
 
 impl Console {
