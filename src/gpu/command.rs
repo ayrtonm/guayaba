@@ -1,26 +1,25 @@
-use crate::register::Register;
-use crate::register::BitBang;
+use crate::register::BitTwiddle;
 
 #[derive(Debug)]
-pub struct Command(Vec<Register>);
+pub struct Command(Vec<u32>);
 
 impl Command {
-  pub fn new(cmd: Register) -> Self {
+  pub fn new(cmd: u32) -> Self {
     Command(vec![cmd])
   }
   pub fn id(&self) -> u8 {
     self.0[0].upper_bits(8) as u8
   }
-  pub fn idx(&self, n: usize) -> Register {
+  pub fn idx(&self, n: usize) -> u32 {
     self.0[n]
   }
-  pub fn as_ref(&self) -> &Vec<Register> {
+  pub fn as_ref(&self) -> &Vec<u32> {
     &self.0
   }
   pub fn num_words(&self) -> usize {
     self.0.len()
   }
-  pub fn append_parameters(&mut self, parameters: Register) {
+  pub fn append_parameters(&mut self, parameters: u32) {
     self.0.push(parameters);
   }
   pub fn get_monochrome(&self) -> Vec<i16> {
@@ -80,16 +79,16 @@ impl Command {
         .map(|yx| yx.upper_bits(16) as i16)
         .collect()
   }
-  pub fn get_xpos_copy(&self, idx: usize) -> Register {
+  pub fn get_xpos_copy(&self, idx: usize) -> u32 {
     self.idx(idx).half() & 0x3ff
   }
-  pub fn get_ypos_copy(&self, idx: usize) -> Register {
+  pub fn get_ypos_copy(&self, idx: usize) -> u32 {
     self.idx(idx).upper_bits(16) & 0x1ff
   }
-  pub fn get_xsize_copy(&self, idx: usize) -> Register {
+  pub fn get_xsize_copy(&self, idx: usize) -> u32 {
     ((self.idx(idx).half() - 1) & 0x3ff) + 1
   }
-  pub fn get_ysize_copy(&self, idx: usize) -> Register {
+  pub fn get_ysize_copy(&self, idx: usize) -> u32 {
     (((self.idx(idx) >> 16) - 1) & 0x3ff) + 1
   }
   pub fn completed(&self) -> bool {

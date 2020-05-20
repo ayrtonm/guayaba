@@ -2,8 +2,7 @@ use std::ops::Add;
 use std::ops::Shl;
 use std::ops::Shr;
 use std::ops::Sub;
-use crate::register::Register;
-use crate::register::BitBang;
+use crate::register::BitTwiddle;
 use crate::r3000::MaybeSet;
 use crate::r3000::DelayedWrite;
 use crate::r3000::Name;
@@ -14,7 +13,7 @@ use crate::common::*;
 impl Interpreter{
   //if program counter should incremented normally, return None
   //otherwise return Some(new program counter)
-  pub(super) fn execute_opcode(&mut self, op: u32, logging: bool) -> Option<Register> {
+  pub(super) fn execute_opcode(&mut self, op: u32, logging: bool) -> Option<u32> {
     macro_rules! log {
       () => ($crate::print!("\n"));
       ($($arg:tt)*) => ({

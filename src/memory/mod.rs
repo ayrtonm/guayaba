@@ -6,8 +6,7 @@ use std::fs::metadata;
 use std::fs::File;
 use crate::common::ReadArray;
 use crate::common::WriteArray;
-use crate::register::Register;
-use crate::register::BitBang;
+use crate::register::BitTwiddle;
 use crate::dma::Transfer;
 use crate::dma::DMAChannel;
 
@@ -18,18 +17,18 @@ use ioports::DMAControl;
 #[repr(align(16))]
 pub enum MemAction {
   DMA(Transfer),
-  GpuGp0(Register),
-  GpuGp1(Register),
+  GpuGp0(u32),
+  GpuGp1(u32),
   CDCmd(u8),
   CDParam(u8),
   CDCmdParam(u8, u8),
-  Interrupt(Register),
+  Interrupt(u32),
   None,
 }
 
 #[derive(Debug)]
 pub enum MemResponse {
-  Value(Register),
+  Value(u32),
   GPUREAD,
   GPUSTAT,
   CDResponse,
@@ -146,15 +145,15 @@ pub struct Memory {
   cache_control: [u8; 512],
 
   //these are copies of certain edge-triggered I/O port registers
-  //although this is a Register, only the previous half word is stored
-  old_interrupt_stat: Register,
+  //although this is a u32, only the previous half word is stored
+  old_interrupt_stat: u32,
 }
 
 impl DMAChannel for Memory {
-  fn send(&mut self, data: Vec<Register>) {
+  fn send(&mut self, data: Vec<u32>) {
     todo!("implement DMAChannel for Memory")
   }
-  fn receive(&self) -> Register {
+  fn receive(&self) -> u32 {
     todo!("implement DMAChannel for Memory")
   }
 }
@@ -183,59 +182,59 @@ impl Memory {
       old_interrupt_stat: 0,
     })
   }
-  const INTERRUPT_STAT: Register = 0x1f80_1070;
-  const INTERRUPT_MASK: Register = 0x1f80_1074;
-  pub const DMA_ADDRESS_0: Register = 0x1f80_1080;
-  const DMA_BLOCKS_0: Register = 0x1f80_1084;
-  const DMA_CHANNEL_0: Register = 0x1f80_1088;
-  const DMA_CHANNEL_1: Register = 0x1f80_1098;
-  const DMA_CHANNEL_2: Register = 0x1f80_10a8;
-  const DMA_CHANNEL_3: Register = 0x1f80_10b8;
-  const DMA_CHANNEL_4: Register = 0x1f80_10c8;
-  const DMA_CHANNEL_5: Register = 0x1f80_10d8;
-  const DMA_CHANNEL_6: Register = 0x1f80_10e8;
-  const DMA_CONTROL: Register = 0x1f80_10f0;
-  const DMA_INTERRUPT: Register = 0x1f80_10f4;
-  const TIMER_VALUE_0: Register = 0x1f80_1100;
-  const TIMER_MODE_0: Register = 0x1f80_1104;
-  const TIMER_TARGET_0: Register = 0x1f80_1108;
-  const TIMER_VALUE_1: Register = 0x1f80_1110;
-  const TIMER_MODE_1: Register = 0x1f80_1114;
-  const TIMER_TARGET_1: Register = 0x1f80_1118;
-  const TIMER_VALUE_2: Register = 0x1f80_1120;
-  const TIMER_MODE_2: Register = 0x1f80_1124;
-  const TIMER_TARGET_2: Register = 0x1f80_1128;
-  const CD_PORT: Register = 0x1f80_1800;
-  const GPU_GP0: Register = 0x1f80_1810;
-  const GPU_GP1: Register = 0x1f80_1814;
+  const INTERRUPT_STAT: u32 = 0x1f80_1070;
+  const INTERRUPT_MASK: u32 = 0x1f80_1074;
+  pub const DMA_ADDRESS_0: u32 = 0x1f80_1080;
+  const DMA_BLOCKS_0: u32 = 0x1f80_1084;
+  const DMA_CHANNEL_0: u32 = 0x1f80_1088;
+  const DMA_CHANNEL_1: u32 = 0x1f80_1098;
+  const DMA_CHANNEL_2: u32 = 0x1f80_10a8;
+  const DMA_CHANNEL_3: u32 = 0x1f80_10b8;
+  const DMA_CHANNEL_4: u32 = 0x1f80_10c8;
+  const DMA_CHANNEL_5: u32 = 0x1f80_10d8;
+  const DMA_CHANNEL_6: u32 = 0x1f80_10e8;
+  const DMA_CONTROL: u32 = 0x1f80_10f0;
+  const DMA_INTERRUPT: u32 = 0x1f80_10f4;
+  const TIMER_VALUE_0: u32 = 0x1f80_1100;
+  const TIMER_MODE_0: u32 = 0x1f80_1104;
+  const TIMER_TARGET_0: u32 = 0x1f80_1108;
+  const TIMER_VALUE_1: u32 = 0x1f80_1110;
+  const TIMER_MODE_1: u32 = 0x1f80_1114;
+  const TIMER_TARGET_1: u32 = 0x1f80_1118;
+  const TIMER_VALUE_2: u32 = 0x1f80_1120;
+  const TIMER_MODE_2: u32 = 0x1f80_1124;
+  const TIMER_TARGET_2: u32 = 0x1f80_1128;
+  const CD_PORT: u32 = 0x1f80_1800;
+  const GPU_GP0: u32 = 0x1f80_1810;
+  const GPU_GP1: u32 = 0x1f80_1814;
 
-  const MAIN_RAM: Register = 0;
-  const MAIN_RAM_END: Register = Memory::MAIN_RAM + (2 * MB as Register) - 1;
+  const MAIN_RAM: u32 = 0;
+  const MAIN_RAM_END: u32 = Memory::MAIN_RAM + (2 * MB as u32) - 1;
 
-  const EXPANSION_1: Register = 0x1f00_0000;
-  const EXPANSION_1_END: Register = Memory::EXPANSION_1 + (8 * MB as Register) - 1;
+  const EXPANSION_1: u32 = 0x1f00_0000;
+  const EXPANSION_1_END: u32 = Memory::EXPANSION_1 + (8 * MB as u32) - 1;
 
-  const SCRATCHPAD: Register = 0x1f80_0000;
-  const SCRATCHPAD_END: Register = Memory::SCRATCHPAD + (KB as Register) - 1;
+  const SCRATCHPAD: u32 = 0x1f80_0000;
+  const SCRATCHPAD_END: u32 = Memory::SCRATCHPAD + (KB as u32) - 1;
 
-  const IO_PORTS: Register = 0x1f80_1000;
-  const IO_PORTS_END: Register = Memory::IO_PORTS + (8 * KB as Register) - 1;
+  const IO_PORTS: u32 = 0x1f80_1000;
+  const IO_PORTS_END: u32 = Memory::IO_PORTS + (8 * KB as u32) - 1;
  
-  const EXPANSION_2: Register = 0x1f80_2000;
-  const EXPANSION_2_END: Register = Memory::EXPANSION_2 + (8 * KB as Register) - 1;
+  const EXPANSION_2: u32 = 0x1f80_2000;
+  const EXPANSION_2_END: u32 = Memory::EXPANSION_2 + (8 * KB as u32) - 1;
 
-  const EXPANSION_3: Register = 0x1fa0_0000;
-  const EXPANSION_3_END: Register = Memory::EXPANSION_3 + (2 * MB as Register) - 1;
+  const EXPANSION_3: u32 = 0x1fa0_0000;
+  const EXPANSION_3_END: u32 = Memory::EXPANSION_3 + (2 * MB as u32) - 1;
 
-  const BIOS: Register = 0x1fc0_0000;
-  const BIOS_END: Register = Memory::BIOS + (512 * KB as Register) - 1;
+  const BIOS: u32 = 0x1fc0_0000;
+  const BIOS_END: u32 = Memory::BIOS + (512 * KB as u32) - 1;
 
-  const CACHE_CONTROL: Register = 0xfffe_0000;
-  const CACHE_CONTROL_END: Register = Memory::CACHE_CONTROL + 512 - 1;
+  const CACHE_CONTROL: u32 = 0xfffe_0000;
+  const CACHE_CONTROL_END: u32 = Memory::CACHE_CONTROL + 512 - 1;
 
   //FIXME: fix alignment restrictions, what happens when read is misaligned?
   //TODO: technically this doesn't sign extend the GPU response or CD response
-  pub fn read_byte_sign_extended(&self, address: Register) -> MemResponse {
+  pub fn read_byte_sign_extended(&self, address: u32) -> MemResponse {
     let response = read_memory!(address, read_byte, self);
     match response {
       MemResponse::Value(value) => {
@@ -246,7 +245,7 @@ impl Memory {
       },
     }
   }
-  pub fn read_half_sign_extended(&self, address: Register) -> MemResponse {
+  pub fn read_half_sign_extended(&self, address: u32) -> MemResponse {
     assert_eq!(address & 0x0000_0001, 0);
     let response = read_memory!(address, read_half, self);
     match response {
@@ -258,25 +257,25 @@ impl Memory {
       },
     }
   }
-  pub fn read_byte(&self, address: Register) -> MemResponse {
+  pub fn read_byte(&self, address: u32) -> MemResponse {
     read_memory!(address, read_byte, self)
   }
-  pub fn read_half(&self, address: Register) -> MemResponse {
+  pub fn read_half(&self, address: u32) -> MemResponse {
     assert_eq!(address & 0x0000_0001, 0);
     read_memory!(address, read_half, self)
   }
-  pub fn read_word(&self, address: Register) -> MemResponse {
+  pub fn read_word(&self, address: u32) -> MemResponse {
     assert_eq!(address & 0x0000_0003, 0);
     read_memory!(address, read_word, self)
   }
-  pub fn write_byte(&mut self, address: Register, value: Register) -> MemAction {
+  pub fn write_byte(&mut self, address: u32, value: u32) -> MemAction {
     write_memory!(address, value, write_byte, self)
   }
-  pub fn write_half(&mut self, address: Register, value: Register) -> MemAction {
+  pub fn write_half(&mut self, address: u32, value: u32) -> MemAction {
     assert_eq!(address & 0x0000_0001, 0);
     write_memory!(address, value, write_half, self)
   }
-  pub fn write_word(&mut self, address: Register, value: Register) -> MemAction  {
+  pub fn write_word(&mut self, address: u32, value: u32) -> MemAction  {
     assert_eq!(address & 0x0000_0003, 0);
     write_memory!(address, value, write_word, self)
   }

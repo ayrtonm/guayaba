@@ -1,7 +1,6 @@
 use std::collections::VecDeque;
 use crate::memory::MB;
-use crate::register::Register;
-use crate::register::BitBang;
+use crate::register::BitTwiddle;
 use crate::dma::DMAChannel;
 
 mod command;
@@ -12,50 +11,50 @@ use command::Command;
 pub struct GPU {
   logging: bool,
   gpustat: GPUStatus,
-  gpuread: VecDeque<Register>,
+  gpuread: VecDeque<u32>,
   vram: Box<[u8]>,
   command_buffer: VecDeque<Command>,
   waiting_for_parameters: bool,
   partial_command: Option<Command>,
-  drawing_min_x: Register,
-  drawing_min_y: Register,
-  drawing_max_x: Register,
-  drawing_max_y: Register,
-  drawing_offset_x: Register,
-  drawing_offset_y: Register,
-  texture_mask_x: Register,
-  texture_mask_y: Register,
-  texture_offset_x: Register,
-  texture_offset_y: Register,
-  display_x: Register,
-  display_y: Register,
-  display_range_x1: Register,
-  display_range_x2: Register,
-  display_range_y1: Register,
-  display_range_y2: Register,
+  drawing_min_x: u32,
+  drawing_min_y: u32,
+  drawing_max_x: u32,
+  drawing_max_y: u32,
+  drawing_offset_x: u32,
+  drawing_offset_y: u32,
+  texture_mask_x: u32,
+  texture_mask_y: u32,
+  texture_offset_x: u32,
+  texture_offset_y: u32,
+  display_x: u32,
+  display_y: u32,
+  display_range_x1: u32,
+  display_range_x2: u32,
+  display_range_y1: u32,
+  display_range_y2: u32,
 }
 
 impl DMAChannel for GPU {
-  fn send(&mut self, data: Vec<Register>) {
+  fn send(&mut self, data: Vec<u32>) {
     data.iter().for_each(|&word| self.write_to_gp0(word))
   }
-  fn receive(&self) -> Register {
+  fn receive(&self) -> u32 {
     //self.gpuread
     0
   }
 }
 
-struct GPUStatus(Register);
+struct GPUStatus(u32);
 
 impl GPUStatus {
   fn new() -> Self {
     GPUStatus(0x1c00_0000)
   }
-  fn as_mut(&mut self) -> &mut Register {
+  fn as_mut(&mut self) -> &mut u32 {
     &mut self.0
   }
   //this may be useful for when the GPU (i.e. OpengGL part) needs to access the info in gpustat
-  fn texture_page_x(&self) -> Register {
+  fn texture_page_x(&self) -> u32 {
     self.0.lowest_bits(4)
   }
 }
@@ -91,11 +90,11 @@ impl GPU {
       display_range_y2: 0,
     }
   }
-  pub fn gpustat(&self) -> Register {
+  pub fn gpustat(&self) -> u32 {
     //this is a dirty hack
     *self.gpustat.0.clone().clear(19).clear(14).clear(31).set(26).set(27).set(28)
   }
-  pub fn gpuread(&mut self) -> Register {
+  pub fn gpuread(&mut self) -> u32 {
     self.gpuread.pop_front().map_or(0, |value| value)
   }
 }

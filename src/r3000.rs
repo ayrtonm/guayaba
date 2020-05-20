@@ -1,5 +1,4 @@
 use std::collections::VecDeque;
-use crate::register::Register;
 
 //different types of register names
 //these are for improved readability when doing delayed register writes
@@ -15,11 +14,11 @@ pub enum Name {
 #[derive(Debug)]
 pub struct DelayedWrite {
   register_name: Name,
-  value: Register,
+  value: u32,
 }
 
 impl DelayedWrite {
-  pub fn new(register_name: Name, value: Register) -> Self {
+  pub fn new(register_name: Name, value: u32) -> Self {
     DelayedWrite {
       register_name,
       value,
@@ -28,38 +27,38 @@ impl DelayedWrite {
   pub fn name(&self) -> &Name {
     &self.register_name
   }
-  pub fn value(&self) -> Register {
+  pub fn value(&self) -> u32 {
     self.value
   }
 }
 
-pub struct MutRegister<'a> {
-  value: &'a mut Register,
+pub struct Mutu32<'a> {
+  value: &'a mut u32,
   name: Name,
 }
 
-impl<'a> MutRegister<'a> {
-  pub fn new(value: &'a mut Register, name: Name) -> Self {
-    MutRegister {
+impl<'a> Mutu32<'a> {
+  pub fn new(value: &'a mut u32, name: Name) -> Self {
+    Mutu32 {
       value, name
     }
   }
 }
 
 pub trait MaybeSet {
-  fn maybe_set(self, value: Register) -> Option<Name>;
+  fn maybe_set(self, value: u32) -> Option<Name>;
 }
 
 //this is for the main MIPS processor registers
-impl<'a> MaybeSet for Option<MutRegister<'a>> {
-  fn maybe_set(self, value: Register) -> Option<Name> {
+impl<'a> MaybeSet for Option<Mutu32<'a>> {
+  fn maybe_set(self, value: u32) -> Option<Name> {
     self.map(|reg| {*reg.value = value; reg.name})
   }
 }
 
 //this is for the coprocessor registers
-impl MaybeSet for Option<&mut Register> {
-  fn maybe_set(self, value: Register) -> Option<Name> {
+impl MaybeSet for Option<&mut u32> {
+  fn maybe_set(self, value: u32) -> Option<Name> {
     self.map(|reg| *reg = value);
     None
   }
@@ -67,14 +66,14 @@ impl MaybeSet for Option<&mut Register> {
 
 #[derive(Debug,Default)]
 pub struct R3000 {
-  general_registers: [Register; 31],
-  pc: Register,
-  hi: Register,
-  lo: Register,
+  general_registers: [u32; 31],
+  pc: u32,
+  hi: u32,
+  lo: u32,
 }
 
 impl R3000 {
-  const ZERO: Register = 0;
+  const ZERO: u32 = 0;
   pub fn new() -> Self {
     let general_registers = Default::default();
     let pc = 0xbfc0_0000;
@@ -89,7 +88,7 @@ impl R3000 {
   }
   //general purpose MIPS registers are referred to as R0..R31
   //this method is used to address registers R0 through R31
-  pub fn nth_reg(&self, idx: u32) -> Register {
+  pub fn nth_reg(&self, idx: u32) -> u32 {
     assert!(idx < 32);
     let idx = idx as usize;
     match idx {
@@ -103,7 +102,7 @@ impl R3000 {
   }
   //this methods returns a mutable reference to R1 through R31
   //R0 is always mapped to zero so it doesn't make sense here
-  pub fn nth_reg_mut(&mut self, idx: u32) -> Option<MutRegister> {
+  pub fn nth_reg_mut(&mut self, idx: u32) -> Option<Mutu32> {
     assert!(idx < 32);
     let idx = idx as usize;
     match idx {
@@ -111,34 +110,34 @@ impl R3000 {
         None
       },
       _ => {
-        Some(MutRegister::new(&mut self.general_registers[idx - 1], Name::Rn(idx as u32)))
+        Some(Mutu32::new(&mut self.general_registers[idx - 1], Name::Rn(idx as u32)))
       },
     }
   }
   //general purpose MIPS registers also have names we can use
-  pub fn ra(&self) -> Register {
+  pub fn ra(&self) -> u32 {
     self.nth_reg(31)
   }
-  pub fn ra_mut(&mut self) -> Option<MutRegister> {
+  pub fn ra_mut(&mut self) -> Option<Mutu32> {
     self.nth_reg_mut(31)
   }
   //these are the special purpose MIPS registers
-  pub fn pc(&self) -> Register {
+  pub fn pc(&self) -> u32 {
     self.pc
   }
-  pub fn pc_mut(&mut self) -> &mut Register {
+  pub fn pc_mut(&mut self) -> &mut u32 {
     &mut self.pc
   }
-  pub fn lo(&self) -> Register {
+  pub fn lo(&self) -> u32 {
     self.lo
   }
-  pub fn lo_mut(&mut self) -> &mut Register {
+  pub fn lo_mut(&mut self) -> &mut u32 {
     &mut self.lo
   }
-  pub fn hi(&self) -> Register {
+  pub fn hi(&self) -> u32 {
     self.hi
   }
-  pub fn hi_mut(&mut self) -> &mut Register {
+  pub fn hi_mut(&mut self) -> &mut u32 {
     &mut self.hi
   }
   pub fn flush_write_cache(&mut self, operations: &mut VecDeque<DelayedWrite>,

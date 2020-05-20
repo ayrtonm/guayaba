@@ -1,7 +1,6 @@
 use crate::console::Console;
 use crate::memory::Memory;
-use crate::register::Register;
-use crate::register::BitBang;
+use crate::register::BitTwiddle;
 use crate::dma::Transfer;
 use crate::dma::Direction;
 use crate::dma::Chunks;
@@ -11,13 +10,13 @@ use crate::dma::DMAChannel;
 impl Console {
   pub(super) fn handle_dma(&mut self, transfer: Transfer) {
     let addr_mask = 0x00ff_fffc;
-    let step = |address: Register| {
+    let step = |address: u32| {
       match transfer.step() {
         Step::Forward => address.wrapping_add(4) & addr_mask,
         Step::Backward => address.wrapping_sub(4) & addr_mask,
       }
     };
-    let undo_step = |address: Register| {
+    let undo_step = |address: u32| {
       match transfer.step() {
         Step::Forward => address.wrapping_sub(4) & addr_mask,
         Step::Backward => address.wrapping_add(4) & addr_mask,

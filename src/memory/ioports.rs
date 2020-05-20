@@ -1,8 +1,7 @@
 use crate::common::ReadArray;
 use crate::common::WriteArray;
 use crate::memory::Memory;
-use crate::register::Register;
-use crate::register::BitBang;
+use crate::register::BitTwiddle;
 use crate::dma::Transfer;
 use crate::dma::Chunks;
 use crate::dma::Blocks;
@@ -427,7 +426,7 @@ pub trait DMAControl {
   fn sync_mode(&self) -> u8;
 }
 
-impl DMAControl for Register {
+impl DMAControl for u32 {
   fn sync_mode(&self) -> u8 {
     self.upper_bits(23) as u8 & 3
   }

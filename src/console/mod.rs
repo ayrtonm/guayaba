@@ -1,8 +1,7 @@
 use std::io;
 use std::collections::VecDeque;
 use std::collections::HashSet;
-use crate::register::Register;
-use crate::register::BitBang;
+use crate::register::BitTwiddle;
 use crate::r3000::R3000;
 use crate::r3000::DelayedWrite;
 use crate::r3000::Name;
@@ -56,10 +55,10 @@ pub struct Console {
   pub cd: CD,
   pub screen: Screen,
 
-  pub next_pc: Option<Register>,
+  pub next_pc: Option<u32>,
   pub delayed_writes: VecDeque<DelayedWrite>,
   pub modified_register: Option<Name>,
-  pub overwritten: HashSet<Register>,
+  pub overwritten: HashSet<u32>,
   pub i: u32,
 }
 
@@ -130,7 +129,7 @@ impl Console {
     }
     true
   }
-  pub fn resolve_memresponse(&mut self, response: MemResponse) -> Register {
+  pub fn resolve_memresponse(&mut self, response: MemResponse) -> u32 {
     match response {
       MemResponse::Value(value) => value,
       MemResponse::GPUREAD => self.gpu.gpuread(),
@@ -138,19 +137,19 @@ impl Console {
       MemResponse::CDResponse => self.cd.read_response(),
     }
   }
-  pub fn write_byte(&mut self, address: Register, value: Register) {
+  pub fn write_byte(&mut self, address: u32, value: u32) {
     self.overwritten.insert(Console::physical(address));
     handle_action!(self.memory.write_byte(address, value), self);
   }
-  pub fn write_half(&mut self, address: Register, value: Register) {
+  pub fn write_half(&mut self, address: u32, value: u32) {
     self.overwritten.insert(Console::physical(address));
     handle_action!(self.memory.write_half(address, value), self);
   }
-  pub fn write_word(&mut self, address: Register, value: Register) {
+  pub fn write_word(&mut self, address: u32, value: u32) {
     self.overwritten.insert(Console::physical(address));
     handle_action!(self.memory.write_word(address, value), self);
   }
-  pub fn physical(address: Register) -> Register {
+  pub fn physical(address: u32) -> u32 {
     const PHYS_MASK: [u32; 8] = [0xffff_ffff, 0xffff_ffff, 0xffff_ffff, 0xffff_ffff,
                                  0x7fff_ffff, 0x1fff_ffff, 0xffff_ffff, 0xffff_ffff];
     let idx = address.upper_bits(3) as usize;

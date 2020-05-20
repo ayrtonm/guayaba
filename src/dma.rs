@@ -1,8 +1,6 @@
-use crate::register::Register;
-
 pub trait DMAChannel {
-  fn send(&mut self, data: Vec<Register>);
-  fn receive(&self) -> Register;
+  fn send(&mut self, data: Vec<u32>);
+  fn receive(&self) -> u32;
 }
 
 #[derive(Debug)]
@@ -49,7 +47,7 @@ pub enum Step {
 //1 + 4 + 1 + 1 + 4 + 1
 pub struct Transfer {
   channel_num: u8,
-  start_address: Register,
+  start_address: u32,
   chunks: Chunks,
   direction: Direction,
   step: Step,
@@ -57,7 +55,7 @@ pub struct Transfer {
 }
 
 impl Transfer {
-  pub fn new(channel_num: u8, start_address: Register, chunks: Chunks,
+  pub fn new(channel_num: u8, start_address: u32, chunks: Chunks,
              direction: Direction, step: Step, sync_mode: u8) -> Self {
     Transfer {
       channel_num,

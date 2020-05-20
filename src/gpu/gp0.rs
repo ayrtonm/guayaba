@@ -3,8 +3,7 @@ use crate::gpu::Command;
 use crate::common::ReadArray;
 use crate::common::WriteArray;
 use crate::memory::KB;
-use crate::register::Register;
-use crate::register::BitBang;
+use crate::register::BitTwiddle;
 use crate::screen::Drawable;
 
 impl GPU {
@@ -106,7 +105,7 @@ impl GPU {
                                      .skip(start_idx / 8)
                                      .take(((width * height) + 1) / 8)
                                      .map(|chunk| chunk.read_word(0))
-                                     .collect::<Vec<Register>>();
+                                     .collect::<Vec<u32>>();
             vram_data.iter()
                      .for_each(|&word| self.gpuread.push_back(word))
           },
@@ -153,7 +152,7 @@ impl GPU {
       },
     }
   }
-  pub fn write_to_gp0(&mut self, value: Register) {
+  pub fn write_to_gp0(&mut self, value: u32) {
     //println!("GP0 received {:#x}", value);
     let cmd = match self.waiting_for_parameters {
       true => {

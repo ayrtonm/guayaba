@@ -3,7 +3,6 @@ use std::io::SeekFrom;
 use std::io::Read;
 use std::fs::File;
 use std::collections::VecDeque;
-use crate::register::Register;
 use crate::dma::DMAChannel;
 
 pub struct CD {
@@ -31,9 +30,9 @@ impl CD {
       response_buffer: VecDeque::new(),
     }
   }
-  pub fn read_response(&mut self) -> Register {
+  pub fn read_response(&mut self) -> u32 {
     self.response_buffer.pop_front()
-                        .map_or(0, |response| response as Register)
+                        .map_or(0, |response| response as u32)
   }
   pub fn send_parameter(&mut self, val: u8) {
     println!("CD received parameter {:#x}", val);
@@ -79,10 +78,10 @@ impl CD {
 }
 
 impl DMAChannel for CD {
-  fn send(&mut self, data: Vec<Register>) {
+  fn send(&mut self, data: Vec<u32>) {
     todo!("implement DMAChannel for CD")
   }
-  fn receive(&self) -> Register {
+  fn receive(&self) -> u32 {
     todo!("implement DMAChannel for CD")
   }
 }

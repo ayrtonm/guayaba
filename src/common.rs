@@ -1,48 +1,47 @@
-use crate::register::Register;
-use crate::register::BitBang;
+use crate::register::BitTwiddle;
 
 pub trait ReadArray {
-  fn read_byte(&self, address: Register) -> Register;
-  fn read_half(&self, address: Register) -> Register;
-  fn read_word(&self, address: Register) -> Register;
+  fn read_byte(&self, address: u32) -> u32;
+  fn read_half(&self, address: u32) -> u32;
+  fn read_word(&self, address: u32) -> u32;
 }
 
 pub trait WriteArray {
-  fn write_byte(&mut self, address: Register, value: Register);
-  fn write_half(&mut self, address: Register, value: Register);
-  fn write_word(&mut self, address: Register, value: Register);
+  fn write_byte(&mut self, address: u32, value: u32);
+  fn write_half(&mut self, address: u32, value: u32);
+  fn write_word(&mut self, address: u32, value: u32);
 }
 
 impl ReadArray for &[u8] {
-  fn read_byte(&self, address: Register) -> Register {
+  fn read_byte(&self, address: u32) -> u32 {
     let address = address as usize;
-    self[address] as Register
+    self[address] as u32
   }
-  fn read_half(&self, address: Register) -> Register {
+  fn read_half(&self, address: u32) -> u32 {
     let address = address as usize;
-    self[address] as Register |
-    (self[address + 1] as Register) << 8
+    self[address] as u32 |
+    (self[address + 1] as u32) << 8
   }
-  fn read_word(&self, address: Register) -> Register {
+  fn read_word(&self, address: u32) -> u32 {
     let address = address as usize;
-    self[address] as Register |
-    (self[address + 1] as Register) << 8 |
-    (self[address + 2] as Register) << 16 |
-    (self[address + 3] as Register) << 24
+    self[address] as u32 |
+    (self[address + 1] as u32) << 8 |
+    (self[address + 2] as u32) << 16 |
+    (self[address + 3] as u32) << 24
   }
 }
 
 impl WriteArray for &mut [u8] {
-  fn write_byte(&mut self, address: Register, value: Register) {
+  fn write_byte(&mut self, address: u32, value: u32) {
     let address = address as usize;
     self[address] = value.byte() as u8;
   }
-  fn write_half(&mut self, address: Register, value: Register) {
+  fn write_half(&mut self, address: u32, value: u32) {
     let address = address as usize;
     self[address] = value.byte() as u8;
     self[address + 1] = value.upper_bits(24).byte() as u8;
   }
-  fn write_word(&mut self, address: Register, value: Register) {
+  fn write_word(&mut self, address: u32, value: u32) {
     let address = address as usize;
     self[address] = value.byte() as u8;
     self[address + 1] = value.upper_bits(24).byte() as u8;
