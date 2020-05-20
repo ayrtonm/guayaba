@@ -81,6 +81,7 @@ impl CachingInterpreter {
                .r3000
                .pc_mut() = self.console
                                .next_pc
+                               .take()
                                .map_or_else(|| self.console.r3000.pc().wrapping_add(4),
                                             |next_pc| next_pc);
           if !self.console.handle_events() {

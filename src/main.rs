@@ -3,13 +3,11 @@ use std::env;
 use std::convert::TryInto;
 use interpreter::Interpreter;
 use caching_interpreter::CachingInterpreter;
-use x64_jit::X64JIT;
 
 mod console;
 mod common;
 mod interpreter;
 mod caching_interpreter;
-mod x64_jit;
 mod r3000;
 mod cop0;
 mod register;
@@ -115,8 +113,8 @@ fn main() -> io::Result<()> {
           CachingInterpreter::new(bios_filename, infile, gpu_logging, wx, wy)?
                               .run(steps, opt, logging);
         } else if jit {
-          X64JIT::new(bios_filename, infile, gpu_logging, wx, wy)?
-                              .run(steps, opt, logging);
+          //X64JIT::new(bios_filename, infile, gpu_logging, wx, wy)?
+          //       .run(steps, opt, logging);
         } else {
           Interpreter::new(bios_filename, infile, gpu_logging, wx, wy)?
                       .run(steps, logging);

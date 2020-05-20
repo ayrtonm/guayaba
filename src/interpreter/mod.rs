@@ -52,9 +52,9 @@ impl Interpreter {
     //the instruction following each jump is always executed before updating the pc
     //increment the program counter
     *self.console.r3000.pc_mut() = self.console.next_pc
-                           .take()
-                           .map_or_else(|| self.console.r3000.pc().wrapping_add(4),
-                                        |next_pc| next_pc);
+                                               .take()
+                                               .map_or_else(|| self.console.r3000.pc().wrapping_add(4),
+                                                            |next_pc| next_pc);
     self.console.next_pc = self.execute_opcode(op, logging);
     self.console.gpu.exec_next_gp0_command().map(|object| self.console.screen.draw(object));
     self.console.cd.exec_command();

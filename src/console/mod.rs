@@ -19,6 +19,33 @@ use sdl2::keyboard::Keycode;
 
 mod handle_dma;
 
+  macro_rules! handle_action {
+    ($write:expr, $self:ident) => {
+      match $write {
+        MemAction::DMA(transfer) => {
+          $self.handle_dma(transfer);
+        },
+        MemAction::GpuGp0(value) => $self.gpu.write_to_gp0(value),
+        MemAction::GpuGp1(value) => $self.gpu.write_to_gp1(value),
+        MemAction::CDCmd(value) => {
+          $self.cd.send_command(value);
+        },
+        MemAction::CDParam(value) => {
+          $self.cd.send_parameter(value);
+        },
+        MemAction::CDCmdParam(cmd, param) => {
+          $self.cd.send_command(cmd);
+          $self.cd.send_parameter(param);
+        },
+        MemAction::Interrupt(irq) => {
+          $self.cop0.request_interrupt(irq);
+        },
+        MemAction::None => {
+        },
+      };
+    }
+  }
+
 pub struct Console {
   //these correspond to physical components
   pub r3000: R3000,
@@ -113,66 +140,15 @@ impl Console {
   }
   pub fn write_byte(&mut self, address: Register, value: Register) {
     self.overwritten.insert(Console::physical(address));
-    match self.memory.write_byte(address, value) {
-              MemAction::DMA(transfer) => {
-                self.handle_dma(transfer);
-              },
-              MemAction::GpuGp0(value) => self.gpu.write_to_gp0(value),
-              MemAction::GpuGp1(value) => self.gpu.write_to_gp1(value),
-              MemAction::CDCmd(value) => {
-                self.cd.send_command(value);
-              },
-              MemAction::CDParam(value) => {
-                self.cd.send_parameter(value);
-              },
-              MemAction::Interrupt(irq) => {
-                self.cop0.request_interrupt(irq);
-              },
-              MemAction::None => {
-              },
-            };
+    handle_action!(self.memory.write_byte(address, value), self);
   }
   pub fn write_half(&mut self, address: Register, value: Register) {
     self.overwritten.insert(Console::physical(address));
-    match self.memory.write_half(address, value) {
-              MemAction::DMA(transfer) => {
-                self.handle_dma(transfer);
-              },
-              MemAction::GpuGp0(value) => self.gpu.write_to_gp0(value),
-              MemAction::GpuGp1(value) => self.gpu.write_to_gp1(value),
-              MemAction::CDCmd(value) => {
-                self.cd.send_command(value);
-              },
-              MemAction::CDParam(value) => {
-                self.cd.send_parameter(value);
-              },
-              MemAction::Interrupt(irq) => {
-                self.cop0.request_interrupt(irq);
-              },
-              MemAction::None => {
-              },
-            };
+    handle_action!(self.memory.write_half(address, value), self);
   }
   pub fn write_word(&mut self, address: Register, value: Register) {
     self.overwritten.insert(Console::physical(address));
-            match self.memory.write_word(address, value) {
-              MemAction::DMA(transfer) => {
-                self.handle_dma(transfer);
-              },
-              MemAction::GpuGp0(value) => self.gpu.write_to_gp0(value),
-              MemAction::GpuGp1(value) => self.gpu.write_to_gp1(value),
-              MemAction::CDCmd(value) => {
-                self.cd.send_command(value);
-              },
-              MemAction::CDParam(value) => {
-                self.cd.send_parameter(value);
-              },
-              MemAction::Interrupt(irq) => {
-                self.cop0.request_interrupt(irq);
-              },
-              MemAction::None => {
-              },
-            };
+    handle_action!(self.memory.write_word(address, value), self);
   }
   pub fn physical(address: Register) -> Register {
     const PHYS_MASK: [u32; 8] = [0xffff_ffff, 0xffff_ffff, 0xffff_ffff, 0xffff_ffff,

@@ -22,6 +22,7 @@ pub enum MemAction {
   GpuGp1(Register),
   CDCmd(u8),
   CDParam(u8),
+  CDCmdParam(u8, u8),
   Interrupt(Register),
   None,
 }

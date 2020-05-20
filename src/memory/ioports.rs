@@ -230,14 +230,9 @@ macro_rules! get_io_action {
             0 => {
               match identifier_size!($function) {
                 SizeIdentifier::Word => {
-                  MemAction::None
-                  //Some(vec![
-                  //  MemAction::CDCmd(
-                  //    $self.io_ports.as_ref().read_byte(aligned_offset + 1) as u8),
-                  //  MemAction::CDParam(
-                  //    $self.io_ports.as_ref().read_byte(aligned_offset + 2) as u8)
-                  //  ]
-                  //)
+                  MemAction::CDCmdParam(
+                      $self.io_ports.as_ref().read_byte(aligned_offset + 1) as u8,
+                      $self.io_ports.as_ref().read_byte(aligned_offset + 2) as u8)
                 },
                 SizeIdentifier::Half => {
                     MemAction::CDCmd(
