@@ -4,6 +4,7 @@ use std::time::Instant;
 use std::time::Duration;
 use crate::console::Console;
 use crate::register::Register;
+use crate::macro_assembler::MacroAssembler;
 
 mod insn_ir;
 mod opcodes;
@@ -12,6 +13,7 @@ mod optimize;
 
 struct Stub {
   operations: fn(),
+  masm: MacroAssembler,
   final_pc: Register,
   len: u32,
 }
@@ -37,7 +39,7 @@ pub struct X64JIT {
 }
 
 impl X64JIT {
-  pub fn run(&mut self, n: Option<u32>, optimize: bool, logging: bool) {
+  pub fn run(&mut self, n: Option<u32>, optimize: bool, logging: bool) -> io::Result<()> {
     let start_time = Instant::now();
     let mut compile_time = start_time - start_time;
     let mut cache_time = start_time - start_time;
@@ -84,15 +86,16 @@ impl X64JIT {
                                .map_or_else(|| self.console.r3000.pc().wrapping_add(4),
                                             |next_pc| next_pc);
           if !self.console.handle_events() {
-            return
+            return Ok(());
           }
         },
         None => {
           //if the stub was invalidated, compile another one
-          compile_time += self.parse_stub(optimize, logging);
+          compile_time += self.parse_stub(optimize, logging)?;
         },
       }
     }
+    Ok(())
   }
   pub fn new(bios_filename: &String, infile: Option<&String>, gpu_logging: bool,
              wx: u32, wy: u32) -> io::Result<Self> {
@@ -103,7 +106,7 @@ impl X64JIT {
         ranges_compiled: Default::default(),
     })
   }
-  fn parse_stub(&mut self, optimize: bool, logging: bool) -> Duration {
+  fn parse_stub(&mut self, optimize: bool, logging: bool) -> io::Result<Duration> {
     let t0 = Instant::now();
     let mut operations = Vec::new();
     let start = self.console.r3000.pc();
@@ -146,8 +149,12 @@ impl X64JIT {
       compiled_stub.push(compiled.expect("Consecutive jumps are not allowed in the MIPS ISA"));
       len += 1;
     }
+    let mut masm = MacroAssembler::new();
+    let f = masm.compile_buffer()?;
     let stub = Stub {
-      operations: compiled_stub,
+      //operations: compiled_stub,
+      operations: f,
+      masm,
       final_pc: Console::physical(address),
       len,
     };
@@ -162,7 +169,7 @@ impl X64JIT {
                           None
                         });
     let t1 = Instant::now();
-    t1 - t0
+    Ok(t1 - t0)
   }
   fn cache_invalidation(&mut self, address: Register) {
     let deleted_stub = self.stubs.remove(&address).unwrap();
