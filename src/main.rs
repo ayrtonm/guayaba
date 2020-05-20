@@ -3,13 +3,15 @@ use std::env;
 use std::convert::TryInto;
 use interpreter::Interpreter;
 use caching_interpreter::CachingInterpreter;
-use x64_jit::X64JIT;
+//use x64_jit::X64JIT;
+use macro_assembler::MacroAssembler;
 
 mod console;
 mod common;
 mod interpreter;
 mod caching_interpreter;
-mod x64_jit;
+//mod x64_jit;
+mod macro_assembler;
 mod r3000;
 mod cop0;
 mod register;
@@ -115,8 +117,12 @@ fn main() -> io::Result<()> {
           CachingInterpreter::new(bios_filename, infile, gpu_logging, wx, wy)?
                               .run(steps, opt, logging);
         } else if jit {
-          X64JIT::new(bios_filename, infile, gpu_logging, wx, wy)?
-                              .run(steps, opt, logging);
+          //X64JIT::new(bios_filename, infile, gpu_logging, wx, wy)?
+          //                    .run(steps, opt, logging);
+          let mut masm = MacroAssembler::new();
+          masm.test(call_me as u64);
+          let f = masm.compile_buffer()?;
+          println!("{}", f());
         } else {
           Interpreter::new(bios_filename, infile, gpu_logging, wx, wy)?
                       .run(steps, logging);
@@ -128,4 +134,9 @@ fn main() -> io::Result<()> {
     }
   }
   Ok(())
+}
+
+fn call_me() -> u64 {
+  let x = 1 + 2;
+  x
 }
