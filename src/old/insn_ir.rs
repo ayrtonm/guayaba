@@ -3,7 +3,7 @@ use crate::common::*;
 
 pub enum Kind {
   Immediate,
-  u32,
+  Register,
   Jump,
 }
 
@@ -46,7 +46,7 @@ impl CachingInterpreter {
             0x00 => {
               //MFCn
               Some(Insn {
-                kind: Kind::u32,
+                kind: Kind::Register,
                 inputs: vec![],
                 output: Some(get_rt(op)),
               })
@@ -54,7 +54,7 @@ impl CachingInterpreter {
             0x02 => {
               //CFCn
               Some(Insn {
-                kind: Kind::u32,
+                kind: Kind::Register,
                 inputs: vec![],
                 output: Some(get_rt(op)),
               })
@@ -62,7 +62,7 @@ impl CachingInterpreter {
             0x04 => {
               //MTCn
               Some(Insn {
-                kind: Kind::u32,
+                kind: Kind::Register,
                 inputs: vec![get_rt(op)],
                 output: None,
               })
@@ -70,7 +70,7 @@ impl CachingInterpreter {
             0x06 => {
               //CTCn
               Some(Insn {
-                kind: Kind::u32,
+                kind: Kind::Register,
                 inputs: vec![get_rt(op)],
                 output: None,
               })
@@ -208,7 +208,7 @@ impl CachingInterpreter {
             log!("> MFHI");
             //mov!(rd = hi)
             Some(Insn {
-              kind: Kind::u32,
+              kind: Kind::Register,
               inputs: vec![],
               output: Some(get_rd(op)),
             })
@@ -218,7 +218,7 @@ impl CachingInterpreter {
             log!("> MTHI");
             //mov!(hi = rs)
             Some(Insn {
-              kind: Kind::u32,
+              kind: Kind::Register,
               inputs: vec![get_rs(op)],
               output: None,
             })
@@ -228,7 +228,7 @@ impl CachingInterpreter {
             log!("> MFLO");
             //mov!(rd = lo)
             Some(Insn {
-              kind: Kind::u32,
+              kind: Kind::Register,
               inputs: vec![],
               output: Some(get_rd(op)),
             })
@@ -238,7 +238,7 @@ impl CachingInterpreter {
             log!("> MTLO");
             //mov!(lo = rs)
             Some(Insn {
-              kind: Kind::u32,
+              kind: Kind::Register,
               inputs: vec![get_rs(op)],
               output: None,
             })
@@ -248,7 +248,7 @@ impl CachingInterpreter {
             log!("> MULT");
             //compute!(hi:lo = rs * rt signed)
             Some(Insn {
-              kind: Kind::u32,
+              kind: Kind::Register,
               inputs: vec![get_rs(op), get_rt(op)],
               output: None,
             })
@@ -258,7 +258,7 @@ impl CachingInterpreter {
             log!("> MULTU");
             //compute!(hi:lo = rs * rt)
             Some(Insn {
-              kind: Kind::u32,
+              kind: Kind::Register,
               inputs: vec![get_rs(op), get_rt(op)],
               output: None,
             })
@@ -268,7 +268,7 @@ impl CachingInterpreter {
             log!("> DIV");
             //compute!(hi:lo = rs / rt signed)
             Some(Insn {
-              kind: Kind::u32,
+              kind: Kind::Register,
               inputs: vec![get_rs(op), get_rt(op)],
               output: None,
             })
@@ -278,7 +278,7 @@ impl CachingInterpreter {
             log!("> DIVU");
             //compute!(hi:lo = rs / rt)
             Some(Insn {
-              kind: Kind::u32,
+              kind: Kind::Register,
               inputs: vec![get_rs(op), get_rt(op)],
               output: None,
             })
@@ -288,7 +288,7 @@ impl CachingInterpreter {
             log!("> ADD");
             //compute!(rd = rs checked_add rt trap)
             Some(Insn {
-              kind: Kind::u32,
+              kind: Kind::Register,
               inputs: vec![get_rs(op), get_rt(op)],
               output: Some(get_rd(op)),
             })
@@ -298,7 +298,7 @@ impl CachingInterpreter {
             log!("> ADDU");
             //compute!(rd = rs wrapping_add rt)
             Some(Insn {
-              kind: Kind::u32,
+              kind: Kind::Register,
               inputs: vec![get_rs(op), get_rt(op)],
               output: Some(get_rd(op)),
             })
@@ -308,7 +308,7 @@ impl CachingInterpreter {
             log!("> SUB");
             //compute!(rd = rs checked_sub rt trap)
             Some(Insn {
-              kind: Kind::u32,
+              kind: Kind::Register,
               inputs: vec![get_rs(op), get_rt(op)],
               output: Some(get_rd(op)),
             })
@@ -318,7 +318,7 @@ impl CachingInterpreter {
             log!("> SUBU");
             //compute!(rd = rs wrapping_sub rt)
             Some(Insn {
-              kind: Kind::u32,
+              kind: Kind::Register,
               inputs: vec![get_rs(op), get_rt(op)],
               output: Some(get_rd(op)),
             })
@@ -328,7 +328,7 @@ impl CachingInterpreter {
             log!("> AND");
             //compute!(rd = rs and rt)
             Some(Insn {
-              kind: Kind::u32,
+              kind: Kind::Register,
               inputs: vec![get_rs(op), get_rt(op)],
               output: Some(get_rd(op)),
             })
@@ -338,7 +338,7 @@ impl CachingInterpreter {
             log!("> OR");
             //compute!(rd = rs or rt)
             Some(Insn {
-              kind: Kind::u32,
+              kind: Kind::Register,
               inputs: vec![get_rs(op), get_rt(op)],
               output: Some(get_rd(op)),
             })
@@ -348,7 +348,7 @@ impl CachingInterpreter {
             log!("> XOR");
             //compute!(rd = rs xor rt)
             Some(Insn {
-              kind: Kind::u32,
+              kind: Kind::Register,
               inputs: vec![get_rs(op), get_rt(op)],
               output: Some(get_rd(op)),
             })
@@ -358,7 +358,7 @@ impl CachingInterpreter {
             log!("> NOR");
             //compute!(rd = rs nor rt)
             Some(Insn {
-              kind: Kind::u32,
+              kind: Kind::Register,
               inputs: vec![get_rs(op), get_rt(op)],
               output: Some(get_rd(op)),
             })
@@ -368,7 +368,7 @@ impl CachingInterpreter {
             log!("> SLT");
             //compute!(rd = rs signed_compare rt)
             Some(Insn {
-              kind: Kind::u32,
+              kind: Kind::Register,
               inputs: vec![get_rs(op), get_rt(op)],
               output: Some(get_rd(op)),
             })
@@ -378,7 +378,7 @@ impl CachingInterpreter {
             log!("> SLTU");
             //compute!(rd = rs compare rt)
             Some(Insn {
-              kind: Kind::u32,
+              kind: Kind::Register,
               inputs: vec![get_rs(op), get_rt(op)],
               output: Some(get_rd(op)),
             })

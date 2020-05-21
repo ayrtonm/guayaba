@@ -1,56 +1,12 @@
 use std::io;
 use std::collections::HashMap;
 use crate::console::Console;
+use block::Block;
+use insn::Insn;
 
-type Stub = Box<dyn Fn(&mut Console) -> Option<u32>>;
-
-struct Block {
-  //a vec of closures to be executed in order
-  stubs: Vec<Stub>,
-  //the physical address of the last instruction
-  //this will be either the branch delay slot or a syscall
-  final_pc: u32,
-  //the number of MIPS opcodes represented by this Block
-  //may be more than the length of stubs
-  nominal_len: u32,
-}
-
-impl Block {
-  fn stubs(&self) -> &Vec<Stub> {
-    &self.stubs
-  }
-  fn final_pc(&self) -> u32 {
-    self.final_pc
-  }
-  fn nominal_len(&self) -> u32 {
-    self.nominal_len
-  }
-}
-
-//this tags each opcode with its input and output registers
-struct Insn {
-  opcode: u32,
-  //registers which are used directly, i.e. not as an index into memory
-  inputs: Option<Vec<u32>>,
-  //sometimes an input register is used as an index into memory
-  indices: Option<u32>,
-  //the modified register if any
-  output: Option<u32>,
-}
-
-impl Insn {
-  fn new(opcode: u32) -> Self {
-    let inputs = None;
-    let indices = None;
-    let output = None;
-    Insn {
-      opcode,
-      inputs,
-      indices,
-      output,
-    }
-  }
-}
+mod block;
+mod insn;
+mod stub;
 
 pub struct CachingInterpreter {
   console: Console,
@@ -78,7 +34,7 @@ impl CachingInterpreter {
         Some(block) => {
           let stubs = block.stubs();
           for stub in stubs {
-            let temp_pc = stub(&mut self.console);
+            let temp_pc = stub.execute(&mut self.console);
             //check result of previous opcode
             match self.console.next_pc {
               Some(next_pc) => {
@@ -126,19 +82,19 @@ impl CachingInterpreter {
           self.console.overwritten.clear();
         },
         None => {
-          self.create_block(optimize, logging);
+          self.translate(optimize, logging);
         },
       }
     }
   }
-  fn create_block(&mut self, optimize: bool, logging: bool) {
+  fn translate(&mut self, optimize: bool, logging: bool) {
     //first define the opcodes in this block and tag them along the way
     let mut address = self.console.r3000.pc();
     let start = Console::physical(address);
     let mut op = self.console.read_word(address);
     let mut insn = Insn::new(op);
     let mut tagged_opcodes = Vec::new();
-    while CachingInterpreter::is_inside_block(op) {
+    while Insn::is_inside_block(op) {
       tagged_opcodes.push(insn);
       address = address.wrapping_add(4);
       op = self.console.read_word(address);
@@ -147,7 +103,7 @@ impl CachingInterpreter {
     //append the tagged unconditional jump or syscall that ended the block
     tagged_opcodes.push(insn);
     //if the block ended in an unconditional jump, tag and append the delay slot
-    if !CachingInterpreter::is_syscall(op) {
+    if !Insn::is_syscall(op) {
       address = address.wrapping_add(4);
       op = self.console.read_word(address);
       insn = Insn::new(op);
@@ -160,15 +116,11 @@ impl CachingInterpreter {
     //compile the tagged opcodes into stubs
     let stubs =
       if optimize {
-        self.create_optimized_stubs(&tagged_opcodes, logging);
+        Block::create_optimized_stubs(&tagged_opcodes, logging)
       } else {
-        self.create_stubs(&tagged_opcodes, logging);
-      };
-    let block = Block {
-      stubs,
-      final_pc,
-      nominal_len,
+        Block::create_stubs(&tagged_opcodes, logging)
     };
+    let block = Block::new(stubs, final_pc, nominal_len);
     self.blocks.insert(start, block);
     //store the address range of the new block to simplify cache invalidation
     match self.ranges_compiled.get_mut(&final_pc) {
@@ -179,15 +131,6 @@ impl CachingInterpreter {
         self.ranges_compiled.insert(final_pc, vec![start]);
       },
     }
-  }
-  fn is_inside_block(op: u32) -> bool {
-    !(is_syscall(op) || is_unconditional_jump(op))
-  }
-  fn is_syscall(op: u32) -> bool {
-    get_primary_field(op) == 0xc
-  }
-  fn is_unconditional_jump(op: u32) -> bool {
-    false
   }
   fn cache_invalidation(&mut self, address: u32) {
     //remove the previously executed block
