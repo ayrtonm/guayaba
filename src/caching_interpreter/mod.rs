@@ -38,6 +38,20 @@ struct Insn {
   output: Option<u32>,
 }
 
+impl Insn {
+  fn new(opcode: u32) -> Self {
+    let inputs = None;
+    let indices = None;
+    let output = None;
+    Insn {
+      opcode,
+      inputs,
+      indices,
+      output,
+    }
+  }
+}
+
 pub struct CachingInterpreter {
   console: Console,
   blocks: HashMap<u32, Block>,
@@ -118,27 +132,73 @@ impl CachingInterpreter {
     }
   }
   fn create_block(&mut self, optimize: bool, logging: bool) {
-    //let mut opcodes = Vec::new();
-    //let start = self.console.r3000.pc();
-    //let mut op = self.console.read_word(start);
-    //let mut address = start;
-    //let mut insn = self.tag_op(op, logging);
-    //while op.is_unconditional_jump() {
-    //  opcodes.push(insn);
-    //  address = address.wrapping_add(4);
-    //  op = self.console.read_word(address);
-    //}
+    //first define the opcodes in this block and tag them along the way
+    let mut address = self.console.r3000.pc();
+    let start = Console::physical(address);
+    let mut op = self.console.read_word(address);
+    let mut insn = Insn::new(op);
+    let mut tagged_opcodes = Vec::new();
+    while CachingInterpreter::is_inside_block(op) {
+      tagged_opcodes.push(insn);
+      address = address.wrapping_add(4);
+      op = self.console.read_word(address);
+      insn = Insn::new(op);
+    }
+    //append the tagged unconditional jump or syscall that ended the block
+    tagged_opcodes.push(insn);
+    //if the block ended in an unconditional jump, tag and append the delay slot
+    if !CachingInterpreter::is_syscall(op) {
+      address = address.wrapping_add(4);
+      op = self.console.read_word(address);
+      insn = Insn::new(op);
+      tagged_opcodes.push(insn);
+    }
+    //get the length before doing optimizations
+    let nominal_len = tagged_opcodes.len() as u32;
+    //get the address of the last instruction in the block
+    let final_pc = Console::physical(address);
+    //compile the tagged opcodes into stubs
+    let stubs =
+      if optimize {
+        self.create_optimized_stubs(&tagged_opcodes, logging);
+      } else {
+        self.create_stubs(&tagged_opcodes, logging);
+      };
+    let block = Block {
+      stubs,
+      final_pc,
+      nominal_len,
+    };
+    self.blocks.insert(start, block);
+    //store the address range of the new block to simplify cache invalidation
+    match self.ranges_compiled.get_mut(&final_pc) {
+      Some(v) => {
+        v.push(start);
+      },
+      None => {
+        self.ranges_compiled.insert(final_pc, vec![start]);
+      },
+    }
+  }
+  fn is_inside_block(op: u32) -> bool {
+    !(is_syscall(op) || is_unconditional_jump(op))
+  }
+  fn is_syscall(op: u32) -> bool {
+    get_primary_field(op) == 0xc
+  }
+  fn is_unconditional_jump(op: u32) -> bool {
+    false
   }
   fn cache_invalidation(&mut self, address: u32) {
     //remove the previously executed block
     let deleted_block = self.blocks.remove(&address).unwrap();
-    //get the blocks that are subsets of the deleted block
+    //get all blocks containing the deleted block as a subset
     let overlapping_blocks = self.ranges_compiled
                                  .get(&deleted_block.final_pc())
                                  .unwrap()
                                  .iter()
                                  .copied()
-                                 .filter(|&start| address <= start)
+                                 .filter(|&start| start <= address)
                                  .collect::<Vec<u32>>();
     //remove the overlapping blocks
     overlapping_blocks.iter()
@@ -149,7 +209,7 @@ impl CachingInterpreter {
     self.ranges_compiled
         .entry(deleted_block.final_pc())
         .and_modify(|v| {
-          v.retain(|&start| start < address);
+          v.retain(|&start| address < start);
         });
   }
 }

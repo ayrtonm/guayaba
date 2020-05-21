@@ -145,21 +145,21 @@ impl CachingInterpreter {
       compiled_stub.push(compiled.expect("Consecutive jumps are not allowed in the MIPS ISA"));
       len += 1;
     }
+    let end = Console::physical(address);
     let stub = Stub {
       operations: compiled_stub,
-      final_pc: Console::physical(address),
+      final_pc: end,
       len,
     };
     self.stubs.insert(Console::physical(start), stub);
-    let end = Console::physical(address);
-    self.ranges_compiled.get_mut(&end)
-                        .map(|v| {
-                          v.push(Console::physical(start));
-                        })
-                        .or_else(|| {
-                          self.ranges_compiled.insert(end, vec![Console::physical(start)]);
-                          None
-                        });
+    match self.ranges_compiled.get_mut(&end) {
+      Some(v) => {
+        v.push(Console::physical(start));
+      },
+      None => {
+        self.ranges_compiled.insert(end, vec![Console::physical(start)]);
+      },
+    }
     let t1 = Instant::now();
     t1 - t0
   }
