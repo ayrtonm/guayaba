@@ -2,7 +2,7 @@ use crate::register::BitTwiddle;
 use crate::r3000::MaybeSet;
 use crate::r3000::DelayedWrite;
 use crate::r3000::Name;
-use crate::caching_interpreter::CachingInterpreter;
+use crate::old::CachingInterpreter;
 use crate::console::Console;
 use super::insn_ir::Insn;
 use super::insn_ir::Kind;
@@ -21,7 +21,7 @@ impl CachingInterpreter {
     let imm16 = get_imm16(op).half_sign_extended();
     let constant_address = constant.wrapping_add(imm16);
     ret.push(Box::new(move |vm| {
-      let result = vm.resolve_memresponse(vm.memory.read_byte(constant_address));
+      let result = vm.read_byte(constant_address);
       vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(t), result));
       if logging {
         println!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x} {}",
@@ -34,7 +34,7 @@ impl CachingInterpreter {
     let imm16 = get_imm16(op).half_sign_extended();
     let constant_address = constant.wrapping_add(imm16);
     ret.push(Box::new(move |vm| {
-      let result = vm.resolve_memresponse(vm.memory.read_half(constant_address));
+      let result = vm.read_half(constant_address);
       vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(t), result));
       if logging {
         println!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x} {}",
@@ -47,7 +47,7 @@ impl CachingInterpreter {
     let imm16 = get_imm16(op).half_sign_extended();
     let constant_address = constant.wrapping_add(imm16);
     ret.push(Box::new(move |vm| {
-      let result = vm.resolve_memresponse(vm.memory.read_word(constant_address));
+      let result = vm.read_word(constant_address);
       vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(t), result));
       if logging {
         println!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x} {}",

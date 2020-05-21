@@ -7,7 +7,7 @@ use crate::r3000::MaybeSet;
 use crate::r3000::DelayedWrite;
 use crate::r3000::Name;
 use crate::cop0::Cop0Exception;
-use crate::caching_interpreter::CachingInterpreter;
+use crate::old::CachingInterpreter;
 use crate::console::Console;
 use crate::common::*;
 
@@ -51,7 +51,7 @@ impl CachingInterpreter {
                                         .map_or(vm.r3000.nth_reg(t),|write| write.value());
             let address = rs.wrapping_add(imm16);
             let aligned_address = *address.clone().clear_mask(3);
-            let aligned_word = vm.resolve_memresponse(vm.memory.read_word(aligned_address));
+            let aligned_word = vm.read_word(aligned_address);
             let num_bits = $offset.$operator(8*address.lowest_bits(2));
             let result = rt.$mask(num_bits) | aligned_word.$shift(num_bits);
             vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(t), result));
@@ -67,7 +67,7 @@ impl CachingInterpreter {
           if imm16 == 0 {
             Some(Box::new(move |vm| {
               let rs = vm.r3000.nth_reg(s);
-              let result = vm.resolve_memresponse(vm.memory.$method(rs));
+              let result = vm.$method(rs);
               vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(t), result));
               log!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x} {}",
                         t, rs, 0, rs, result, stringify!($method));
@@ -75,7 +75,7 @@ impl CachingInterpreter {
           } else {
             Some(Box::new(move |vm| {
               let rs = vm.r3000.nth_reg(s);
-              let result = vm.resolve_memresponse(vm.memory.$method(rs.wrapping_add(imm16)));
+              let result = vm.$method(rs.wrapping_add(imm16));
               vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(t), result));
               log!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x} {}",
                         t, rs, imm16, rs.wrapping_add(imm16), result, stringify!($method));
@@ -105,7 +105,7 @@ impl CachingInterpreter {
               if !vm.cop0.cache_isolated() {
                 let address = rs;
                 let aligned_address = *address.clone().clear_mask(3);
-                let aligned_word = vm.resolve_memresponse(vm.memory.read_word(aligned_address));
+                let aligned_word = vm.read_word(aligned_address);
                 let num_bits = $offset.$operator(8*address.lowest_bits(2));
                 let result = rt.$shift(num_bits) | aligned_word.$mask(num_bits);
                 vm.write_word(aligned_address, result);
@@ -120,7 +120,7 @@ impl CachingInterpreter {
               if !vm.cop0.cache_isolated() {
                 let address = rs.wrapping_add(imm16);
                 let aligned_address = *address.clone().clear_mask(3);
-                let aligned_word = vm.resolve_memresponse(vm.memory.read_word(aligned_address));
+                let aligned_word = vm.read_word(aligned_address);
                 let num_bits = $offset.$operator(8*address.lowest_bits(2));
                 let result = rt.$shift(num_bits) | aligned_word.$mask(num_bits);
                 vm.write_word(aligned_address, result);

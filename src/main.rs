@@ -4,6 +4,7 @@ use std::convert::TryInto;
 use interpreter::Interpreter;
 use caching_interpreter::CachingInterpreter;
 
+mod old;
 mod console;
 mod common;
 mod interpreter;
@@ -110,8 +111,8 @@ fn main() -> io::Result<()> {
     match bios {
       Some(bios_filename) => {
         if cache {
-          CachingInterpreter::new(bios_filename, infile, gpu_logging, wx, wy)?
-                              .run(steps, opt, logging);
+          old::CachingInterpreter::new(bios_filename, infile, gpu_logging, wx, wy)?
+                                  .run(steps, opt, logging);
         } else if jit {
           //X64JIT::new(bios_filename, infile, gpu_logging, wx, wy)?
           //       .run(steps, opt, logging);

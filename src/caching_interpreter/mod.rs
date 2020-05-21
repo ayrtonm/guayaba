@@ -27,6 +27,17 @@ impl Block {
   }
 }
 
+//this tags each opcode with its input and output registers
+struct Insn {
+  opcode: u32,
+  //registers which are used directly, i.e. not as an index into memory
+  inputs: Option<Vec<u32>>,
+  //sometimes an input register is used as an index into memory
+  indices: Option<u32>,
+  //the modified register if any
+  output: Option<u32>,
+}
+
 pub struct CachingInterpreter {
   console: Console,
   blocks: HashMap<u32, Block>,
@@ -107,6 +118,16 @@ impl CachingInterpreter {
     }
   }
   fn create_block(&mut self, optimize: bool, logging: bool) {
+    //let mut opcodes = Vec::new();
+    //let start = self.console.r3000.pc();
+    //let mut op = self.console.read_word(start);
+    //let mut address = start;
+    //let mut insn = self.tag_op(op, logging);
+    //while op.is_unconditional_jump() {
+    //  opcodes.push(insn);
+    //  address = address.wrapping_add(4);
+    //  op = self.console.read_word(address);
+    //}
   }
   fn cache_invalidation(&mut self, address: u32) {
     //remove the previously executed block

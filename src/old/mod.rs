@@ -107,7 +107,7 @@ impl CachingInterpreter {
     let t0 = Instant::now();
     let mut operations = Vec::new();
     let start = self.console.r3000.pc();
-    let mut op = self.console.resolve_memresponse(self.console.memory.read_word(start));
+    let mut op = self.console.read_word(start);
     let mut address = start;
     let mut tagged = self.tag_insn(op, logging);
     //add all instructions before the next jump to the stub
@@ -116,7 +116,7 @@ impl CachingInterpreter {
         operations.push((op, tagged.take().expect("")));
       }
       address = address.wrapping_add(4);
-      op = self.console.resolve_memresponse(self.console.memory.read_word(address));
+      op = self.console.read_word(address);
       //println!("{:#x}", op);
       tagged = self.tag_insn(op, logging);
     }
@@ -138,7 +138,7 @@ impl CachingInterpreter {
     if jump_op != 0xc {
       //add the branch delay slot to the stub
       address = address.wrapping_add(4);
-      let op = self.console.resolve_memresponse(self.console.memory.read_word(address));
+      let op = self.console.read_word(address);
       //println!("branch delay slot contained {:#x}", op);
       let compiled = self.compile_opcode(op, logging);
       //println!("{:#x} followed by {:#x}", jump_op, op);

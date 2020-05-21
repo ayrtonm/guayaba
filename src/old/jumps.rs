@@ -1,7 +1,7 @@
 use crate::register::BitTwiddle;
 use crate::r3000::MaybeSet;
 use crate::cop0::Cop0Exception;
-use crate::caching_interpreter::CachingInterpreter;
+use crate::old::CachingInterpreter;
 use crate::console::Console;
 use crate::common::*;
 

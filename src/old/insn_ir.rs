@@ -1,4 +1,4 @@
-use crate::caching_interpreter::CachingInterpreter;
+use crate::old::CachingInterpreter;
 use crate::common::*;
 
 pub enum Kind {
