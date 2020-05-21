@@ -18,32 +18,43 @@ use sdl2::keyboard::Keycode;
 
 mod handle_dma;
 
-  macro_rules! handle_action {
-    ($write:expr, $self:ident) => {
-      match $write {
-        MemAction::DMA(transfer) => {
-          $self.handle_dma(transfer);
-        },
-        MemAction::GpuGp0(value) => $self.gpu.write_to_gp0(value),
-        MemAction::GpuGp1(value) => $self.gpu.write_to_gp1(value),
-        MemAction::CDCmd(value) => {
-          $self.cd.send_command(value);
-        },
-        MemAction::CDParam(value) => {
-          $self.cd.send_parameter(value);
-        },
-        MemAction::CDCmdParam(cmd, param) => {
-          $self.cd.send_command(cmd);
-          $self.cd.send_parameter(param);
-        },
-        MemAction::Interrupt(irq) => {
-          $self.cop0.request_interrupt(irq);
-        },
-        MemAction::None => {
-        },
-      };
+macro_rules! handle_action {
+  ($write:expr, $self:ident) => {
+    match $write {
+      MemAction::DMA(transfer) => {
+        $self.handle_dma(transfer);
+      },
+      MemAction::GpuGp0(value) => $self.gpu.write_to_gp0(value),
+      MemAction::GpuGp1(value) => $self.gpu.write_to_gp1(value),
+      MemAction::CDCmd(value) => {
+        $self.cd.send_command(value);
+      },
+      MemAction::CDParam(value) => {
+        $self.cd.send_parameter(value);
+      },
+      MemAction::CDCmdParam(cmd, param) => {
+        $self.cd.send_command(cmd);
+        $self.cd.send_parameter(param);
+      },
+      MemAction::Interrupt(irq) => {
+        $self.cop0.request_interrupt(irq);
+      },
+      MemAction::None => {
+      },
+    };
+  }
+}
+
+macro_rules! handle_response {
+  ($read:expr, $self:ident) => {
+    match $read {
+      MemResponse::Value(value) => value,
+      MemResponse::GPUREAD => $self.gpu.gpuread(),
+      MemResponse::GPUSTAT => $self.gpu.gpustat(),
+      MemResponse::CDResponse => $self.cd.read_response(),
     }
   }
+}
 
 pub struct Console {
   //these correspond to physical components
@@ -129,13 +140,20 @@ impl Console {
     }
     true
   }
-  pub fn resolve_memresponse(&mut self, response: MemResponse) -> u32 {
-    match response {
-      MemResponse::Value(value) => value,
-      MemResponse::GPUREAD => self.gpu.gpuread(),
-      MemResponse::GPUSTAT => self.gpu.gpustat(),
-      MemResponse::CDResponse => self.cd.read_response(),
-    }
+  pub fn read_byte_sign_extended(&mut self, address: u32) -> u32 {
+    handle_response!(self.memory.read_byte_sign_extended(address), self)
+  }
+  pub fn read_half_sign_extended(&mut self, address: u32) -> u32 {
+    handle_response!(self.memory.read_half_sign_extended(address), self)
+  }
+  pub fn read_byte(&mut self, address: u32) -> u32 {
+    handle_response!(self.memory.read_byte(address), self)
+  }
+  pub fn read_half(&mut self, address: u32) -> u32 {
+    handle_response!(self.memory.read_half(address), self)
+  }
+  pub fn read_word(&mut self, address: u32) -> u32 {
+    handle_response!(self.memory.read_word(address), self)
   }
   pub fn write_byte(&mut self, address: u32, value: u32) {
     self.overwritten.insert(Console::physical(address));

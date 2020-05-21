@@ -48,7 +48,7 @@ impl Interpreter{
                                       .map_or(self.console.r3000.nth_reg(rt_idx),|write| write.value());
           let address = rs.wrapping_add(imm16);
           let aligned_address = *address.clone().clear_mask(3);
-          let aligned_word = self.console.resolve_memresponse(self.console.memory.read_word(aligned_address));
+          let aligned_word = self.console.read_word(aligned_address);
           let num_bits = $offset.$operator(8*address.lowest_bits(2));
           let result = rt.$mask(num_bits) | aligned_word.$shift(num_bits);
           self.console.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt_idx), result));
@@ -61,7 +61,7 @@ impl Interpreter{
           let rs = self.console.r3000.nth_reg(get_rs(op));
           let imm16 = get_imm16(op).half_sign_extended();
           let rt = get_rt(op);
-          let result = self.console.resolve_memresponse(self.console.memory.$method(rs.wrapping_add(imm16)));
+          let result = self.console.$method(rs.wrapping_add(imm16));
           self.console.delayed_writes.push_back(DelayedWrite::new(Name::Rn(rt), result));
           log!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x} {}",
                     rt, rs, imm16, rs.wrapping_add(imm16), result, stringify!($method));
@@ -86,7 +86,7 @@ impl Interpreter{
           if !self.console.cop0.cache_isolated() {
             let address = rs.wrapping_add(imm16);
             let aligned_address = *address.clone().clear_mask(3);
-            let aligned_word = self.console.resolve_memresponse(self.console.memory.read_word(aligned_address));
+            let aligned_word = self.console.read_word(aligned_address);
             let num_bits = $offset.$operator(8*address.lowest_bits(2));
             let result = rt.$shift(num_bits) | aligned_word.$mask(num_bits);
             self.console.write_word(aligned_address, result);

@@ -4,18 +4,18 @@ use crate::console::Console;
 
 type Stub = Box<dyn Fn(&mut Console) -> Option<u32>>;
 
-struct Macro {
+struct Block {
   //a vec of closures to be executed in order
   stubs: Vec<Stub>,
   //the physical address of the last instruction
   //this will be either the branch delay slot or a syscall
   final_pc: u32,
-  //the number of MIPS opcodes represented by this Macro
+  //the number of MIPS opcodes represented by this Block
   //may be more than the length of stubs
   nominal_len: u32,
 }
 
-impl Macro {
+impl Block {
   fn stubs(&self) -> &Vec<Stub> {
     &self.stubs
   }
@@ -29,7 +29,7 @@ impl Macro {
 
 pub struct CachingInterpreter {
   console: Console,
-  macros: HashMap<u32, Macro>,
+  blocks: HashMap<u32, Block>,
   ranges_compiled: HashMap<u32, Vec<u32>>,
 }
 
@@ -39,7 +39,7 @@ impl CachingInterpreter {
     let console = Console::new(bios_filename, infile, gpu_logging, wx, wy)?;
     Ok(Self {
       console,
-      macros: Default::default(),
+      blocks: Default::default(),
       ranges_compiled: Default::default(),
     })
   }
@@ -48,16 +48,17 @@ impl CachingInterpreter {
     let mut refresh_timer: i64 = Console::REFRESH_RATE;
     loop {
       let address = Console::physical(self.console.r3000.pc());
-      let maybe_macro = self.macros.get(&address);
-      match maybe_macro {
-        Some(r#macro) => {
-          let stubs = r#macro.stubs();
+      let maybe_block = self.blocks.get(&address);
+      match maybe_block {
+        Some(block) => {
+          let stubs = block.stubs();
           for stub in stubs {
             let temp_pc = stub(&mut self.console);
             //check result of previous opcode
             match self.console.next_pc {
               Some(next_pc) => {
-                //macro ended early so let's move pc since we just executed the branch delay slot
+                //block ended early so let's move pc since we just executed the
+                //branch delay slot
                 *self.console.r3000.pc_mut() = next_pc;
                 break;
               },
@@ -71,63 +72,61 @@ impl CachingInterpreter {
             }
             self.console.cd.exec_command();
           }
-          refresh_timer -= r#macro.nominal_len() as i64;
+          refresh_timer -= block.nominal_len() as i64;
           if refresh_timer < 0 {
             self.console.screen.refresh_window();
             refresh_timer = Console::REFRESH_RATE;
           }
-          self.console.i += r#macro.nominal_len();
+          self.console.i += block.nominal_len();
           n.map(|n| {
             if self.console.i >= n {
               panic!("Executed {} steps", self.console.i);
             };
           });
-          //macros end on syscall or branch delay slots for unconditional jmps
-          *self.console.r3000.pc_mut() = self.console
-                                             .next_pc
-                                             .take()
-                                             .map_or_else(
-                                               || unreachable!(""),
-                                               |next_pc| next_pc);
-          let macro_invalidated = self.console
+          match self.console.next_pc.take() {
+            //if we ended on a syscall
+            Some(next_pc) => *self.console.r3000.pc_mut() = next_pc,
+            None => (),
+          }
+          let block_invalidated = self.console
                                       .overwritten
                                       .iter()
                                       .any(|&x| {
-                                        address <= x && x <= r#macro.final_pc()
+                                        address <= x && x <= block.final_pc()
                                       });
           //if this block was invalidated by a write
-          if macro_invalidated {
+          if block_invalidated {
             self.cache_invalidation(address);
           }
           self.console.overwritten.clear();
         },
         None => {
-          self.create_macro(optimize, logging);
+          self.create_block(optimize, logging);
         },
       }
     }
   }
-  fn create_macro(&mut self, optimize: bool, logging: bool) {
+  fn create_block(&mut self, optimize: bool, logging: bool) {
   }
   fn cache_invalidation(&mut self, address: u32) {
-    //remove the previously executed macro
-    let deleted_macro = self.macros.remove(&address).unwrap();
-    //get the macros that are subsets of the deleted macro
-    let overlapping_macros = self.ranges_compiled
-                                 .get(&deleted_macro.final_pc())
+    //remove the previously executed block
+    let deleted_block = self.blocks.remove(&address).unwrap();
+    //get the blocks that are subsets of the deleted block
+    let overlapping_blocks = self.ranges_compiled
+                                 .get(&deleted_block.final_pc())
                                  .unwrap()
                                  .iter()
                                  .copied()
                                  .filter(|&start| address <= start)
                                  .collect::<Vec<u32>>();
-    //remove the overlapping macros
-    overlapping_macros.iter()
+    //remove the overlapping blocks
+    overlapping_blocks.iter()
                       .for_each(|s| {
-                        self.macros.remove(&s).unwrap();
+                        self.blocks.remove(&s).unwrap();
                       });
     //clean up the auxilary map of ranges compiled
     self.ranges_compiled
-        .entry(deleted_macro.final_pc())
+        .entry(deleted_block.final_pc())
         .and_modify(|v| {
           v.retain(|&start| start < address);
         });

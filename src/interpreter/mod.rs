@@ -45,7 +45,7 @@ impl Interpreter {
   //this steps through the logic pertaining to the physical components of the playstation
   fn step(&mut self, logging: bool) {
     //get opcode from memory at program counter
-    let op = self.console.resolve_memresponse(self.console.memory.read_word(self.console.r3000.pc()));
+    let op = self.console.read_word(self.console.r3000.pc());
     if logging {
       println!("read opcode {:#x} from [{:#x}]", op, self.console.r3000.pc());
     }

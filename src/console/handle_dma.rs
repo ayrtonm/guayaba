@@ -56,7 +56,7 @@ impl Console {
           match transfer.chunks() {
             Chunks::NumWords(num) => {
               for _ in 1..=*num {
-                let data = self.resolve_memresponse(self.memory.read_word(addr));
+                let data = self.read_word(addr);
                 buffer.push(data);
                 addr = step(addr);
               }
@@ -64,7 +64,7 @@ impl Console {
             Chunks::Blocks(blocks) => {
               let packet_size = blocks.num_blocks() *  blocks.block_size();
               for _ in 1..=packet_size {
-                let data = self.resolve_memresponse(self.memory.read_word(addr));
+                let data = self.read_word(addr);
                 buffer.push(data);
                 addr = step(addr);
               }
@@ -74,11 +74,11 @@ impl Console {
             Chunks::LinkedList => {
               let mut header_address = addr;
               loop {
-                let header = self.resolve_memresponse(self.memory.read_word(header_address));
+                let header = self.read_word(header_address);
                 let packet_size = header >> 24;
                 for _ in 0..=packet_size {
                   addr = step(addr);
-                  let data = self.resolve_memresponse(self.memory.read_word(addr));
+                  let data = self.read_word(addr);
                   buffer.push(data);
                 }
                 let next_packet = header.lowest_bits(24);
