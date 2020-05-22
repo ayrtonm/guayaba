@@ -1,5 +1,5 @@
-use crate::x64_jit::insn::Insn;
-use crate::x64_jit::stub::Stub;
+use crate::jit::insn::Insn;
+use crate::jit::caching_interpreter::stub::Stub;
 
 pub struct Block {
   //a vec of closures to be executed in order
@@ -13,14 +13,23 @@ pub struct Block {
 }
 
 impl Block {
-  pub fn new(stubs: Vec<Stub>, final_pc: u32, nominal_len: u32) -> Self {
+  pub fn new(tagged_opcodes: &Vec<Insn>, final_pc: u32, nominal_len: u32, logging: bool) -> Self {
+    let stubs = Block::create_stubs(tagged_opcodes, logging);
     Block {
       stubs,
       final_pc,
       nominal_len,
     }
   }
-  pub fn create_stubs(tagged_opcodes: &Vec<Insn>, logging: bool) -> Vec<Stub> {
+  pub fn new_optimized(tagged_opcodes: &Vec<Insn>, final_pc: u32, nominal_len: u32, logging: bool) -> Self {
+    let stubs = Block::create_optimized_stubs(tagged_opcodes, logging);
+    Block {
+      stubs,
+      final_pc,
+      nominal_len,
+    }
+  }
+  fn create_stubs(tagged_opcodes: &Vec<Insn>, logging: bool) -> Vec<Stub> {
     let mut ret = Vec::new();
     for insn in tagged_opcodes {
       ret.push(Stub::new(&insn, logging));

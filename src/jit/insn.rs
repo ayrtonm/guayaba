@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use crate::common::*;
 
 //this tags each opcode with its input and output registers
@@ -159,6 +160,9 @@ impl Insn {
   pub fn offset(&self) -> u32 {
     self.offset
   }
+  fn inputs(&self) -> &Vec<u32> {
+    &self.inputs
+  }
   pub fn output(&self) -> Option<usize> {
     self.output.map(|output| output as usize)
   }
@@ -191,5 +195,27 @@ impl Insn {
       0x02 | 0x03 => true,
       _ => false,
     }
+  }
+}
+
+pub trait InsnsRegisters {
+  fn inputs(&self) -> Vec<Vec<u32>>;
+  fn unique_inputs(&self) -> HashSet<u32>;
+  fn outputs(&self) -> Vec<Option<u32>>;
+  fn unique_outputs(&self) -> HashSet<u32>;
+}
+
+impl InsnsRegisters for Vec<Insn> {
+  fn inputs(&self) -> Vec<Vec<u32>> {
+    self.iter().map(|insn| insn.inputs().iter().map(|&i| i).collect()).collect()
+  }
+  fn unique_inputs(&self) -> HashSet<u32> {
+    self.iter().map(|insn| insn.inputs().iter().map(|&i| i).collect::<Vec<u32>>()).flatten().collect()
+  }
+  fn outputs(&self) -> Vec<Option<u32>> {
+    self.iter().map(|insn| insn.output).collect()
+  }
+  fn unique_outputs(&self) -> HashSet<u32> {
+    self.iter().filter(|insn| insn.output.is_some()).map(|insn| insn.output.unwrap()).collect()
   }
 }

@@ -4,7 +4,7 @@ use crate::cop0::Cop0Exception;
 use crate::console::Console;
 use crate::common::*;
 use crate::register::BitTwiddle;
-use crate::caching_interpreter::insn::Insn;
+use crate::jit::insn::Insn;
 
 type StubFn = Box<dyn Fn(&mut Console) -> Option<u32>>;
 pub struct Stub(StubFn);

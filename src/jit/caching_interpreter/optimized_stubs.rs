@@ -1,10 +1,10 @@
-use crate::caching_interpreter::block::Block;
-use crate::caching_interpreter::insn::Insn;
-use crate::caching_interpreter::stub::Stub;
+use crate::jit::caching_interpreter::block::Block;
+use crate::jit::insn::Insn;
+use crate::jit::caching_interpreter::stub::Stub;
 use crate::common::*;
 
 impl Block {
-  pub fn create_optimized_stubs(tagged_opcodes: &Vec<Insn>, logging: bool) -> Vec<Stub> {
+  pub(super) fn create_optimized_stubs(tagged_opcodes: &Vec<Insn>, logging: bool) -> Vec<Stub> {
     let mut ret = Vec::new();
     let mut constant_table = [None; 32];
     macro_rules! default_stub {

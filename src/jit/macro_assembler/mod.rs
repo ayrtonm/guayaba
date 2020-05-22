@@ -1,16 +1,15 @@
 use std::io;
-use memmap::{Mmap, MmapMut};
+use memmap::MmapMut;
+use crate::jit::jit_fn::JIT_Fn;
 
 pub struct MacroAssembler {
   buffer: Vec<u8>,
-  mmap: Option<Mmap>,
 }
 
 impl MacroAssembler {
   pub fn new() -> Self {
     MacroAssembler {
       buffer: Vec::new(),
-      mmap: None,
     }
   }
   fn emit_imm16(&mut self, imm16: u16) {
@@ -41,14 +40,15 @@ impl MacroAssembler {
     self.emit_mov_r64(0, addr);
     self.emit_call_r(0);
   }
-  pub fn compile_buffer(&mut self) -> io::Result<fn()> {
+  pub fn compile_buffer(&mut self) -> io::Result<JIT_Fn> {
     self.buffer.push(0xc3);//RET
     let mut mmap = MmapMut::map_anon(self.buffer.len())?;
     mmap.copy_from_slice(&self.buffer);
-    self.mmap = Some(mmap.make_exec()?);
-    let addr = self.mmap.as_ref().map(|mmap| mmap.as_ptr()).unwrap();
+    let mmap = mmap.make_exec()?;
+    let addr = mmap.as_ptr();
     unsafe {
-      Ok(std::mem::transmute::<*const u8, fn()>(addr))
+      let f = std::mem::transmute::<*const u8, fn()>(addr);
+      Ok(JIT_Fn::new(mmap, f))
     }
   }
 }

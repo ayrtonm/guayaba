@@ -10,6 +10,7 @@ pub struct Interpreter {
 
 impl Interpreter {
   pub fn run(&mut self, n: Option<u32>, logging: bool) {
+    println!("running in interpreter mode");
     let start_time = Instant::now();
     let mut refresh_timer: i64 = Console::REFRESH_RATE;
     loop {

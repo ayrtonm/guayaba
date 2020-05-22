@@ -2,12 +2,11 @@ use std::io;
 use std::collections::HashMap;
 use std::time::{Instant, Duration};
 use block::Block;
-use insn::Insn;
+use crate::jit::insn::Insn;
 use crate::console::Console;
 
 mod block;
 mod optimized_stubs;
-mod insn;
 mod stub;
 
 pub struct CachingInterpreter {
@@ -132,14 +131,13 @@ impl CachingInterpreter {
     let nominal_len = tagged_opcodes.len() as u32;
     //get the address of the last instruction in the block
     let final_pc = Console::physical(address);
-    //compile the tagged opcodes into stubs
-    let stubs =
+    //compile the tagged opcodes into a block
+    let block =
       if optimize {
-        Block::create_optimized_stubs(&tagged_opcodes, logging)
+        Block::new_optimized(&tagged_opcodes, final_pc, nominal_len, logging)
       } else {
-        Block::create_stubs(&tagged_opcodes, logging)
+        Block::new(&tagged_opcodes, final_pc, nominal_len, logging)
     };
-    let block = Block::new(stubs, final_pc, nominal_len);
     self.blocks.insert(start, block);
     //store the address range of the new block to simplify cache invalidation
     match self.ranges_compiled.get_mut(&final_pc) {

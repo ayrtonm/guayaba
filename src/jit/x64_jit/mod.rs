@@ -1,13 +1,12 @@
 use std::io;
 use std::collections::HashMap;
 use std::time::{Instant, Duration};
-use block::Block;
-use insn::Insn;
+use crate::jit::x64_jit::block::Block;
+use crate::jit::insn::Insn;
 use crate::console::Console;
 
 mod block;
 mod optimized_stubs;
-mod insn;
 mod stub;
 
 pub struct X64JIT {
@@ -26,8 +25,8 @@ impl X64JIT {
       ranges_compiled: Default::default(),
     })
   }
-  pub fn run(&mut self, n: Option<u32>, optimize: bool, logging: bool) {
-    println!("running in caching interpreter mode");
+  pub fn run(&mut self, n: Option<u32>, optimize: bool, logging: bool) -> io::Result<()> {
+    println!("running in x64 JIT mode");
     let t0 = Instant::now();
     let mut compile_time = t0 - t0;
     let mut run_time = t0 - t0;
@@ -38,29 +37,30 @@ impl X64JIT {
       match maybe_block {
         Some(block) => {
           let t0 = Instant::now();
-          let stubs = block.stubs();
-          for stub in stubs {
-            self.console.r3000.flush_write_cache(&mut self.console.delayed_writes,
-                                                 &mut self.console.modified_register);
-            let temp_pc = stub.execute(&mut self.console, logging);
-            //check result of previous opcode
-            match self.console.next_pc {
-              Some(next_pc) => {
-                //block ended early so let's move pc since we just executed the
-                //branch delay slot
-                *self.console.r3000.pc_mut() = next_pc;
-                break;
-              },
-              None => {
-              },
-            }
-            self.console.next_pc = temp_pc;
-            match self.console.gpu.exec_next_gp0_command() {
-              Some(object) => self.console.screen.draw(object),
-              None => (),
-            }
-            self.console.cd.exec_command();
-          }
+          block.execute();
+          //let stubs = block.stubs();
+          //for stub in stubs {
+          //  self.console.r3000.flush_write_cache(&mut self.console.delayed_writes,
+          //                                       &mut self.console.modified_register);
+          //  let temp_pc = stub.execute(&mut self.console, logging);
+          //  //check result of previous opcode
+          //  match self.console.next_pc {
+          //    Some(next_pc) => {
+          //      //block ended early so let's move pc since we just executed the
+          //      //branch delay slot
+          //      *self.console.r3000.pc_mut() = next_pc;
+          //      break;
+          //    },
+          //    None => {
+          //    },
+          //  }
+          //  self.console.next_pc = temp_pc;
+          //  match self.console.gpu.exec_next_gp0_command() {
+          //    Some(object) => self.console.screen.draw(object),
+          //    None => (),
+          //  }
+          //  self.console.cd.exec_command();
+          //}
           refresh_timer -= block.nominal_len() as i64;
           if refresh_timer < 0 {
             self.console.screen.refresh_window();
@@ -89,18 +89,19 @@ impl X64JIT {
           }
           self.console.overwritten.clear();
           if !self.console.handle_events() {
-            return
+            return Ok(());
           }
           let t1 = Instant::now();
           run_time += t1 - t0;
         },
         None => {
-          compile_time += self.translate(optimize, logging);
+          compile_time += self.translate(optimize, logging)?;
         },
       }
     }
+    Ok(())
   }
-  fn translate(&mut self, optimize: bool, logging: bool) -> Duration {
+  fn translate(&mut self, optimize: bool, logging: bool) -> io::Result<Duration> {
     let t0 = Instant::now();
     //first define the opcodes in this block and tag them along the way
     let mut address = self.console.r3000.pc();
@@ -132,14 +133,13 @@ impl X64JIT {
     let nominal_len = tagged_opcodes.len() as u32;
     //get the address of the last instruction in the block
     let final_pc = Console::physical(address);
-    //compile the tagged opcodes into stubs
-    let stubs =
+    //compile the tagged opcodes into a block
+    let block =
       if optimize {
-        Block::create_optimized_stubs(&tagged_opcodes, logging)
+        Block::new_optimized(&tagged_opcodes, final_pc, nominal_len, logging)
       } else {
-        Block::create_stubs(&tagged_opcodes, logging)
-    };
-    let block = Block::new(stubs, final_pc, nominal_len);
+        Block::new(&tagged_opcodes, final_pc, nominal_len, logging)
+    }?;
     self.blocks.insert(start, block);
     //store the address range of the new block to simplify cache invalidation
     match self.ranges_compiled.get_mut(&final_pc) {
@@ -151,7 +151,7 @@ impl X64JIT {
       },
     }
     let t1 = Instant::now();
-    t1 - t0
+    Ok(t1 - t0)
   }
   fn cache_invalidation(&mut self, address: u32) {
     //remove the previously executed block
