@@ -33,8 +33,13 @@ impl CachingInterpreter {
       match maybe_block {
         Some(block) => {
           let stubs = block.stubs();
+          let mut counter = 0;
           for stub in stubs {
-            let temp_pc = stub.execute(&mut self.console);
+            if logging {
+              println!("read opcode from [{:#x}]", self.console.r3000.pc().wrapping_add(counter));
+              counter += 4;
+            };
+            let temp_pc = stub.execute(&mut self.console, logging);
             //check result of previous opcode
             match self.console.next_pc {
               Some(next_pc) => {
@@ -92,21 +97,26 @@ impl CachingInterpreter {
     let mut address = self.console.r3000.pc();
     let start = Console::physical(address);
     let mut op = self.console.read_word(address);
-    let mut insn = Insn::new(op);
+    //start with an offset of 4 since pc is incremented before the next instruction is executed
+    //this makes sure that pc has the correct value when a jump is taken in a branch delay slot
+    let mut counter = 4;
+    let mut insn = Insn::new(op, counter);
     let mut tagged_opcodes = Vec::new();
-    while Insn::is_inside_block(op) {
+    while !Insn::is_unconditional_jump(op) {
       tagged_opcodes.push(insn);
       address = address.wrapping_add(4);
       op = self.console.read_word(address);
-      insn = Insn::new(op);
+      counter += 4;
+      insn = Insn::new(op, counter);
     }
     //append the tagged unconditional jump or syscall that ended the block
     tagged_opcodes.push(insn);
     //if the block ended in an unconditional jump, tag and append the delay slot
-    if !Insn::is_syscall(op) {
+    if Insn::has_branch_delay_slot(op) {
       address = address.wrapping_add(4);
       op = self.console.read_word(address);
-      insn = Insn::new(op);
+      counter += 4;
+      insn = Insn::new(op, counter);
       tagged_opcodes.push(insn);
     }
     //get the length before doing optimizations

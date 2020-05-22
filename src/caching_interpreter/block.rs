@@ -23,7 +23,7 @@ impl Block {
   pub fn create_stubs(tagged_opcodes: &Vec<Insn>, logging: bool) -> Vec<Stub> {
     let mut ret = Vec::new();
     for insn in tagged_opcodes {
-      ret.push(Stub::new(insn.op()));
+      ret.push(Stub::new(&insn, logging));
     };
     ret
   }
