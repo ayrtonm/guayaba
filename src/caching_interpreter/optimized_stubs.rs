@@ -47,6 +47,11 @@ impl Block {
           //LUI
           let output = insn.output().expect("LUI should have an output");
           constant_table[output] = Some(get_imm16(insn.op()) << 16);
+          //FIXME: we can skip this stub if one of the coming instructions will also write to Rn
+          //however this requires modifying all closures in Stub::new() to work with constant_table
+          //also it would be costly to iterate through future instructions here, so it's probably best
+          //to use a map to say we write to Rn later on, remove the stub at position x
+          //and remember that x = ret.len(), not n since default stub!() may skip stubs
           ret.push(Stub::new(&insn, logging));
         },
         _ => {
