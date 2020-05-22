@@ -6,8 +6,8 @@ use crate::jit::insn::Insn;
 use crate::console::Console;
 
 mod block;
-mod optimized_stubs;
-mod stub;
+mod optimized_x64_macros;
+mod x64_macros;
 
 pub struct X64JIT {
   console: Console,
@@ -136,9 +136,9 @@ impl X64JIT {
     //compile the tagged opcodes into a block
     let block =
       if optimize {
-        Block::new_optimized(&tagged_opcodes, final_pc, nominal_len, logging)
+        Block::new_optimized(&tagged_opcodes, &self.console, final_pc, nominal_len, logging)
       } else {
-        Block::new(&tagged_opcodes, final_pc, nominal_len, logging)
+        Block::new(&tagged_opcodes, &self.console, final_pc, nominal_len, logging)
     }?;
     self.blocks.insert(start, block);
     //store the address range of the new block to simplify cache invalidation
