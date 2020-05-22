@@ -1,6 +1,5 @@
 use std::ffi::CStr;
-use gl::types::GLuint;
-use gl::types::GLenum;
+use gl::types::{GLuint, GLenum};
 
 pub struct Shader {
   id: GLuint,

@@ -1,14 +1,9 @@
 use std::io;
-use std::io::Seek;
-use std::io::SeekFrom;
-use std::io::Read;
-use std::fs::metadata;
-use std::fs::File;
-use crate::common::ReadArray;
-use crate::common::WriteArray;
+use std::io::{Seek, SeekFrom, Read};
+use std::fs::{metadata, File};
+use crate::common::{ReadArray, WriteArray};
 use crate::register::BitTwiddle;
-use crate::dma::Transfer;
-use crate::dma::DMAChannel;
+use crate::dma::{Transfer, DMAChannel};
 
 #[macro_use]
 mod ioports;

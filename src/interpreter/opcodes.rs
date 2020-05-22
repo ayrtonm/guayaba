@@ -1,11 +1,6 @@
-use std::ops::Add;
-use std::ops::Shl;
-use std::ops::Shr;
-use std::ops::Sub;
+use std::ops::{Add, Shl, Shr, Sub};
 use crate::register::BitTwiddle;
-use crate::r3000::MaybeSet;
-use crate::r3000::DelayedWrite;
-use crate::r3000::Name;
+use crate::r3000::{MaybeSet, DelayedWrite, Name};
 use crate::cop0::Cop0Exception;
 use crate::interpreter::Interpreter;
 use crate::common::*;

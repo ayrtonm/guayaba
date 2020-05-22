@@ -1,7 +1,5 @@
-use crate::gpu::GPU;
-use crate::gpu::Command;
-use crate::common::ReadArray;
-use crate::common::WriteArray;
+use crate::gpu::{GPU, Command};
+use crate::common::{ReadArray, WriteArray};
 use crate::memory::KB;
 use crate::register::BitTwiddle;
 use crate::screen::Drawable;

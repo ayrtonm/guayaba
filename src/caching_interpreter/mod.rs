@@ -1,10 +1,11 @@
 use std::io;
 use std::collections::HashMap;
-use crate::console::Console;
 use block::Block;
 use insn::Insn;
+use crate::console::Console;
 
 mod block;
+mod optimized_stubs;
 mod insn;
 mod stub;
 

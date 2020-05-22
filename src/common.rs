@@ -51,29 +51,29 @@ impl WriteArray for &mut [u8] {
 }
 
 pub fn get_rs(op: u32) -> u32 {
-  (op & 0x03e0_0000) >> 21
+  op.range(21, 25)
 }
 pub fn get_rt(op: u32) -> u32 {
-  (op & 0x001f_0000) >> 16
+  op.range(16, 20)
 }
 pub fn get_rd(op: u32) -> u32 {
-  (op & 0x0000_f800) >> 11
+  op.range(11, 15)
 }
 pub fn get_imm5(op: u32) -> u32 {
-  (op & 0x0000_07c0) >> 6
+  op.range(6, 10)
 }
 pub fn get_imm16(op: u32) -> u32 {
-  op & 0x0000_ffff
+  op.half()
 }
 pub fn get_imm25(op: u32) -> u32 {
-  op & 0x01ff_ffff
+  op.lowest_bits(25)
 }
 pub fn get_imm26(op: u32) -> u32 {
-  op & 0x03ff_ffff
+  op.lowest_bits(26)
 }
 pub fn get_primary_field(op: u32) -> u32 {
-  (op & 0xfc00_0000) >> 26
+  op.upper_bits(6)
 }
 pub fn get_secondary_field(op: u32) -> u32 {
-  op & 0x0000_003f
+  op.lowest_bits(6)
 }

@@ -1,14 +1,9 @@
 use std::io;
-use std::collections::VecDeque;
-use std::collections::HashSet;
+use std::collections::{VecDeque, HashSet};
 use crate::register::BitTwiddle;
-use crate::r3000::R3000;
-use crate::r3000::DelayedWrite;
-use crate::r3000::Name;
+use crate::r3000::{R3000, DelayedWrite, Name};
 use crate::cop0::Cop0;
-use crate::memory::Memory;
-use crate::memory::MemAction;
-use crate::memory::MemResponse;
+use crate::memory::{Memory, MemAction, MemResponse};
 use crate::cd::CD;
 use crate::gpu::GPU;
 use crate::gte::GTE;

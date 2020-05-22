@@ -1,6 +1,4 @@
-use std::io::Seek;
-use std::io::SeekFrom;
-use std::io::Read;
+use std::io::{Seek, SeekFrom, Read};
 use std::fs::File;
 use std::collections::VecDeque;
 use crate::dma::DMAChannel;
