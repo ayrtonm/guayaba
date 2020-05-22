@@ -33,12 +33,7 @@ impl CachingInterpreter {
       match maybe_block {
         Some(block) => {
           let stubs = block.stubs();
-          let mut counter = 0;
           for stub in stubs {
-            if logging {
-              println!("read opcode from [{:#x}]", self.console.r3000.pc().wrapping_add(counter));
-              counter += 4;
-            };
             self.console.r3000.flush_write_cache(&mut self.console.delayed_writes,
                                                  &mut self.console.modified_register);
             let temp_pc = stub.execute(&mut self.console, logging);

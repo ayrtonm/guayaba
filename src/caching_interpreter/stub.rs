@@ -11,11 +11,15 @@ use crate::common::*;
 use crate::register::BitTwiddle;
 use crate::caching_interpreter::insn::Insn;
 
-pub struct Stub(Box<dyn Fn(&mut Console) -> Option<u32>>);
+type StubFn = Box<dyn Fn(&mut Console) -> Option<u32>>;
+pub struct Stub(StubFn);
 
 impl Stub {
   pub fn execute(&self, console: &mut Console, logging: bool) -> Option<u32> {
     self.0(console)
+  }
+  pub fn from_closure(closure: StubFn) -> Self {
+    Stub(closure)
   }
   pub fn new(insn: &Insn, logging: bool) -> Self {
     let op = insn.op();

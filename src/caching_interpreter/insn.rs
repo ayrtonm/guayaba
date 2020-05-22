@@ -158,6 +158,9 @@ impl Insn {
   pub fn offset(&self) -> u32 {
     self.offset
   }
+  pub fn output(&self) -> Option<usize> {
+    self.output.map(|output| output as usize)
+  }
   pub fn has_branch_delay_slot(op: u32) -> bool {
     match get_primary_field(op) {
       0x00 => {
