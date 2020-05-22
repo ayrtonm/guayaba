@@ -57,6 +57,7 @@ impl Insn {
             },
             0x20 | 0x21 | 0x22 | 0x23 | 0x24 |
             0x25 | 0x26 | 0x27 | 0x2A | 0x2B => {
+              //ADD, ADDU, SUB, SUBU, AND, OR, XOR, NOR, SLT, SLTU
               (vec![get_rs(op), get_rt(op)], None, Some(get_rd(op)))
             },
             _ => {
@@ -169,7 +170,13 @@ impl Insn {
           _ => false,
         }
       },
-      0x02 | 0x03 => true,
+      0x01 => {
+        match get_rt(op) {
+          0x00 | 0x01 | 0x80 | 0x81 => true,
+          _ => unreachable!("Invalid opcode {:#x}", op)
+        }
+      },
+      0x02..=0x07 => true,
       _ => false,
     }
   }

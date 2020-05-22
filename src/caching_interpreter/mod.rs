@@ -1,5 +1,6 @@
 use std::io;
 use std::collections::HashMap;
+use std::time::{Instant, Duration};
 use block::Block;
 use insn::Insn;
 use crate::console::Console;
@@ -27,12 +28,16 @@ impl CachingInterpreter {
   }
   pub fn run(&mut self, n: Option<u32>, optimize: bool, logging: bool) {
     println!("running in caching interpreter mode");
+    let t0 = Instant::now();
+    let mut compile_time = t0 - t0;
+    let mut run_time = t0 - t0;
     let mut refresh_timer: i64 = Console::REFRESH_RATE;
     loop {
       let address = Console::physical(self.console.r3000.pc());
       let maybe_block = self.blocks.get(&address);
       match maybe_block {
         Some(block) => {
+          let t0 = Instant::now();
           let stubs = block.stubs();
           for stub in stubs {
             self.console.r3000.flush_write_cache(&mut self.console.delayed_writes,
@@ -64,7 +69,7 @@ impl CachingInterpreter {
           self.console.i += block.nominal_len();
           n.map(|n| {
             if self.console.i >= n {
-              panic!("Executed {} steps", self.console.i);
+              panic!("Executed {} steps with {:?} of compile time and {:?} of run time", self.console.i, compile_time, run_time);
             };
           });
           match self.console.next_pc.take() {
@@ -86,14 +91,17 @@ impl CachingInterpreter {
           if !self.console.handle_events() {
             return
           }
+          let t1 = Instant::now();
+          run_time += t1 - t0;
         },
         None => {
-          self.translate(optimize, logging);
+          compile_time += self.translate(optimize, logging);
         },
       }
     }
   }
-  fn translate(&mut self, optimize: bool, logging: bool) {
+  fn translate(&mut self, optimize: bool, logging: bool) -> Duration {
+    let t0 = Instant::now();
     //first define the opcodes in this block and tag them along the way
     let mut address = self.console.r3000.pc();
     let start = Console::physical(address);
@@ -142,6 +150,8 @@ impl CachingInterpreter {
         self.ranges_compiled.insert(final_pc, vec![start]);
       },
     }
+    let t1 = Instant::now();
+    t1 - t0
   }
   fn cache_invalidation(&mut self, address: u32) {
     //remove the previously executed block
