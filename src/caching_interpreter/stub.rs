@@ -804,7 +804,9 @@ impl Stub {
           0x0D => {
             //BREAK
             log!("> BREAK");
-            todo!("break")
+            Box::new(move |vm| {
+              todo!("implement a JIT closure for break")
+            })
           },
           0x10 => {
             //MFHI

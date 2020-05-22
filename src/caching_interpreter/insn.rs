@@ -40,7 +40,8 @@ impl Insn {
               (vec![], None, None)
             },
             0x0D => {
-              todo!("break")
+              //BREAK
+              (vec![], None, None)
             },
             0x10 | 0x12 => {
               //MFHI, MFLO

@@ -39,6 +39,8 @@ impl CachingInterpreter {
               println!("read opcode from [{:#x}]", self.console.r3000.pc().wrapping_add(counter));
               counter += 4;
             };
+            self.console.r3000.flush_write_cache(&mut self.console.delayed_writes,
+                                                 &mut self.console.modified_register);
             let temp_pc = stub.execute(&mut self.console, logging);
             //check result of previous opcode
             match self.console.next_pc {
@@ -85,6 +87,9 @@ impl CachingInterpreter {
             self.cache_invalidation(address);
           }
           self.console.overwritten.clear();
+          if !self.console.handle_events() {
+            return
+          }
         },
         None => {
           self.translate(optimize, logging);
