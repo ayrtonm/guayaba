@@ -1,192 +1,179 @@
 use std::io;
 use std::collections::HashMap;
-use std::time::Instant;
-use std::time::Duration;
+use std::time::{Instant, Duration};
+use block::Block;
+use insn::Insn;
 use crate::console::Console;
-use crate::register::Register;
-use crate::macro_assembler::MacroAssembler;
 
-mod insn_ir;
-mod opcodes;
-mod jumps;
-mod optimize;
-
-struct Stub {
-  operations: fn(),
-  masm: MacroAssembler,
-  final_pc: Register,
-  len: u32,
-}
-
-impl Stub {
-  fn execute(&self) {
-    (self.operations)()
-  }
-  fn final_pc(&self) -> Register {
-    self.final_pc
-  }
-  fn len(&self) -> u32{
-    self.len
-  }
-}
+mod block;
+mod optimized_stubs;
+mod insn;
+mod stub;
 
 pub struct X64JIT {
   console: Console,
-  //maps start addresses to stubs for efficient execution
-  stubs: HashMap<Register, Stub>,
-  //maps end addresses to start addresses for efficient cache invalidation
-  ranges_compiled: HashMap<Register, Vec<Register>>,
+  blocks: HashMap<u32, Block>,
+  ranges_compiled: HashMap<u32, Vec<u32>>,
 }
 
 impl X64JIT {
-  pub fn run(&mut self, n: Option<u32>, optimize: bool, logging: bool) -> io::Result<()> {
-    let start_time = Instant::now();
-    let mut compile_time = start_time - start_time;
-    let mut cache_time = start_time - start_time;
-    let mut refresh_timer: i64 = Console::REFRESH_RATE;
-    println!("running in dummy JIT mode");
-    loop {
-      let address = Console::physical(self.console.r3000.pc());
-      let maybe_stub = self.stubs.get(&address);
-      match maybe_stub {
-        Some(stub) => {
-          *self.console.r3000.pc_mut() = stub.final_pc();
-          stub.execute();
-          //for f in operations {
-          //  self.console.r3000.flush_write_cache(&mut self.console.delayed_writes,
-          //                                     &mut self.console.modified_register);
-          //  f(&mut self.console);
-          //  match self.console.gpu.exec_next_gp0_command() {
-          //    Some(object) => self.console.screen.draw(object),
-          //    None => (),
-          //  };
-          //  self.console.cd.exec_command();
-          //}
-          refresh_timer -= stub.len() as i64;
-          if refresh_timer < 0 {
-            self.console.screen.refresh_window();
-            refresh_timer = Console::REFRESH_RATE;
-          }
-          self.console.i += stub.len();
-          n.map(|n| {
-            if self.console.i >= n {
-              let end_time = Instant::now();
-              panic!("Executed {} steps in {:?}\nwith {:?} of compile time and {:?} of cache time",
-                     self.console.i, end_time - start_time, compile_time, cache_time);
-            };
-          });
-          if self.console.overwritten.iter().any(|&t| address <= t && t <= stub.final_pc()) {
-            self.cache_invalidation(address);
-          }
-          self.console.overwritten.clear();
-          *self.console
-               .r3000
-               .pc_mut() = self.console
-                               .next_pc
-                               .map_or_else(|| self.console.r3000.pc().wrapping_add(4),
-                                            |next_pc| next_pc);
-          if !self.console.handle_events() {
-            return Ok(());
-          }
-        },
-        None => {
-          //if the stub was invalidated, compile another one
-          compile_time += self.parse_stub(optimize, logging)?;
-        },
-      }
-    }
-    Ok(())
-  }
   pub fn new(bios_filename: &String, infile: Option<&String>, gpu_logging: bool,
              wx: u32, wy: u32) -> io::Result<Self> {
     let console = Console::new(bios_filename, infile, gpu_logging, wx, wy)?;
     Ok(Self {
-        console,
-        stubs: Default::default(),
-        ranges_compiled: Default::default(),
+      console,
+      blocks: Default::default(),
+      ranges_compiled: Default::default(),
     })
   }
-  fn parse_stub(&mut self, optimize: bool, logging: bool) -> io::Result<Duration> {
+  pub fn run(&mut self, n: Option<u32>, optimize: bool, logging: bool) {
+    println!("running in caching interpreter mode");
     let t0 = Instant::now();
-    let mut operations = Vec::new();
-    let start = self.console.r3000.pc();
-    let mut op = self.console.resolve_memresponse(self.console.memory.read_word(start));
-    let mut address = start;
-    let mut tagged = self.tag_insn(op, logging);
-    //add all instructions before the next jump to the stub
-    while tagged.is_some() {
-      if op != 0x00 {
-        operations.push((op, tagged.take().expect("")));
+    let mut compile_time = t0 - t0;
+    let mut run_time = t0 - t0;
+    let mut refresh_timer: i64 = Console::REFRESH_RATE;
+    loop {
+      let address = Console::physical(self.console.r3000.pc());
+      let maybe_block = self.blocks.get(&address);
+      match maybe_block {
+        Some(block) => {
+          let t0 = Instant::now();
+          let stubs = block.stubs();
+          for stub in stubs {
+            self.console.r3000.flush_write_cache(&mut self.console.delayed_writes,
+                                                 &mut self.console.modified_register);
+            let temp_pc = stub.execute(&mut self.console, logging);
+            //check result of previous opcode
+            match self.console.next_pc {
+              Some(next_pc) => {
+                //block ended early so let's move pc since we just executed the
+                //branch delay slot
+                *self.console.r3000.pc_mut() = next_pc;
+                break;
+              },
+              None => {
+              },
+            }
+            self.console.next_pc = temp_pc;
+            match self.console.gpu.exec_next_gp0_command() {
+              Some(object) => self.console.screen.draw(object),
+              None => (),
+            }
+            self.console.cd.exec_command();
+          }
+          refresh_timer -= block.nominal_len() as i64;
+          if refresh_timer < 0 {
+            self.console.screen.refresh_window();
+            refresh_timer = Console::REFRESH_RATE;
+          }
+          self.console.i += block.nominal_len();
+          n.map(|n| {
+            if self.console.i >= n {
+              panic!("Executed {} steps with {:?} of compile time and {:?} of run time", self.console.i, compile_time, run_time);
+            };
+          });
+          match self.console.next_pc.take() {
+            //if we ended on a syscall
+            Some(next_pc) => *self.console.r3000.pc_mut() = next_pc,
+            None => (),
+          }
+          let block_invalidated = self.console
+                                      .overwritten
+                                      .iter()
+                                      .any(|&x| {
+                                        address <= x && x <= block.final_pc()
+                                      });
+          //if this block was invalidated by a write
+          if block_invalidated {
+            self.cache_invalidation(address);
+          }
+          self.console.overwritten.clear();
+          if !self.console.handle_events() {
+            return
+          }
+          let t1 = Instant::now();
+          run_time += t1 - t0;
+        },
+        None => {
+          compile_time += self.translate(optimize, logging);
+        },
       }
-      address = address.wrapping_add(4);
-      op = self.console.resolve_memresponse(self.console.memory.read_word(address));
-      //println!("{:#x}", op);
-      tagged = self.tag_insn(op, logging);
     }
-    //do stub analysis and optimizations here
-    //let mut compiled_stub = if optimize {
-    //  self.compile_optimized_stub(&mut operations, logging)
-    //} else {
-    //  self.compile_stub(&mut operations, logging)
-    //};
-    let mut compiled_stub = self.compile_stub(&mut operations, logging);
-
-    //println!("jump {:#x} at {:#x}", op, address);
-    //get the jump instruction that ended the block
-    let jump_op = op;
-    let compiled_jump = self.compile_jump(op, logging);
-    compiled_stub.push(compiled_jump);
-
-    let mut len = operations.len() as u32 + 1;
-    //if the jump was not a SYSCALL
-    if jump_op != 0xc {
-      //add the branch delay slot to the stub
-      address = address.wrapping_add(4);
-      let op = self.console.resolve_memresponse(self.console.memory.read_word(address));
-      //println!("branch delay slot contained {:#x}", op);
-      let compiled = self.compile_opcode(op, logging);
-      //println!("{:#x} followed by {:#x}", jump_op, op);
-      compiled_stub.push(compiled.expect("Consecutive jumps are not allowed in the MIPS ISA"));
-      len += 1;
-    }
-    let mut masm = MacroAssembler::new();
-    let f = masm.compile_buffer()?;
-    let stub = Stub {
-      //operations: compiled_stub,
-      operations: f,
-      masm,
-      final_pc: Console::physical(address),
-      len,
-    };
-    self.stubs.insert(Console::physical(start), stub);
-    let end = Console::physical(address);
-    self.ranges_compiled.get_mut(&end)
-                        .map(|v| {
-                          v.push(Console::physical(start));
-                        })
-                        .or_else(|| {
-                          self.ranges_compiled.insert(end, vec![Console::physical(start)]);
-                          None
-                        });
-    let t1 = Instant::now();
-    Ok(t1 - t0)
   }
-  fn cache_invalidation(&mut self, address: Register) {
-    let deleted_stub = self.stubs.remove(&address).unwrap();
-    let overlapping_blocks = self.ranges_compiled.get(&deleted_stub.final_pc())
-                                                 .unwrap()
-                                                 .iter()
-                                                 .copied()
-                                                 .filter(|&start| address <= start)
-                                                 .collect::<Vec<Register>>();
+  fn translate(&mut self, optimize: bool, logging: bool) -> Duration {
+    let t0 = Instant::now();
+    //first define the opcodes in this block and tag them along the way
+    let mut address = self.console.r3000.pc();
+    let start = Console::physical(address);
+    let mut op = self.console.read_word(address);
+    //start with an offset of 4 since pc is incremented before the next instruction is executed
+    //this makes sure that pc has the correct value when a jump is taken in a branch delay slot
+    let mut counter = 4;
+    let mut insn = Insn::new(op, counter);
+    let mut tagged_opcodes = Vec::new();
+    while !Insn::is_unconditional_jump(op) {
+      tagged_opcodes.push(insn);
+      address = address.wrapping_add(4);
+      op = self.console.read_word(address);
+      counter += 4;
+      insn = Insn::new(op, counter);
+    }
+    //append the tagged unconditional jump or syscall that ended the block
+    tagged_opcodes.push(insn);
+    //if the block ended in an unconditional jump, tag and append the delay slot
+    if Insn::has_branch_delay_slot(op) {
+      address = address.wrapping_add(4);
+      op = self.console.read_word(address);
+      counter += 4;
+      insn = Insn::new(op, counter);
+      tagged_opcodes.push(insn);
+    }
+    //get the length before doing optimizations
+    let nominal_len = tagged_opcodes.len() as u32;
+    //get the address of the last instruction in the block
+    let final_pc = Console::physical(address);
+    //compile the tagged opcodes into stubs
+    let stubs =
+      if optimize {
+        Block::create_optimized_stubs(&tagged_opcodes, logging)
+      } else {
+        Block::create_stubs(&tagged_opcodes, logging)
+    };
+    let block = Block::new(stubs, final_pc, nominal_len);
+    self.blocks.insert(start, block);
+    //store the address range of the new block to simplify cache invalidation
+    match self.ranges_compiled.get_mut(&final_pc) {
+      Some(v) => {
+        v.push(start);
+      },
+      None => {
+        self.ranges_compiled.insert(final_pc, vec![start]);
+      },
+    }
+    let t1 = Instant::now();
+    t1 - t0
+  }
+  fn cache_invalidation(&mut self, address: u32) {
+    //remove the previously executed block
+    let deleted_block = self.blocks.remove(&address).unwrap();
+    //get all blocks containing the deleted block as a subset
+    let overlapping_blocks = self.ranges_compiled
+                                 .get(&deleted_block.final_pc())
+                                 .unwrap()
+                                 .iter()
+                                 .copied()
+                                 .filter(|&start| start <= address)
+                                 .collect::<Vec<u32>>();
+    //remove the overlapping blocks
     overlapping_blocks.iter()
                       .for_each(|s| {
-                        self.stubs.remove(&s).unwrap();
+                        self.blocks.remove(&s).unwrap();
                       });
+    //clean up the auxilary map of ranges compiled
     self.ranges_compiled
-        .entry(deleted_stub.final_pc())
+        .entry(deleted_block.final_pc())
         .and_modify(|v| {
-          v.retain(|&start| start < address);
+          v.retain(|&start| address < start);
         });
   }
 }

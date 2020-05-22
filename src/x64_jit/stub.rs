@@ -1,20 +1,24 @@
-use std::ops::Add;
-use std::ops::Shl;
-use std::ops::Shr;
-use std::ops::Sub;
-use crate::register::BitBang;
-use crate::r3000::MaybeSet;
-use crate::r3000::DelayedWrite;
-use crate::r3000::Name;
+use std::ops::{Add, Shl, Shr, Sub};
+use crate::r3000::{MaybeSet, DelayedWrite, Name};
 use crate::cop0::Cop0Exception;
-use crate::x64_jit::X64JIT;
 use crate::console::Console;
 use crate::common::*;
+use crate::register::BitTwiddle;
+use crate::x64_jit::insn::Insn;
 
-impl X64JIT {
-  //if program counter should incremented normally, return None
-  //otherwise return Some(new program counter)
-  pub(super) fn compile_opcode(&mut self, op: u32, logging: bool) -> Option<Box<dyn Fn(&mut Console)>> {
+type StubFn = Box<dyn Fn(&mut Console) -> Option<u32>>;
+pub struct Stub(StubFn);
+
+impl Stub {
+  pub fn execute(&self, console: &mut Console, logging: bool) -> Option<u32> {
+    self.0(console)
+  }
+  pub fn from_closure(closure: StubFn) -> Self {
+    Stub(closure)
+  }
+  pub fn new(insn: &Insn, logging: bool) -> Self {
+    let op = insn.op();
+    let offset = insn.offset();
     macro_rules! log {
       () => ($crate::print!("\n"));
       ($($arg:tt)*) => ({
@@ -43,7 +47,7 @@ impl X64JIT {
           let s = get_rs(op);
           let t = get_rt(op);
           let imm16 = get_imm16(op).half_sign_extended();
-          Some(Box::new(move |vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(s);
             let rt = vm.delayed_writes.iter()
                                         .rev()
@@ -51,11 +55,12 @@ impl X64JIT {
                                         .map_or(vm.r3000.nth_reg(t),|write| write.value());
             let address = rs.wrapping_add(imm16);
             let aligned_address = *address.clone().clear_mask(3);
-            let aligned_word = vm.resolve_memresponse(vm.memory.read_word(aligned_address));
+            let aligned_word = vm.read_word(aligned_address);
             let num_bits = $offset.$operator(8*address.lowest_bits(2));
             let result = rt.$mask(num_bits) | aligned_word.$shift(num_bits);
             vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(t), result));
-          }))
+            None
+          })
         }
       };
       //delayed aligned reads
@@ -65,21 +70,23 @@ impl X64JIT {
           let t = get_rt(op);
           let imm16 = get_imm16(op).half_sign_extended();
           if imm16 == 0 {
-            Some(Box::new(move |vm| {
+            Box::new(move |vm| {
               let rs = vm.r3000.nth_reg(s);
-              let result = vm.resolve_memresponse(vm.memory.$method(rs));
+              let result = vm.$method(rs);
               vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(t), result));
               log!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x} {}",
                         t, rs, 0, rs, result, stringify!($method));
-            }))
+              None
+            })
           } else {
-            Some(Box::new(move |vm| {
+            Box::new(move |vm| {
               let rs = vm.r3000.nth_reg(s);
-              let result = vm.resolve_memresponse(vm.memory.$method(rs.wrapping_add(imm16)));
+              let result = vm.$method(rs.wrapping_add(imm16));
               vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(t), result));
               log!("R{} = [{:#x} + {:#x}] \n  = [{:#x}] \n  = {:#x} {}",
                         t, rs, imm16, rs.wrapping_add(imm16), result, stringify!($method));
-            }))
+              None
+            })
           }
         }
       };
@@ -99,35 +106,37 @@ impl X64JIT {
           let t = get_rt(op);
           let imm16 = get_imm16(op).half_sign_extended();
           if imm16 == 0 {
-            Some(Box::new(move |vm| {
+            Box::new(move |vm| {
               let rs = vm.r3000.nth_reg(s);
               let rt = vm.r3000.nth_reg(t);
               if !vm.cop0.cache_isolated() {
                 let address = rs;
                 let aligned_address = *address.clone().clear_mask(3);
-                let aligned_word = vm.resolve_memresponse(vm.memory.read_word(aligned_address));
+                let aligned_word = vm.read_word(aligned_address);
                 let num_bits = $offset.$operator(8*address.lowest_bits(2));
                 let result = rt.$shift(num_bits) | aligned_word.$mask(num_bits);
                 vm.write_word(aligned_address, result);
               } else {
                 log!("ignoring write while cache is isolated");
-              }
-            }))
+              };
+              None
+            })
           } else {
-            Some(Box::new(move |vm| {
+            Box::new(move |vm| {
               let rs = vm.r3000.nth_reg(s);
               let rt = vm.r3000.nth_reg(t);
               if !vm.cop0.cache_isolated() {
                 let address = rs.wrapping_add(imm16);
                 let aligned_address = *address.clone().clear_mask(3);
-                let aligned_word = vm.resolve_memresponse(vm.memory.read_word(aligned_address));
+                let aligned_word = vm.read_word(aligned_address);
                 let num_bits = $offset.$operator(8*address.lowest_bits(2));
                 let result = rt.$shift(num_bits) | aligned_word.$mask(num_bits);
                 vm.write_word(aligned_address, result);
               } else {
                 log!("ignoring write while cache is isolated");
-              }
-            }))
+              };
+              None
+            })
           }
         }
       };
@@ -138,7 +147,7 @@ impl X64JIT {
           let t = get_rt(op);
           let imm16 = get_imm16(op).half_sign_extended();
           if imm16 == 0 {
-            Some(Box::new(move |vm| {
+            Box::new(move |vm| {
               let rs = vm.r3000.nth_reg(s);
               let rt = vm.r3000.nth_reg(t);
               log!("[{:#x} + {:#x}] = [{:#x}] \n  = R{}\n  = {:#x} {}",
@@ -147,10 +156,11 @@ impl X64JIT {
                 vm.$method(rs, rt);
               } else {
                 log!("ignoring write while cache is isolated");
-              }
-            }))
+              };
+              None
+            })
           } else {
-            Some(Box::new(move |vm| {
+            Box::new(move |vm| {
               let rs = vm.r3000.nth_reg(s);
               let rt = vm.r3000.nth_reg(t);
               log!("[{:#x} + {:#x}] = [{:#x}] \n  = R{}\n  = {:#x} {}",
@@ -159,53 +169,58 @@ impl X64JIT {
                 vm.$method(rs.wrapping_add(imm16), rt);
               } else {
                 log!("ignoring write while cache is isolated");
-              }
-            }))
+              };
+              None
+            })
           }
         }
       };
       (lo = rs) => {
         {
           let s = get_rs(op);
-          Some(Box::new(move |vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(s);
             let lo = vm.r3000.lo_mut();
             *lo = rs;
             log!("op1");
-          }))
+            None
+          })
         }
       };
       (hi = rs) => {
         {
           let s = get_rs(op);
-          Some(Box::new(move |vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(s);
             let hi = vm.r3000.hi_mut();
             *hi = rs;
             log!("op2");
-          }))
+            None
+          })
         }
       };
       (rd = lo) => {
         {
           let d = get_rd(op);
-          Some(Box::new(move |vm| {
+          Box::new(move |vm| {
             let lo = vm.r3000.lo();
             let rd = vm.r3000.nth_reg_mut(d);
             vm.modified_register = rd.maybe_set(lo);
             log!("op3");
-          }))
+            None
+          })
         }
       };
       (rd = hi) => {
         {
           let d = get_rd(op);
-          Some(Box::new(move |vm| {
+          Box::new(move |vm| {
             let hi = vm.r3000.hi();
             let rd = vm.r3000.nth_reg_mut(d);
             vm.modified_register = rd.maybe_set(hi);
             log!("op4");
-          }))
+            None
+          })
         }
       };
     }
@@ -219,7 +234,7 @@ impl X64JIT {
           let s = get_rs(op);
           let t = get_rt(op);
           let d = get_rd(op);
-          Some(Box::new(move |vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(s);
             let rt = vm.r3000.nth_reg(t);
             let rd = vm.r3000.nth_reg_mut(d);
@@ -227,7 +242,8 @@ impl X64JIT {
             log!("R{} = R{} {} R{}\n  = {:#x} {} {:#x}\n  = {:#x}",
                       d, s, stringify!($method), t,
                       rs, stringify!($method), rt, vm.r3000.nth_reg(d));
-          }))
+            None
+          })
         }
       };
       //ALU instructions with two general purpose registers that trap overflow
@@ -236,24 +252,26 @@ impl X64JIT {
           let s = get_rs(op);
           let t = get_rt(op);
           let d = get_rd(op);
-          Some(Box::new(move |vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(s) as u64;
             let rt = vm.r3000.nth_reg(t) as u64;
             let rd = vm.r3000.nth_reg_mut(d);
             let result = rs.$method(rt);
-            match result {
+            let ret = match result {
               Some(result) => {
                 vm.modified_register = rd.maybe_set(result as u32);
+                None
               },
               None => {
-                let pc = vm.r3000.pc_mut();
-                *pc = vm.cop0.generate_exception(Cop0Exception::Overflow, *pc);
+                let pc = vm.r3000.pc();
+                Some(vm.cop0.generate_exception(Cop0Exception::Overflow, pc))
               },
-            }
+            };
             log!("R{} = R{} {} R{} trap overflow\n  = {:#x} {} {:#x}\n  = {:#x}",
                       d, s, stringify!($method), t,
                       rs, stringify!($method), rt, vm.r3000.nth_reg(d));
-          }))
+            ret
+          })
         }
       };
       //ALU instructions with a register and immediate 16-bit data that trap overflow
@@ -262,23 +280,25 @@ impl X64JIT {
           let s = get_rs(op);
           let imm16 = get_imm16(op).half_sign_extended() as i32;
           let t = get_rt(op);
-          Some(Box::new(move |vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(s) as i32;
             let rt = vm.r3000.nth_reg_mut(t);
             let result = rs.$method(imm16);
-            match result {
+            let ret = match result {
               Some(result) => {
                 vm.modified_register = rt.maybe_set(result as u32);
+                None
               },
               None => {
-                let pc = vm.r3000.pc_mut();
-                *pc = vm.cop0.generate_exception(Cop0Exception::Overflow, *pc);
+                let pc = vm.r3000.pc();
+                Some(vm.cop0.generate_exception(Cop0Exception::Overflow, pc))
               },
-            }
+            };
             log!("R{} = R{} {} {:#x} trap overflow\n  = {:#x} {} {:#x}\n  = {:#x}",
                       t, s, stringify!($method), imm16,
                       rs, stringify!($method), imm16, vm.r3000.nth_reg(t));
-          }))
+            ret
+          })
         }
       };
       //ALU instructions with a register and immediate 16-bit data
@@ -287,14 +307,15 @@ impl X64JIT {
           let s = get_rs(op);
           let imm16 = get_imm16(op);
           let t = get_rt(op);
-          Some(Box::new(move |vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(s);
             let rt = vm.r3000.nth_reg_mut(t);
             vm.modified_register = rt.maybe_set(rs.$method(imm16));
             log!("R{} = R{} {} {:#x}\n  = {:#x} {} {:#x}\n  = {:#x}",
                       t, s, stringify!($method), imm16,
                       rs, stringify!($method), imm16, vm.r3000.nth_reg(t));
-          }))
+            None
+          })
         }
       };
       //ALU instructions with a register and immediate 16-bit data
@@ -303,14 +324,15 @@ impl X64JIT {
           let s = get_rs(op);
           let imm16 = get_imm16(op).half_sign_extended();
           let t = get_rt(op);
-          Some(Box::new(move |vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(s);
             let rt = vm.r3000.nth_reg_mut(t);
             vm.modified_register = rt.maybe_set(rs.$method(imm16));
             log!("R{} = R{} {} {:#x}\n  = {:#x} {} {:#x}\n  = {:#x}",
                       t, s, stringify!($method), imm16,
                       rs, stringify!($method), imm16, vm.r3000.nth_reg(t));
-          }))
+            None
+          })
         }
       };
       //shifts a register based on immediate 5 bits
@@ -319,14 +341,15 @@ impl X64JIT {
           let t = get_rt(op);
           let imm5 = get_imm5(op);
           let d = get_rd(op);
-          Some(Box::new(move |vm| {
+          Box::new(move |vm| {
             let rt = vm.r3000.nth_reg(t);
             let rd = vm.r3000.nth_reg_mut(d);
             vm.modified_register = rd.maybe_set(rt.$method(imm5));
             log!("R{} = R{} {} {:#x}\n  = {:#x} {} {:#x}\n  = {:#x}",
                       d, t, stringify!($method), imm5,
                       rt, stringify!($method), imm5, vm.r3000.nth_reg(d));
-          }))
+            None
+          })
         }
       };
       //shifts a register based on the lowest 5 bits of another register
@@ -335,13 +358,14 @@ impl X64JIT {
           let t = get_rt(op);
           let s = get_rs(op);
           let d = get_rd(op);
-          Some(Box::new(move |vm| {
+          Box::new(move |vm| {
             let rt = vm.r3000.nth_reg(t);
             let rs = vm.r3000.nth_reg(s);
             let rd = vm.r3000.nth_reg_mut(d);
             vm.modified_register = rd.maybe_set(rt.$method(rs & 0x1F));
             log!("op9");
-          }))
+            None
+          })
         }
       };
       (rt = imm16 shl 16) => {
@@ -349,18 +373,19 @@ impl X64JIT {
           let t = get_rt(op);
           let imm16 = get_imm16(op);
           let result = imm16 << 16;
-          Some(Box::new(move |vm| {
+          Box::new(move |vm| {
             let rt = vm.r3000.nth_reg_mut(t);
             vm.modified_register = rt.maybe_set(result);
             log!("R{} = {:#x} << 16 \n  = {:#x}", t, imm16, vm.r3000.nth_reg(t));
-          }))
+            None
+          })
         }
       };
       (hi:lo = rs * rt) => {
         {
           let s = get_rs(op);
           let t = get_rt(op);
-          Some(Box::new(move |vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(s);
             let rt = vm.r3000.nth_reg(t);
             let result = (rs as u64) * (rt as u64);
@@ -383,14 +408,15 @@ impl X64JIT {
             *vm.r3000.hi_mut() = hi_res;
             *vm.r3000.lo_mut() = lo_res;
             log!("op11");
-          }))
+            None
+          })
         }
       };
       (hi:lo = rs * rt signed) => {
         {
           let s = get_rs(op);
           let t = get_rt(op);
-          Some(Box::new(move |vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(s) as i32;
             let rt = vm.r3000.nth_reg(t) as i32;
             let result = (rs as i64) * (rt as i64);
@@ -413,14 +439,15 @@ impl X64JIT {
             *vm.r3000.hi_mut() = hi_res;
             *vm.r3000.lo_mut() = lo_res;
             log!("op11");
-          }))
+            None
+          })
         }
       };
       (hi:lo = rs / rt) => {
         {
           let s = get_rs(op);
           let t = get_rt(op);
-          Some(Box::new(move |vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(s);
             let rt = vm.r3000.nth_reg(t);
             let lo_res = match rt {
@@ -438,40 +465,31 @@ impl X64JIT {
             *vm.r3000.hi_mut() = hi_res;
             *vm.r3000.lo_mut() = lo_res;
             log!("op12");
-          }))
+            None
+          })
         }
       };
       (hi:lo = rs / rt signed) => {
         {
           let s = get_rs(op);
           let t = get_rt(op);
-          Some(Box::new(move |vm| {
+          Box::new(move |vm| {
             let rs = vm.r3000.nth_reg(s) as i32;
             let rt = vm.r3000.nth_reg(t) as i32;
             let lo_res = match rt {
               0 => {
                 match rs {
-                  0x0000_0000..=0x7fff_ffff => {
-                    -1
-                  },
-                  -0x8000_0000..=-1 => {
-                    1
-                  },
+                  0x0000_0000..=0x7fff_ffff => -1,
+                  -0x8000_0000..=-1 => 1,
                 }
               },
               -1 => {
                 match rs {
-                  -0x8000_0000..=-1 => {
-                    1
-                  },
-                  _ => {
-                    rs / rt
-                  },
+                  -0x8000_0000..=-1 => 1,
+                  _ => rs / rt,
                 }
               }
-              _ => {
-                rs / rt
-              },
+              _ => rs / rt,
             } as u32;
             let hi_res = (rs % rt) as u32;
             //TODO: add delay back in
@@ -480,7 +498,8 @@ impl X64JIT {
             *vm.r3000.hi_mut() = hi_res;
             *vm.r3000.lo_mut() = lo_res;
             log!("op12");
-          }))
+            None
+          })
         }
       };
     }
@@ -492,61 +511,67 @@ impl X64JIT {
               //MFCn
               let t = get_rt(op);
               let d = get_rd(op);
-              Some(Box::new(move |vm| {
+              Box::new(move |vm| {
                 let rd_data = vm.$copn.nth_data_reg(d);
                 vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(t), rd_data));
                 log!("R{} = {}R{}\n  = {:#x} after the delay slot",
                           t, stringify!($copn), d, rd_data);
-              }))
+                None
+              })
             },
             0x02 => {
               //CFCn
               let t = get_rt(op);
               let d = get_rd(op);
-              Some(Box::new(move |vm| {
+              Box::new(move |vm| {
                 let rd_ctrl = vm.$copn.nth_ctrl_reg(d);
                 vm.delayed_writes.push_back(DelayedWrite::new(Name::Rn(t), rd_ctrl));
-              }))
+                None
+              })
             },
             0x04 => {
               //MTCn
               let t = get_rt(op);
               let d = get_rd(op);
-              Some(Box::new(move |vm| {
+              Box::new(move |vm| {
                 let rt = vm.r3000.nth_reg(t);
                 let rd = vm.$copn.nth_data_reg_mut(d);
                 vm.modified_register = rd.maybe_set(rt);
                 log!("{}R{} = R{}\n  = {:#x}",
                           stringify!($copn), d, t,
                           vm.$copn.nth_data_reg(d));
-              }))
+                None
+              })
             },
             0x06 => {
               //CTCn
               let t = get_rt(op);
               let d = get_rd(op);
-              Some(Box::new(move |vm| {
+              Box::new(move |vm| {
                 let rt = vm.r3000.nth_reg(t);
                 let rd = vm.$copn.nth_ctrl_reg_mut(d);
                 vm.modified_register = rd.maybe_set(rt);
-              }))
+                None
+              })
             },
             0x08 => {
               match get_rt(op) {
                 0x00 => {
                   //BCnF
                   let imm16 = get_imm16(op);
-                  Some(Box::new(move |vm| {
+                  Box::new(move |vm| {
                     vm.$copn.bcnf(imm16);
-                  }))
+                    None
+                  })
                 },
                 0x01 => {
                   //BCnT
                   //technically we're implementing one illegal instruction here
                   //since BCnT is not implemented for COP0
                   //however, GTE (i.e. COP2) does implement it
-                  Some(Box::new(move |vm| {
-                  }))
+                  Box::new(move |vm| {
+                    None
+                  })
                 },
                 _ => {
                   unreachable!("ran into invalid opcode")
@@ -556,9 +581,10 @@ impl X64JIT {
             0x10..=0x1F => {
               //COPn imm25
               let imm25 = get_imm25(op);
-              Some(Box::new(move |vm| {
+              Box::new(move |vm| {
                 vm.$copn.execute_command(imm25);
-              }))
+                None
+              })
             },
             _ => {
               unreachable!("ran into invalid opcode")
@@ -567,10 +593,162 @@ impl X64JIT {
         }
       }
     }
-    //after executing an opcode, complete the loads from the previous opcode
-    //this match statement optionally returns the next program counter
-    //if the return value is None, then we increment pc as normal
-    match get_primary_field(op) {
+    macro_rules! jump {
+      (imm26) => {
+        {
+          let imm26 = get_imm26(op);
+          let shifted_imm26 = imm26 * 4;
+          Box::new(move |vm| {
+            let pc = vm.r3000.pc().wrapping_add(offset);
+            let pc_hi_bits = pc & 0xf000_0000;
+            let dest = pc_hi_bits.wrapping_add(shifted_imm26);
+            log!("jumping to (PC & 0xf0000000) + ({:#x} * 4)\n  = {:#x} + {:#x}\n  = {:#x} after the delay slot",
+                      imm26, pc_hi_bits, shifted_imm26, dest);
+            Some(dest)
+          })
+        }
+      };
+      (rs) => {
+        {
+          let s = get_rs(op);
+          Box::new(move |vm| {
+            let rs = vm.r3000.nth_reg(s);
+            if rs & 0x0000_0003 != 0 {
+              let pc = vm.r3000.pc().wrapping_add(offset);
+              log!("ignoring jumping to R{} = {:#x} and generating an exception", s, rs);
+              Some(vm.cop0.generate_exception(Cop0Exception::LoadAddress, pc))
+            } else {
+              log!("jumping to R{} = {:#x} after the delay slot", s, rs);
+              Some(rs)
+            }
+          })
+        }
+      };
+      (rs $cmp:tt rt) => {
+        {
+          let t = get_rt(op);
+          let s = get_rs(op);
+          let imm16 = get_imm16(op);
+          let inc = ((imm16.half_sign_extended() as i32) * 4) as u32;
+          Box::new(move |vm| {
+            let rt = vm.r3000.nth_reg(t);
+            let rs = vm.r3000.nth_reg(s);
+            if rs $cmp rt {
+              let pc = vm.r3000.pc().wrapping_add(offset);
+              let dest = pc.wrapping_add(inc);
+              log!("jumping to PC + ({:#x} * 4) = {:#x} + {:#x} = {:#x} after the delay slot\n  since R{} {} R{} -> {:#x} {} {:#x}",
+                        imm16, pc, inc, dest, s, stringify!($cmp), t, rs, stringify!($cmp), rt);
+              Some(dest)
+            } else {
+              log!("skipping jump since R{} {} R{} -> {:#x} {} {:#x} is false",
+                        s, stringify!($cmp), t, rs, stringify!($cmp), rt);
+              None
+            }
+          })
+        }
+      };
+      (rs $cmp:tt 0) => {
+        {
+          let imm16 = get_imm16(op);
+          let inc = ((imm16 as i16) * 4) as u32;
+          let s = get_rs(op);
+          Box::new(move |vm| {
+            let rs = vm.r3000.nth_reg(s);
+            log!("op16");
+            if (rs as i32) $cmp 0 {
+              let pc = vm.r3000.pc().wrapping_add(offset);
+              let dest = pc.wrapping_add(inc);
+              Some(dest)
+            } else {
+              None
+            }
+          })
+        }
+      };
+    }
+    macro_rules! call {
+      (imm26) => {
+        {
+          let imm26 = get_imm26(op);
+          let shifted_imm26 = imm26 * 4;
+          Box::new(move |vm| {
+            let pc = vm.r3000.pc().wrapping_add(offset);
+            let ret = pc.wrapping_add(4);
+            vm.modified_register = vm.r3000.ra_mut().maybe_set(ret);
+            log!("R31 = {:#x}", ret);
+            let pc_hi_bits = pc & 0xf000_0000;
+            let dest = pc_hi_bits.wrapping_add(shifted_imm26);
+            log!("jumping to (PC & 0xf0000000) + ({:#x} * 4)\n  = {:#x} + {:#x}\n  = {:#x} after the delay slot",
+                      imm26, pc_hi_bits, shifted_imm26, dest);
+            Some(dest)
+          })
+        }
+      };
+      (rs) => {
+        {
+          let d = get_rd(op);
+          let s = get_rs(op);
+          Box::new(move |vm| {
+            let pc = vm.r3000.pc().wrapping_add(offset);
+            let result = pc.wrapping_add(4);
+            let rd = vm.r3000.nth_reg_mut(d);
+            vm.modified_register = rd.maybe_set(result);
+            log!("op18");
+            let rs = vm.r3000.nth_reg(s);
+            if rs & 0x0000_0003 != 0 {
+              log!("ignoring jumping to R{} = {:#x} and generating an exception", s, rs);
+              Some(vm.cop0.generate_exception(Cop0Exception::LoadAddress, pc))
+            } else {
+              log!("jumping to R{} = {:#x} after the delay slot", s, rs);
+              Some(rs)
+            }
+          })
+        }
+      };
+      (rs $cmp:tt rt) => {
+        {
+          let t = get_rt(op);
+          let s = get_rs(op);
+          let imm16 = get_imm16(op);
+          let inc = ((imm16 as i16) * 4) as u32;
+          Box::new(move |vm| {
+            let rt = vm.r3000.nth_reg(t);
+            let rs = vm.r3000.nth_reg(s);
+            log!("op19");
+            if *rs $cmp *rt {
+              let pc = vm.r3000.pc().wrapping_add(offset);
+              let ret = pc.wrapping_add(4);
+              vm.modified_register = vm.r3000.ra_mut().maybe_set(ret);
+              let dest = pc.wrapping_add(inc).wrapping_add(offset);
+              Some(dest)
+            } else {
+              None
+            }
+          })
+        }
+      };
+      (rs $cmp:tt 0) => {
+        {
+          let s = get_rs(op);
+          let imm16 = get_imm16(op);
+          let inc = imm16 * 4;
+          Box::new(move |vm| {
+            let rs = vm.r3000.nth_reg(s);
+            log!("op20");
+            if (rs as i32) $cmp 0 {
+              let pc = vm.r3000.pc().wrapping_add(offset);
+              let ret = pc.wrapping_add(4);
+              vm.modified_register = vm.r3000.ra_mut().maybe_set(ret);
+              let dest = pc.wrapping_add(inc);
+              Some(dest)
+            } else {
+              None
+            }
+          })
+        }
+      };
+    }
+    Stub(match get_primary_field(op) {
       0x00 => {
         //SPECIAL
         match get_secondary_field(op) {
@@ -606,26 +784,28 @@ impl X64JIT {
           },
           0x08 => {
             //JR
-            /*jump!(rs);*/
-            None
+            log!("> JR");
+            jump!(rs)
           },
           0x09 => {
             //JALR
-            /*call!(rs);*/
-            None
+            log!("> JALR");
+            call!(rs)
           },
           0x0C => {
             //SYSCALL
-            //Some(Box::new(move |vm| {
-            //  let pc = vm.r3000.pc_mut();
-            //  *pc = vm.cop0.generate_exception(Cop0Exception::Syscall, *pc);
-            //}))
-            None
+            log!("> SYSCALL");
+            Box::new(move |vm| {
+              let pc = vm.r3000.pc();
+              Some(vm.cop0.generate_exception(Cop0Exception::Syscall, pc))
+            })
           },
           0x0D => {
             //BREAK
             log!("> BREAK");
-            todo!("break")
+            Box::new(move |vm| {
+              todo!("implement a JIT closure for break")
+            })
           },
           0x10 => {
             //MFHI
@@ -728,23 +908,23 @@ impl X64JIT {
         match get_rt(op) {
           0x00 => {
             //BLTZ
-            /*jump!(rs < 0);*/
-            None
+            log!("> BLTZ");
+            jump!(rs < 0)
           },
           0x01 => {
             //BGEZ
-            /*jump!(rs >= 0);*/
-            None
+            log!("> BGEZ");
+            jump!(rs >= 0)
           },
           0x80 => {
             //BLTZAL
-            /*call!(rs < 0);*/
-            None
+            log!("> BLTZAL");
+            call!(rs < 0)
           },
           0x81 => {
             //BGEZAL
-            /*call!(rs >= 0);*/
-            None
+            log!("> BGEZAL");
+            call!(rs >= 0)
           },
           _ => {
             //invalid opcode
@@ -754,33 +934,33 @@ impl X64JIT {
       },
       0x02 => {
         //J
-        /*jump!(imm26);*/
-        None
+        log!("> J");
+        jump!(imm26)
       },
       0x03 => {
         //JAL
-        /*call!(imm26);*/
-        None
+        log!("> JAL");
+        call!(imm26)
       },
       0x04 => {
         //BEQ
-        /*jump!(rs == rt);*/
-        None
+        log!("> BEQ");
+        jump!(rs == rt)
       },
       0x05 => {
         //BNE
-        /*jump!(rs != rt);*/
-        None
+        log!("> BNE");
+        jump!(rs != rt)
       },
       0x06 => {
         //BLEZ
-        /*jump!(rs <= 0);*/
-        None
+        log!("> BLEZ");
+        jump!(rs <= 0)
       },
       0x07 => {
         //BGTZ
-        /*jump!(rs > 0);*/
-        None
+        log!("> BGTZ");
+        jump!(rs > 0)
       },
       0x08 => {
         //ADDI
@@ -936,7 +1116,6 @@ impl X64JIT {
         //invalid opcode
         unreachable!("ran into invalid opcode")
       }
-    }
+    })
   }
 }
-

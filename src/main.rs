@@ -118,7 +118,7 @@ fn main() -> io::Result<()> {
                                   .run(steps, opt, logging);
         } else if jit {
           X64JIT::new(bios_filename, infile, gpu_logging, wx, wy)?
-                              .run(steps, opt, logging)?;
+                              .run(steps, opt, logging);
         } else {
           Interpreter::new(bios_filename, infile, gpu_logging, wx, wy)?
                       .run(steps, logging);
