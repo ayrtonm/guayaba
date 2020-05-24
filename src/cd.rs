@@ -43,9 +43,7 @@ impl CD {
   pub fn exec_command(&mut self) {
     //unsafe {
     //  asm!("subq $$0x08, %rsp");
-    //}
-    //println!("got here");
-    //unsafe {
+    //  println!("got here");
     //  asm!("addq $$0x08, %rsp");
     //}
     self.command_buffer.pop_front().map(|cmd| {
