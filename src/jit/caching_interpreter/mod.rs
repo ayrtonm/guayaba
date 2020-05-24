@@ -74,9 +74,8 @@ impl CachingInterpreter {
           self.console.i += block.nominal_len();
           n.map(|n| {
             if self.console.i >= n {
-              println!("Executed {} steps with {:?} of compile time and {:?} of run time",
-                        self.console.i, compile_time, run_time);
-              return &mut self.console;
+              panic!("Executed {} steps with {:?} of compile time and {:?} of run time",
+                      self.console.i, compile_time, run_time);
             };
           });
           let end = block.final_pc();
@@ -93,7 +92,7 @@ impl CachingInterpreter {
           }
           self.console.overwritten.clear();
           if !self.console.handle_events() {
-            return;
+            return
           }
           let t1 = Instant::now();
           run_time += t1 - t0;
