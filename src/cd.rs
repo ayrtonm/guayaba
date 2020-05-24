@@ -41,7 +41,6 @@ impl CD {
     self.command_buffer.push_back(cmd);
   }
   pub fn exec_command(&mut self) {
-    println!("got here");
     self.command_buffer.pop_front().map(|cmd| {
       match cmd {
         0x19 => {

@@ -1,3 +1,5 @@
+use crate::register::BitTwiddle;
+use crate::r3000::MaybeSet;
 use crate::jit::caching_interpreter::block::Block;
 use crate::jit::insn::Insn;
 use crate::jit::caching_interpreter::stub::Stub;
@@ -6,7 +8,7 @@ use crate::common::*;
 impl Block {
   pub(super) fn create_optimized_stubs(tagged_opcodes: &Vec<Insn>, logging: bool) -> Vec<Stub> {
     let mut ret = Vec::new();
-    let mut constant_table = [None; 32];
+    let mut constant_table: [Option<u32>;32] = [None; 32];
     macro_rules! default_stub {
       ($insn:expr, $n:expr) => {
         {
@@ -40,6 +42,53 @@ impl Block {
           match get_secondary_field(op) {
             _ => {
               default_stub!(insn, n);
+            },
+          }
+        },
+        0x09..=0x0E => {
+          //ADDIU, SLTI, SLTIU, ANDI, ORI, XORI
+          assert!(insn.inputs().len() == 1);
+          let input = insn.inputs()[0] as usize;
+          let output = insn.output().expect("ADDIU should have an output");
+          match constant_table[input] {
+            Some(constant) => {
+              let imm16 = get_imm16(insn.op());
+              let result = match get_primary_field(op) {
+                0x09 => {
+                  let imm16 = get_imm16(insn.op()).half_sign_extended();
+                  constant.wrapping_add(imm16)
+                },
+                0x0A => {
+                  constant.signed_compare(imm16)
+                },
+                0x0B => {
+                  constant.compare(imm16)
+                },
+                0x0C => {
+                  constant.and(imm16)
+                },
+                0x0D => {
+                  constant.or(imm16)
+                },
+                0x0E => {
+                  constant.xor(imm16)
+                },
+                _ => unreachable!("")
+              };
+              let t = get_rt(insn.op());
+              ret.push(Stub::from_closure(Box::new(move |vm| {
+                let rt = vm.r3000.nth_reg_mut(t);
+                vm.modified_register = rt.maybe_set(result);
+                if logging {
+                  println!("> Constant load\nR{} = {:#x}", t, result);
+                };
+                None
+              })));
+              constant_table[output] = Some(result);
+            },
+            None => {
+              ret.push(Stub::new(&insn, logging));
+              constant_table[output] = None;
             },
           }
         },

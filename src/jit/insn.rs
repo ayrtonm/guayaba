@@ -160,7 +160,7 @@ impl Insn {
   pub fn offset(&self) -> u32 {
     self.offset
   }
-  fn inputs(&self) -> &Vec<u32> {
+  pub fn inputs(&self) -> &Vec<u32> {
     &self.inputs
   }
   pub fn output(&self) -> Option<usize> {
