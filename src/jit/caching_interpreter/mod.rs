@@ -27,9 +27,7 @@ impl CachingInterpreter {
   }
   pub fn run(&mut self, n: Option<u32>, optimize: bool, logging: bool) {
     println!("running in caching interpreter mode");
-    let t0 = Instant::now();
-    let mut compile_time = t0 - t0;
-    let mut run_time = t0 - t0;
+    let start_time = Instant::now();
     let mut refresh_timer: i64 = Console::REFRESH_RATE;
     loop {
       let address = Console::physical(self.console.r3000.pc());
@@ -38,12 +36,21 @@ impl CachingInterpreter {
         Some(block) => {
           let t0 = Instant::now();
           let stubs = block.stubs();
+          //this is updated if we updated early
+          let mut steps_taken = block.nominal_len();
           for (i, stub) in stubs.iter().enumerate() {
             self.console.r3000.flush_write_cache(&mut self.console.delayed_writes,
                                                  &mut self.console.modified_register);
             match stub.execute(&mut self.console, logging) {
               Some(next_pc) => {
+                steps_taken = i as u32 + 1;
                 if i + 1 != stubs.len() {
+                  steps_taken = i as u32 + 2;
+                  match self.console.gpu.exec_next_gp0_command() {
+                    Some(object) => self.console.screen.draw(object),
+                    None => (),
+                  }
+                  self.console.cd.exec_command();
                   self.console.r3000.flush_write_cache(&mut self.console.delayed_writes,
                                                        &mut self.console.modified_register);
                   stubs[i + 1].execute(&mut self.console, logging);
@@ -56,8 +63,7 @@ impl CachingInterpreter {
                 *self.console.r3000.pc_mut() = next_pc;
                 break;
               },
-              None => {
-              },
+              None => (),
             }
             match self.console.gpu.exec_next_gp0_command() {
               Some(object) => self.console.screen.draw(object),
@@ -65,17 +71,16 @@ impl CachingInterpreter {
             }
             self.console.cd.exec_command();
           }
-          refresh_timer -= block.nominal_len() as i64;
+          refresh_timer -= steps_taken as i64;
           if refresh_timer < 0 {
             self.console.screen.refresh_window();
             refresh_timer = Console::REFRESH_RATE;
           }
-          //TODO: Fix this for blocks that exit early
-          self.console.i += block.nominal_len();
+          self.console.i += steps_taken;
           n.map(|n| {
             if self.console.i >= n {
-              panic!("Executed {} steps with {:?} of compile time and {:?} of run time",
-                      self.console.i, compile_time, run_time);
+              let end_time = Instant::now();
+              panic!("Executed {} steps in {:?}", self.console.i, end_time - start_time);
             };
           });
           let end = block.final_pc();
@@ -85,7 +90,6 @@ impl CachingInterpreter {
                                       .any(|&x| {
                                         address <= x && x <= end
                                       });
-          //self.console.overwritten.retain(|&x| x < address || end < x);
           //if this block was invalidated by a write
           if block_invalidated {
             self.cache_invalidation(address);
@@ -94,17 +98,14 @@ impl CachingInterpreter {
           if !self.console.handle_events() {
             return
           }
-          let t1 = Instant::now();
-          run_time += t1 - t0;
         },
         None => {
-          compile_time += self.translate(optimize, logging);
+          self.translate(optimize, logging);
         },
       }
     }
   }
-  fn translate(&mut self, optimize: bool, logging: bool) -> Duration {
-    let t0 = Instant::now();
+  fn translate(&mut self, optimize: bool, logging: bool) {
     //first define the opcodes in this block and tag them along the way
     let mut address = self.console.r3000.pc();
     let start = Console::physical(address);
@@ -152,8 +153,6 @@ impl CachingInterpreter {
         self.ranges_compiled.insert(final_pc, vec![start]);
       },
     }
-    let t1 = Instant::now();
-    t1 - t0
   }
   fn cache_invalidation(&mut self, address: u32) {
     //remove the previously executed block
