@@ -163,8 +163,8 @@ impl Insn {
   pub fn inputs(&self) -> &Vec<u32> {
     &self.inputs
   }
-  pub fn output(&self) -> Option<usize> {
-    self.output.map(|output| output as usize)
+  pub fn output(&self) -> Option<u32> {
+    self.output
   }
   pub fn has_branch_delay_slot(op: u32) -> bool {
     match get_primary_field(op) {
