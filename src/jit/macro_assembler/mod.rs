@@ -26,7 +26,17 @@ impl MacroAssembler {
   pub fn emit_call(&mut self, function_addr: u64, arg_addr: u64) {
     self.emit_mov_r64(function_addr);
     self.emit_mov_rdi(arg_addr);
+    //subq $8 %rsp
+    self.buffer.push(0x48);
+    self.buffer.push(0x83);
+    self.buffer.push(0xec);
+    self.buffer.push(0x08);
     self.emit_call_r();
+    //addq $8 %rsp
+    self.buffer.push(0x48);
+    self.buffer.push(0x83);
+    self.buffer.push(0xc4);
+    self.buffer.push(0x08);
   }
   fn emit_imm16(&mut self, imm16: u16) {
     imm16.to_ne_bytes().iter().for_each(|&b| {
