@@ -23,7 +23,8 @@ impl Interpreter {
       n.map(|n| {
         if self.console.i == n {
           let end_time = Instant::now();
-          panic!("Executed {} steps in {:?}", self.console.i, end_time - start_time);
+          println!("Executed {} steps in {:?}", self.console.i, end_time - start_time);
+          return &mut self.console;
         };
       });
       refresh_timer -= 1;
@@ -32,7 +33,7 @@ impl Interpreter {
         refresh_timer = Console::REFRESH_RATE;
       }
       if !self.console.handle_events() {
-        return
+        return;
       }
     }
   }

@@ -38,22 +38,27 @@ impl CachingInterpreter {
         Some(block) => {
           let t0 = Instant::now();
           let stubs = block.stubs();
-          for stub in stubs {
+          for (i, stub) in stubs.iter().enumerate() {
             self.console.r3000.flush_write_cache(&mut self.console.delayed_writes,
                                                  &mut self.console.modified_register);
-            let temp_pc = stub.execute(&mut self.console, logging);
-            //check result of previous opcode
-            match self.console.next_pc {
+            match stub.execute(&mut self.console, logging) {
               Some(next_pc) => {
-                //block ended early so let's move pc since we just executed the
-                //branch delay slot
+                if i + 1 != stubs.len() {
+                  self.console.r3000.flush_write_cache(&mut self.console.delayed_writes,
+                                                       &mut self.console.modified_register);
+                  stubs[i + 1].execute(&mut self.console, logging);
+                  match self.console.gpu.exec_next_gp0_command() {
+                    Some(object) => self.console.screen.draw(object),
+                    None => (),
+                  }
+                  self.console.cd.exec_command();
+                };
                 *self.console.r3000.pc_mut() = next_pc;
                 break;
               },
               None => {
               },
             }
-            self.console.next_pc = temp_pc;
             match self.console.gpu.exec_next_gp0_command() {
               Some(object) => self.console.screen.draw(object),
               None => (),
@@ -65,30 +70,30 @@ impl CachingInterpreter {
             self.console.screen.refresh_window();
             refresh_timer = Console::REFRESH_RATE;
           }
+          //TODO: Fix this for blocks that exit early
           self.console.i += block.nominal_len();
           n.map(|n| {
             if self.console.i >= n {
-              panic!("Executed {} steps with {:?} of compile time and {:?} of run time", self.console.i, compile_time, run_time);
+              println!("Executed {} steps with {:?} of compile time and {:?} of run time",
+                        self.console.i, compile_time, run_time);
+              return &mut self.console;
             };
           });
-          match self.console.next_pc.take() {
-            //if we ended on a syscall
-            Some(next_pc) => *self.console.r3000.pc_mut() = next_pc,
-            None => (),
-          }
+          let end = block.final_pc();
           let block_invalidated = self.console
                                       .overwritten
                                       .iter()
                                       .any(|&x| {
-                                        address <= x && x <= block.final_pc()
+                                        address <= x && x <= end
                                       });
+          //self.console.overwritten.retain(|&x| x < address || end < x);
           //if this block was invalidated by a write
           if block_invalidated {
             self.cache_invalidation(address);
           }
           self.console.overwritten.clear();
           if !self.console.handle_events() {
-            return
+            return;
           }
           let t1 = Instant::now();
           run_time += t1 - t0;
@@ -154,6 +159,9 @@ impl CachingInterpreter {
   fn cache_invalidation(&mut self, address: u32) {
     //remove the previously executed block
     let deleted_block = self.blocks.remove(&address).unwrap();
+    self.ranges_compiled
+        .entry(deleted_block.final_pc())
+        .and_modify(|v| v.retain(|&start| start != address));
     //get all blocks containing the deleted block as a subset
     let overlapping_blocks = self.ranges_compiled
                                  .get(&deleted_block.final_pc())
