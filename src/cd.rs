@@ -41,13 +41,13 @@ impl CD {
     self.command_buffer.push_back(cmd);
   }
   pub fn exec_command(&mut self) {
-    unsafe {
-      asm!("subq $$0x08, %rsp");
-    }
-    println!("got here");
-    unsafe {
-      asm!("addq $$0x08, %rsp");
-    }
+    //unsafe {
+    //  asm!("subq $$0x08, %rsp");
+    //}
+    //println!("got here");
+    //unsafe {
+    //  asm!("addq $$0x08, %rsp");
+    //}
     self.command_buffer.pop_front().map(|cmd| {
       match cmd {
         0x19 => {

@@ -1,6 +1,4 @@
-use std::collections::HashSet;
 use crate::jit::insn::Insn;
-use crate::jit::insn::InsnsRegisters;
 use crate::jit::caching_interpreter::stub::Stub;
 
 pub struct Block {

@@ -263,7 +263,7 @@ impl Stub {
                 None
               },
               None => {
-                let pc = vm.r3000.pc();
+                let pc = vm.r3000.pc().wrapping_add(offset);
                 Some(vm.cop0.generate_exception(Cop0Exception::Overflow, pc))
               },
             };
@@ -290,7 +290,7 @@ impl Stub {
                 None
               },
               None => {
-                let pc = vm.r3000.pc();
+                let pc = vm.r3000.pc().wrapping_add(offset);
                 Some(vm.cop0.generate_exception(Cop0Exception::Overflow, pc))
               },
             };
@@ -796,7 +796,7 @@ impl Stub {
             //SYSCALL
             log!("> SYSCALL");
             Box::new(move |vm| {
-              let pc = vm.r3000.pc();
+              let pc = vm.r3000.pc().wrapping_add(offset);
               Some(vm.cop0.generate_exception(Cop0Exception::Syscall, pc))
             })
           },
