@@ -1,3 +1,4 @@
+#![feature(asm)]
 use std::io;
 use std::env;
 use std::convert::TryInto;
