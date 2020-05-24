@@ -13,7 +13,7 @@ impl MacroAssembler {
     }
   }
   pub fn compile_buffer(&mut self) -> io::Result<JIT_Fn> {
-    self.buffer.push(0xc3);//RET
+    self.emit_ret();
     let mut mmap = MmapMut::map_anon(self.buffer.len())?;
     mmap.copy_from_slice(&self.buffer);
     let mmap = mmap.make_exec()?;
@@ -37,6 +37,9 @@ impl MacroAssembler {
     self.buffer.push(0x83);
     self.buffer.push(0xc4);
     self.buffer.push(0x08);
+  }
+  fn emit_ret(&mut self) {
+    self.buffer.push(0xc3);//RET
   }
   fn emit_imm16(&mut self, imm16: u16) {
     imm16.to_ne_bytes().iter().for_each(|&b| {
