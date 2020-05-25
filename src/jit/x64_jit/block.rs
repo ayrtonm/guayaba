@@ -1,7 +1,7 @@
 use std::io;
 use std::collections::HashSet;
 use crate::jit::insn::Insn;
-use crate::jit::insn::InsnsRegisters;
+use crate::jit::insn::InsnRegisters;
 use crate::jit::jit_fn::JIT_Fn;
 use crate::jit::macro_assembler::MacroAssembler;
 use crate::cd::CD;
@@ -42,7 +42,7 @@ impl Block {
     let mut masm = MacroAssembler::new();
     let inputs = tagged_opcodes.unique_inputs();
     let outputs = tagged_opcodes.unique_outputs();
-    let registers_used: HashSet<_> = inputs.union(&outputs).filter(|&&r| r != 0).collect();
+    let registers_used: HashSet<&u32> = inputs.union(&outputs).filter(|&&r| r != 0).collect();
     masm.emit_call(Block::load_registers as u64, &console.r3000 as *const R3000 as u64);
     //todo!("make a register map for {:?}", registers_used);
     //TODO: create a register map which to be used when emitting macros
@@ -55,25 +55,30 @@ impl Block {
     Ok(masm.compile_buffer()?)
   }
   fn load_registers(r3000: &R3000) {
-    let registers = (0..31).map(|n| r3000.nth_reg(n)).collect::<Vec<u32>>();
+    let registers = (0..=31).map(|n| r3000.nth_reg(n)).collect::<Vec<u32>>();
+    let code_offset = 2 + 3 + (4 * (registers.len() as u8 - 1));
     unsafe {
-      asm!("movq (%r15), %rax
-            movq -8(%r15), %rbx
-            movq -16(%r15), %rcx
-            movq -24(%r15), %rdx
-            movq -32(%r15), %rsi
-            movq -40(%r15), %rdi
-            movq -48(%r15), %rbp
-            movq -56(%r15), %r8
-            movq -64(%r15), %r9
-            movq -72(%r15), %r10
-            movq -80(%r15), %r11
-            movq -88(%r15), %r12
-            movq -96(%r15), %r13
-            movq -104(%r15), %r14
-            pushq -112(%r15)
-            popq %r15
-            "
+      asm!("jmp . + 5
+            movq 104(%r15), %r14
+            movq 96(%r15), %r13
+            movq 88(%r15), %r12
+            movq 80(%r15), %r11
+            movq 72(%r15), %r10
+            movq 64(%r15), %r9
+            movq 56(%r15), %r8
+            movq 48(%r15), %rbp
+            movq 40(%r15), %rdi
+            movq 32(%r15), %rsi
+            movq 24(%r15), %rdx
+            movq 16(%r15), %rcx
+            movq 8(%r15), %rbx
+            movq (%r15), %rax"
+            //112(%r15) contains R29
+            //116(%r15) contains R30
+            //120(%r15) contains R31
+            //use the following to access them
+            //pushq 112(%r15)
+            //popq %r15
             ::"{r15}"(&registers[0]));
     }
   }

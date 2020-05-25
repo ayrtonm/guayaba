@@ -198,14 +198,14 @@ impl Insn {
   }
 }
 
-pub trait InsnsRegisters {
+pub trait InsnRegisters {
   fn inputs(&self) -> Vec<Vec<u32>>;
   fn unique_inputs(&self) -> HashSet<u32>;
   fn outputs(&self) -> Vec<Option<u32>>;
   fn unique_outputs(&self) -> HashSet<u32>;
 }
 
-impl InsnsRegisters for Vec<Insn> {
+impl InsnRegisters for Vec<Insn> {
   fn inputs(&self) -> Vec<Vec<u32>> {
     self.iter().map(|insn| insn.inputs().iter().map(|&i| i).collect()).collect()
   }
