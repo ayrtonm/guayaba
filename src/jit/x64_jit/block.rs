@@ -40,16 +40,18 @@ impl Block {
   fn create_function(tagged_opcodes: &Vec<Insn>, console: &Console, logging: bool) -> io::Result<JIT_Fn> {
     let mut masm = MacroAssembler::new();
     let mut register_map = RegisterMap::new(&tagged_opcodes);
-    println!("{:?}", register_map);
-    masm.emit_call(Block::load_registers as u64, &console.r3000 as *const R3000 as u64);
-    //todo!("make a register map for {:?}", registers_used);
-    //TODO: create a register map which to be used when emitting macros
-    //TODO: populate the register map
+    masm.load_registers(&register_map);
     for insn in tagged_opcodes {
-      //TODO: pass the rgister map to Stub::new
-      masm.emit_insn(&insn, logging);
-      masm.emit_call(CD::exec_command as u64, &console.cd as *const CD as u64);
+      insn.inputs()
+          .iter()
+          .filter(|&&i| i != 0)
+          .for_each(|&i| {
+            register_map.load_mips(i)
+                        .map(|x64_reg| masm.emit_swap(x64_reg));
+          });
+      masm.emit_insn(&insn, &register_map, logging);
     };
+    masm.save_registers(&register_map);
     Ok(masm.compile_buffer()?)
   }
   fn load_registers(r3000: &R3000) {

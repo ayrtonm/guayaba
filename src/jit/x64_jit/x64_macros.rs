@@ -6,19 +6,20 @@ use crate::common::*;
 use crate::register::BitTwiddle;
 use crate::jit::insn::Insn;
 use crate::jit::macro_assembler::MacroAssembler;
+use crate::jit::x64_jit::register_allocator::RegisterMap;
 
 impl MacroAssembler {
-  pub fn emit_insn(&mut self, insn: &Insn, logging: bool) {
+  pub fn emit_insn(&mut self, insn: &Insn, register_map: &RegisterMap, logging: bool) {
     let op = insn.op();
     let offset = insn.offset();
-    //macro_rules! log {
-    //  () => ($crate::print!("\n"));
-    //  ($($arg:tt)*) => ({
-    //    if logging {
-    //      println!($($arg)*);
-    //    };
-    //  })
-    //}
+    macro_rules! log {
+      () => ($crate::print!("\n"));
+      ($($arg:tt)*) => ({
+        if logging {
+          println!($($arg)*);
+        };
+      })
+    }
     ////loading a value from memory is a delayed operation (i.e. the updated register
     ////is not visible to the next opcode). Note that the rs + imm16 in parentheses is
     ////symbolic and only used to improve readability. This macro should be able to
@@ -219,7 +220,7 @@ impl MacroAssembler {
     ////since vm.r3000 is borrowed mutably on the lhs, the rhs must be
     ////computed from the immutable references before assigning its value
     ////to the lhs
-    //macro_rules! compute {
+    macro_rules! compute {
     //  //ALU instructions with two general purpose registers
     //  (rd = rs $method:ident rt) => {
     //    {
@@ -360,19 +361,20 @@ impl MacroAssembler {
     //      })
     //    }
     //  };
-    //  (rt = imm16 shl 16) => {
-    //    {
-    //      let t = get_rt(op);
-    //      let imm16 = get_imm16(op);
-    //      let result = imm16 << 16;
-    //      Box::new(move |vm| {
-    //        let rt = vm.r3000.nth_reg_mut(t);
-    //        vm.modified_register = rt.maybe_set(result);
-    //        log!("R{} = {:#x} << 16 \n  = {:#x}", t, imm16, vm.r3000.nth_reg(t));
-    //        None
-    //      })
-    //    }
-    //  };
+      (rt = imm16 shl 16) => {
+        {
+          let t = get_rt(op);
+          let imm16 = get_imm16(op);
+          let result = imm16 << 16;
+          todo!("implement this");
+          //Box::new(move |vm| {
+          //  let rt = vm.r3000.nth_reg_mut(t);
+          //  vm.modified_register = rt.maybe_set(result);
+          //  log!("R{} = {:#x} << 16 \n  = {:#x}", t, imm16, vm.r3000.nth_reg(t));
+          //  None
+          //})
+        }
+      };
     //  (hi:lo = rs * rt) => {
     //    {
     //      let s = get_rs(op);
@@ -494,7 +496,7 @@ impl MacroAssembler {
     //      })
     //    }
     //  };
-    //}
+    }
     //macro_rules! cop {
     //  ($copn:ident) => {
     //    {
@@ -740,7 +742,7 @@ impl MacroAssembler {
     //    }
     //  };
     //}
-    //match get_primary_field(op) {
+    match get_primary_field(op) {
     //  0x00 => {
     //    //SPECIAL
     //    match get_secondary_field(op) {
@@ -989,11 +991,11 @@ impl MacroAssembler {
     //    log!("> XORI");
     //    compute!(rt = rs xor imm16)
     //  },
-    //  0x0F => {
-    //    //LUI
-    //    log!("> LUI");
-    //    compute!(rt = imm16 shl 16)
-    //  },
+      0x0F => {
+        //LUI
+        log!("> LUI");
+        compute!(rt = imm16 shl 16)
+      },
     //  0x10 => {
     //    //COP0
     //    log!("> COP0");
@@ -1104,10 +1106,10 @@ impl MacroAssembler {
     //    //SWC3
     //    unreachable!("SWC3 is not implemented on the PSX")
     //  },
-    //  _ => {
-    //    //invalid opcode
-    //    unreachable!("ran into invalid opcode")
-    //  }
-    //};
+      _ => {
+        //invalid opcode
+        todo!("ran into unimplemented opcode")
+      }
+    };
   }
 }

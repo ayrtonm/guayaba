@@ -3,16 +3,40 @@ use crate::jit::insn::Insn;
 use crate::jit::insn::InsnRegisters;
 use crate::jit::insn::MIPSRegister;
 
+//the x64's r15 won't have fixed MIPS registers in them
+//if we have to work with more than 28 MIPS registers in a block then r15 will
+//point to the excess registers (up to 3) and they'll be swapped with the first
+//14 registers as needed
+
+enum X64RegNum {
+  RAX = 0,
+  RCX = 1,
+  RDX = 2,
+  RBX = 3,
+  RSP = 4,
+  RBP = 5,
+  RSI = 6,
+  RDI = 7,
+  R8  = 8,
+  R9  = 9,
+  R10 = 10,
+  R11 = 11,
+  R12 = 12,
+  R13 = 13,
+  R14 = 14,
+}
+
 #[derive(Debug)]
 struct X64Register {
   //registers are somewhat arbitrarily mapped as follows
-  //rax - 1
-  //rbx - 2
-  //rcx - 3
-  //rdx - 4
-  //rsi - 5
-  //rdi - 6
-  //rbp - 7
+  //rax - 0
+  //rcx - 1
+  //rdx - 2
+  //rbx - 3
+  //rsp - 4 don't use this
+  //rbp - 5
+  //rsi - 6
+  //rdi - 7
   //r8  - 8
   //r9  - 9
   //r10 - 10
@@ -20,9 +44,8 @@ struct X64Register {
   //r12 - 12
   //r13 - 13
   //r14 - 14
-  //r15 - 15
   reg_num: u32,
-  //shelved means that the MIPS register is held in the upper 32 bits of the x86 register
+  //shelved means that the MIPS register is held in the upper 32 bits of the x64 register
   shelved: bool,
 }
 
@@ -32,48 +55,64 @@ struct Mapping {
   mips_reg: MIPSRegister,
 }
 
+impl Mapping {
+  fn new_from_tuple(tuple: (X64Register, MIPSRegister)) -> Mapping {
+    Mapping {
+      x64_reg: tuple.0,
+      mips_reg: tuple.1,
+    }
+  }
+}
+
 #[derive(Debug)]
 pub struct RegisterMap {
-  mappings: HashSet<Mapping>,
+  mappings: Vec<Mapping>,
 }
 
 impl RegisterMap {
-  const x64_registers_by_priority: [X64Register; 28] = [
-    X64Register { reg_num: 1, shelved: false },
-    X64Register { reg_num: 2, shelved: false },
-    X64Register { reg_num: 3, shelved: false },
-    X64Register { reg_num: 4, shelved: false },
-    X64Register { reg_num: 5, shelved: false },
-    X64Register { reg_num: 6, shelved: false },
-    X64Register { reg_num: 7, shelved: false },
-    X64Register { reg_num: 8, shelved: false },
-    X64Register { reg_num: 9, shelved: false },
-    X64Register { reg_num: 10, shelved: false },
-    X64Register { reg_num: 11, shelved: false },
-    X64Register { reg_num: 12, shelved: false },
-    X64Register { reg_num: 13, shelved: false },
-    X64Register { reg_num: 14, shelved: false },
-    X64Register { reg_num: 1, shelved: true },
-    X64Register { reg_num: 2, shelved: true },
-    X64Register { reg_num: 3, shelved: true },
-    X64Register { reg_num: 4, shelved: true },
-    X64Register { reg_num: 5, shelved: true },
-    X64Register { reg_num: 6, shelved: true },
-    X64Register { reg_num: 7, shelved: true },
-    X64Register { reg_num: 8, shelved: true },
-    X64Register { reg_num: 9, shelved: true },
-    X64Register { reg_num: 10, shelved: true },
-    X64Register { reg_num: 11, shelved: true },
-    X64Register { reg_num: 12, shelved: true },
-    X64Register { reg_num: 13, shelved: true },
-    X64Register { reg_num: 14, shelved: true },
-  ];
   pub fn new(tagged_opcodes: &Vec<Insn>) -> Self {
     let mips_registers = tagged_opcodes.registers_by_frequency();
-    let zipped: Vec<_> = mips_registers.iter().zip(&RegisterMap::x64_registers_by_priority).collect();
-    panic!("{:#?}", zipped);
-    RegisterMap {
-      mappings: Default::default(),
+    let mut x64_registers = Vec::new();
+    for b in &[false, true] {
+      let valid_regs: Vec<_> = (0..=14).filter(|&x| x != X64RegNum::RSP as u32).collect();
+      for i in valid_regs {
+        x64_registers.push(X64Register { reg_num: i, shelved: *b });
+      }
+    };
+    let mappings: Vec<_> = x64_registers.into_iter()
+                                        .zip(mips_registers.into_iter())
+                                        .map(|t| Mapping::new_from_tuple(t))
+                                        .collect();
+    RegisterMap { mappings }
+  }
+  fn mips_to_x64(&self, mips_reg: MIPSRegister) -> &X64Register {
+    match self.mappings.iter().find(|&map| map.mips_reg == mips_reg) {
+      Some(map) => &map.x64_reg,
+      None => unreachable!("{:#?}", mips_reg),
     }
+  }
+  fn is_accessible(&self, mips_reg: MIPSRegister) -> bool {
+    !self.mips_to_x64(mips_reg).shelved
+  }
+  //this returns whether the MIPS register was loaded or not to determine if we
+  //need to emit JIT code to swap the 32-bit words in the x64 register
+  pub fn load_mips(&mut self, mips_reg: MIPSRegister) -> Option<u32> {
+    if !self.is_accessible(mips_reg) {
+      let x64_reg = self.mips_to_x64(mips_reg).reg_num;
+      self.swap_x64(x64_reg);
+      Some(x64_reg)
+    } else {
+      None
+    }
+  }
+  //this only updates the RegisterMap to reflect the state of the mapping after
+  //swapping the x64 register halves. Note that this does not emit any JIT code
+  fn swap_x64(&mut self, x64_reg_num: u32) {
+    self.mappings
+        .iter_mut()
+        .filter(|map| map.x64_reg.reg_num == x64_reg_num)
+        .for_each(|mut map| {
+          map.x64_reg.shelved = !map.x64_reg.shelved;
+        });
   }
 }

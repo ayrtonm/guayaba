@@ -1,6 +1,8 @@
 use std::io;
 use memmap::MmapMut;
+use crate::register::BitTwiddle;
 use crate::jit::jit_fn::JIT_Fn;
+use crate::jit::x64_jit::register_allocator::RegisterMap;
 
 pub struct MacroAssembler {
   buffer: Vec<u8>,
@@ -21,6 +23,27 @@ impl MacroAssembler {
     let name = addr as u64;
     Ok(JIT_Fn::new(mmap, name))
   }
+  pub fn emit_swap(&mut self, x64_reg: u32) {
+    //rolq $32, %r
+    let prefix = match x64_reg.nth_bit_bool(3) {
+      true => 0x48,
+      false => 0x49,
+    };
+    let specify_reg = 0xc0 + (x64_reg as u8 & 0x07);
+    self.buffer.push(prefix);
+    self.buffer.push(0xc1);
+    self.buffer.push(specify_reg);
+    self.buffer.push(0x20);
+  }
+  pub fn load_registers(&mut self, register_map: &RegisterMap) {
+  }
+  pub fn save_registers(&mut self, register_map: &RegisterMap) {
+  }
+  fn emit_ret(&mut self) {
+    self.buffer.push(0xc3);//RET
+  }
+
+
   pub fn emit_call(&mut self, function_addr: u64, arg_addr: u64) {
     self.emit_mov_r64(function_addr);
     self.emit_mov_rdi(arg_addr);
@@ -35,9 +58,6 @@ impl MacroAssembler {
     self.buffer.push(0x83);
     self.buffer.push(0xc4);
     self.buffer.push(0x08);
-  }
-  fn emit_ret(&mut self) {
-    self.buffer.push(0xc3);//RET
   }
   fn emit_imm16(&mut self, imm16: u16) {
     imm16.to_ne_bytes().iter().for_each(|&b| {
