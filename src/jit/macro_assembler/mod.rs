@@ -18,21 +18,19 @@ impl MacroAssembler {
     mmap.copy_from_slice(&self.buffer);
     let mmap = mmap.make_exec()?;
     let addr = mmap.as_ptr();
-    unsafe {
-      let f = std::mem::transmute::<*const u8, fn()>(addr);
-      Ok(JIT_Fn::new(mmap, f))
-    }
+    let name = addr as u64;
+    Ok(JIT_Fn::new(mmap, name))
   }
   pub fn emit_call(&mut self, function_addr: u64, arg_addr: u64) {
     self.emit_mov_r64(function_addr);
     self.emit_mov_rdi(arg_addr);
-    //subq $8 %rsp
+    //subq $8 %rsp for stack alignment
     self.buffer.push(0x48);
     self.buffer.push(0x83);
     self.buffer.push(0xec);
     self.buffer.push(0x08);
     self.emit_call_r();
-    //addq $8 %rsp
+    //addq $8 %rsp to undo stack alignment fix
     self.buffer.push(0x48);
     self.buffer.push(0x83);
     self.buffer.push(0xc4);
