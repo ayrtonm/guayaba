@@ -1,9 +1,8 @@
 use std::io;
-use std::collections::HashSet;
 use crate::jit::insn::Insn;
-use crate::jit::insn::InsnRegisters;
 use crate::jit::jit_fn::JIT_Fn;
 use crate::jit::macro_assembler::MacroAssembler;
+use crate::jit::x64_jit::register_allocator::RegisterMap;
 use crate::cd::CD;
 use crate::r3000::R3000;
 use crate::console::Console;
@@ -40,9 +39,8 @@ impl Block {
   }
   fn create_function(tagged_opcodes: &Vec<Insn>, console: &Console, logging: bool) -> io::Result<JIT_Fn> {
     let mut masm = MacroAssembler::new();
-    let inputs = tagged_opcodes.unique_inputs();
-    let outputs = tagged_opcodes.unique_outputs();
-    let registers_used: HashSet<&u32> = inputs.union(&outputs).filter(|&&r| r != 0).collect();
+    let mut register_map = RegisterMap::new(&tagged_opcodes);
+    println!("{:?}", register_map);
     masm.emit_call(Block::load_registers as u64, &console.r3000 as *const R3000 as u64);
     //todo!("make a register map for {:?}", registers_used);
     //TODO: create a register map which to be used when emitting macros
@@ -56,9 +54,13 @@ impl Block {
   }
   fn load_registers(r3000: &R3000) {
     let registers = (0..=31).map(|n| r3000.nth_reg(n)).collect::<Vec<u32>>();
-    let code_offset = 2 + 3 + (4 * (registers.len() as u8 - 1));
+    //let code_offset = 4 * (registers.len() as u8 - 1);
+    let offset = 16;
     unsafe {
-      asm!("jmp . + 5
+      asm!("leaq label(%rip), %r14
+            addq %r13, %r14
+            jmp *%r14
+            label:
             movq 104(%r15), %r14
             movq 96(%r15), %r13
             movq 88(%r15), %r12
@@ -79,7 +81,7 @@ impl Block {
             //use the following to access them
             //pushq 112(%r15)
             //popq %r15
-            ::"{r15}"(&registers[0]));
+            ::"{r15}"(&registers[0]),"{r13}"(offset));
     }
   }
   pub fn final_pc(&self) -> u32 {

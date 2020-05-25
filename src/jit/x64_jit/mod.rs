@@ -8,6 +8,7 @@ use crate::console::Console;
 mod block;
 mod optimized_x64_macros;
 mod x64_macros;
+mod register_allocator;
 
 pub struct X64JIT {
   console: Console,

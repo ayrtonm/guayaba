@@ -4,7 +4,7 @@ use crate::common::*;
 //this tags each opcode with its input and output registers
 pub struct Insn {
   opcode: u32,
-  //offset into the nominal block
+  //offset into the block
   offset: u32,
   //registers which are used directly, i.e. not as an index into memory
   inputs: Vec<u32>,
@@ -198,24 +198,36 @@ impl Insn {
   }
 }
 
+pub type MIPSRegister = u32;
+
 pub trait InsnRegisters {
-  fn inputs(&self) -> Vec<Vec<u32>>;
-  fn unique_inputs(&self) -> HashSet<u32>;
-  fn outputs(&self) -> Vec<Option<u32>>;
-  fn unique_outputs(&self) -> HashSet<u32>;
+  fn registers_by_frequency(&self) -> Vec<MIPSRegister>;
 }
 
 impl InsnRegisters for Vec<Insn> {
-  fn inputs(&self) -> Vec<Vec<u32>> {
-    self.iter().map(|insn| insn.inputs().iter().map(|&i| i).collect()).collect()
-  }
-  fn unique_inputs(&self) -> HashSet<u32> {
-    self.iter().map(|insn| insn.inputs().iter().map(|&i| i).collect::<Vec<u32>>()).flatten().collect()
-  }
-  fn outputs(&self) -> Vec<Option<u32>> {
-    self.iter().map(|insn| insn.output).collect()
-  }
-  fn unique_outputs(&self) -> HashSet<u32> {
-    self.iter().filter(|insn| insn.output.is_some()).map(|insn| insn.output.unwrap()).collect()
+  fn registers_by_frequency(&self) -> Vec<MIPSRegister> {
+    let outputs = self.iter()
+                      .filter(|insn| insn.output.is_some())
+                      .map(|insn| insn.output().unwrap());
+    let inputs = self.iter()
+                     .map(|insn| insn.inputs())
+                     .flatten()
+                     .map(|&x| x);
+    let registers_used: Vec<MIPSRegister> = inputs.chain(outputs).filter(|&r| r != 0).collect();
+    let mut sorted_registers: Vec<MIPSRegister> = registers_used.iter().copied().collect();
+    sorted_registers.sort_by(|x,y| {
+      let comparison = registers_used.iter()
+                                     .filter(|&z| z == y)
+                                     .count()
+                                     .cmp(&registers_used.iter()
+                                                         .filter(|&z| z == x)
+                                                         .count());
+      match comparison {
+        std::cmp::Ordering::Equal => x.cmp(y),
+        _ => comparison
+      }
+    });
+    sorted_registers.dedup();
+    sorted_registers
   }
 }
