@@ -1,7 +1,7 @@
 use std::io;
 use crate::jit::insn::Insn;
 use crate::jit::jit_fn::JIT_Fn;
-use crate::jit::macro_assembler::MacroAssembler;
+use crate::jit::x64_jit::macro_assembler::MacroAssembler;
 use crate::jit::x64_jit::register_allocator::RegisterMap;
 use crate::cd::CD;
 use crate::r3000::R3000;
@@ -21,7 +21,7 @@ pub struct Block {
 impl Block {
   pub fn new(tagged_opcodes: &Vec<Insn>, console: &Console, final_pc: u32,
              nominal_len: u32, logging: bool) -> io::Result<Self> {
-    let function = Block::create_function(tagged_opcodes, console, logging)?;
+    let function = Block::create_function(tagged_opcodes, &console, logging)?;
     Ok(Block {
       function,
       final_pc,
@@ -30,28 +30,30 @@ impl Block {
   }
   pub fn new_optimized(tagged_opcodes: &Vec<Insn>, console: &Console, final_pc: u32,
                        nominal_len: u32, logging: bool) -> io::Result<Self> {
-    let function = Block::create_optimized_function(tagged_opcodes, console, logging)?;
+    let function = Block::create_optimized_function(tagged_opcodes, &console, logging)?;
     Ok(Block {
       function,
       final_pc,
       nominal_len,
     })
   }
-  fn create_function(tagged_opcodes: &Vec<Insn>, console: &Console, logging: bool) -> io::Result<JIT_Fn> {
+  fn create_function(tagged_opcodes: &Vec<Insn>, console: &Console,
+                     logging: bool) -> io::Result<JIT_Fn> {
     let mut masm = MacroAssembler::new();
     let mut register_map = RegisterMap::new(&tagged_opcodes);
-    masm.load_registers(&register_map);
-    for insn in tagged_opcodes {
-      insn.inputs()
-          .iter()
-          .filter(|&&i| i != 0)
-          .for_each(|&i| {
-            register_map.load_mips(i)
-                        .map(|x64_reg| masm.emit_swap(x64_reg));
-          });
-      masm.emit_insn(&insn, &register_map, logging);
-    };
-    masm.save_registers(&register_map);
+    masm.load_registers(&register_map, &console);
+    //for insn in tagged_opcodes {
+    //let insn = &tagged_opcodes[0];
+    //  insn.inputs()
+    //      .iter()
+    //      .filter(|&&i| i != 0)
+    //      .for_each(|&i| {
+    //        register_map.load_mips(i)
+    //                    .map(|x64_reg| masm.emit_swap(x64_reg));
+    //      });
+    //  masm.emit_insn(&insn, &register_map, logging);
+    //};
+    masm.save_registers(&register_map, &console);
     Ok(masm.compile_buffer()?)
   }
   fn load_registers(r3000: &R3000) {

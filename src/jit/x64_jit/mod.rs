@@ -9,6 +9,7 @@ mod block;
 mod optimized_x64_macros;
 mod x64_macros;
 mod register_allocator;
+mod macro_assembler;
 
 pub struct X64JIT {
   console: Console,
@@ -38,9 +39,11 @@ impl X64JIT {
       match maybe_block {
         Some(block) => {
           let t0 = Instant::now();
+          println!("{:#x?}", self.console.r3000);
           unsafe {
             asm!("callq *$0"::"r"(block.function.name));
           }
+          panic!("{:#x?}", self.console.r3000);
           //let stubs = block.stubs();
           //for stub in stubs {
           //  self.console.r3000.flush_write_cache(&mut self.console.delayed_writes,

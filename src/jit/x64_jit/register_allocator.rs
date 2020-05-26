@@ -7,7 +7,6 @@ use crate::jit::insn::MIPSRegister;
 //if we have to work with more than 28 MIPS registers in a block then r15 will
 //point to the excess registers (up to 3) and they'll be swapped with the first
 //14 registers as needed
-
 enum X64RegNum {
   RAX = 0,
   RCX = 1,
@@ -27,32 +26,25 @@ enum X64RegNum {
 }
 
 #[derive(Debug)]
-struct X64Register {
-  //registers are somewhat arbitrarily mapped as follows
-  //rax - 0
-  //rcx - 1
-  //rdx - 2
-  //rbx - 3
-  //rsp - 4 don't use this
-  //rbp - 5
-  //rsi - 6
-  //rdi - 7
-  //r8  - 8
-  //r9  - 9
-  //r10 - 10
-  //r11 - 11
-  //r12 - 12
-  //r13 - 13
-  //r14 - 14
+pub struct X64Register {
   reg_num: u32,
   //shelved means that the MIPS register is held in the upper 32 bits of the x64 register
   shelved: bool,
 }
 
 #[derive(Debug)]
-struct Mapping {
+pub struct Mapping {
   x64_reg: X64Register,
   mips_reg: MIPSRegister,
+}
+
+impl X64Register {
+  fn is_accessible(&self) -> bool {
+    !self.shelved
+  }
+  pub fn num(&self) -> u32 {
+    self.reg_num
+  }
 }
 
 impl Mapping {
@@ -61,6 +53,15 @@ impl Mapping {
       x64_reg: tuple.0,
       mips_reg: tuple.1,
     }
+  }
+  pub fn x64_reg(&self) -> &X64Register {
+    &self.x64_reg
+  }
+  pub fn mips_reg(&self) -> MIPSRegister {
+    self.mips_reg
+  }
+  fn is_accessible(&self) -> bool {
+    self.x64_reg.is_accessible()
   }
 }
 
@@ -85,6 +86,9 @@ impl RegisterMap {
                                         .collect();
     RegisterMap { mappings }
   }
+  pub fn mappings(&self) -> &Vec<Mapping> {
+    &self.mappings
+  }
   fn mips_to_x64(&self, mips_reg: MIPSRegister) -> &X64Register {
     match self.mappings.iter().find(|&map| map.mips_reg == mips_reg) {
       Some(map) => &map.x64_reg,
@@ -92,7 +96,7 @@ impl RegisterMap {
     }
   }
   fn is_accessible(&self, mips_reg: MIPSRegister) -> bool {
-    !self.mips_to_x64(mips_reg).shelved
+    self.mips_to_x64(mips_reg).is_accessible()
   }
   //this returns whether the MIPS register was loaded or not to determine if we
   //need to emit JIT code to swap the 32-bit words in the x64 register

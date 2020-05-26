@@ -5,7 +5,7 @@ use crate::console::Console;
 use crate::common::*;
 use crate::register::BitTwiddle;
 use crate::jit::insn::Insn;
-use crate::jit::macro_assembler::MacroAssembler;
+use crate::jit::x64_jit::macro_assembler::MacroAssembler;
 use crate::jit::x64_jit::register_allocator::RegisterMap;
 
 impl MacroAssembler {
