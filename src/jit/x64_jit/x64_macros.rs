@@ -24,7 +24,7 @@ impl MacroAssembler {
     ////is not visible to the next opcode). Note that the rs + imm16 in parentheses is
     ////symbolic and only used to improve readability. This macro should be able to
     ////handle all loads in the MIPS instructions set so there's no point to generalizing it
-    //macro_rules! mov {
+    macro_rules! mov {
     //  (rt = [rs + imm16] left) => {
     //    {
     //      mov!(rt = [rs + imm16] 24_u32, sub lowest_bits shl)
@@ -134,11 +134,16 @@ impl MacroAssembler {
     //    }
     //  };
     //  //aligned writes
-    //  ([rs + imm16] = rt $method:ident) => {
-    //    {
-    //      let s = get_rs(op);
-    //      let t = get_rt(op);
-    //      let imm16 = get_imm16(op).half_sign_extended();
+      ([rs + imm16] = rt $method:ident) => {
+        {
+          let s = get_rs(op);
+          let t = get_rt(op);
+          let imm16 = get_imm16(op).half_sign_extended();
+          //movl $0, r15d
+          //addw imm16, r15w
+          ////with r15d as first argument
+          ////and  $1 as second argument
+          //callq write_word
     //      if imm16 == 0 {
     //        Box::new(move |vm| {
     //          let rs = vm.r3000.nth_reg(s);
@@ -166,8 +171,8 @@ impl MacroAssembler {
     //          None
     //        })
     //      }
-    //    }
-    //  };
+        }
+      };
     //  (lo = rs) => {
     //    {
     //      let s = get_rs(op);
@@ -216,7 +221,7 @@ impl MacroAssembler {
     //      })
     //    }
     //  };
-    //}
+    }
     ////since vm.r3000 is borrowed mutably on the lhs, the rhs must be
     ////computed from the immutable references before assigning its value
     ////to the lhs
@@ -1066,11 +1071,11 @@ impl MacroAssembler {
     //    log!("> SWL");
     //    mov!([rs + imm16] = rt left)
     //  },
-    //  0x2B => {
-    //    //SW
-    //    log!("> SW");
-    //    mov!([rs + imm16] = rt write_word)
-    //  },
+      0x2B => {
+        //SW
+        log!("> SW");
+        mov!([rs + imm16] = rt write_word)
+      },
     //  0x2E => {
     //    //SWR
     //    log!("> SWR");

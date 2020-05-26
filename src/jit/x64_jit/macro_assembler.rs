@@ -25,13 +25,9 @@ impl MacroAssembler {
     let name = addr as u64;
     Ok(JIT_Fn::new(mmap, name))
   }
-  pub fn emit_swap(&mut self, x64_reg: u32) {
+  pub fn emit_rotate(&mut self, x64_reg: u32) {
     //rolq $32, %r
-    let prefix = if x64_reg.nth_bit_bool(3) {
-      0x48
-    } else {
-      0x49
-    };
+    let prefix = 0x49 - x64_reg.nth_bit(3) as u8;
     let specify_reg = 0xc0 + (x64_reg as u8 & 0x07);
     self.buffer.push(prefix);
     self.buffer.push(0xc1);
@@ -40,11 +36,9 @@ impl MacroAssembler {
   }
   pub fn load_registers(&mut self, register_map: &RegisterMap, console: &Console) {
     for mapping in register_map.mappings() {
-      let mips_reg_value = if mapping.mips_reg() == 8 {
-        0xdeadbeef
-      } else {
-        console.r3000.nth_reg(mapping.mips_reg())
-      };
+      //FIXME: I shouldn't load the mips reg value here, I need the mips reg
+      //addr AOT to load the mips reg value in the JIT code
+      let mips_reg_value = console.r3000.nth_reg(mapping.mips_reg());
       //movl mips_reg_value, %exx
       let x64_reg = mapping.x64_reg().num();
       self.emit_movl_ir(mips_reg_value, x64_reg);
@@ -52,11 +46,11 @@ impl MacroAssembler {
   }
   pub fn save_registers(&mut self, register_map: &RegisterMap, console: &Console) {
     for mapping in register_map.mappings() {
-      let mips_reg_addr = console.r3000.nth_reg_ptr(mapping.mips_reg()) as u64;
+      let mips_reg_addr = console.r3000.reg_ptr() as u64 + (4 * mapping.mips_reg() as u64);
       let x64_reg = mapping.x64_reg().num();
-      //movq mips_reg_addr, %r15
+      //movq mips_reg_addr, %r14
       self.emit_movq_ir(mips_reg_addr, 0);
-      //movl %exx, (%r15)
+      //movl %exx, (%r14)
       self.emit_movl_rm(x64_reg, 0);
     }
   }
@@ -94,13 +88,13 @@ impl MacroAssembler {
     self.emit_imm32(imm32);
   }
   fn emit_movq_ir(&mut self, imm64: u64, reg: u32) {
-    //reg is hardcoded to %r15 for now
+    //reg is hardcoded to %r14 for now
     self.buffer.push(0x49);
-    self.buffer.push(0xbf);
+    self.buffer.push(0xbe);
     self.emit_imm64(imm64);
   }
   fn emit_movl_rm(&mut self, reg: u32, idx: u32) {
-    //idx register is hardcoded to %r15 for now
+    //idx register is hardcoded to %r14 for now
     let specify_reg = if reg.nth_bit_bool(3) {
       self.buffer.push(0x45);
       0x07 + ((reg - 8) as u8 * 8)
@@ -109,7 +103,7 @@ impl MacroAssembler {
       0x07 + (reg as u8 * 8)
     };
     self.buffer.push(0x89);
-    self.buffer.push(specify_reg);
+    self.buffer.push(specify_reg - 1);
   }
   fn emit_ret(&mut self) {
     self.buffer.push(0xc3);//RET
