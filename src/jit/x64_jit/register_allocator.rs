@@ -7,7 +7,7 @@ use crate::jit::insn::MIPSRegister;
 //if we have to work with more than 28 MIPS registers in a block then r15 will
 //point to the excess registers (up to 3) and they'll be swapped with the first
 //14 registers as needed
-enum X64RegNum {
+pub enum X64RegNum {
   RAX = 0,
   RCX = 1,
   RDX = 2,
@@ -89,7 +89,7 @@ impl RegisterMap {
   pub fn mappings(&self) -> &Vec<Mapping> {
     &self.mappings
   }
-  fn mips_to_x64(&self, mips_reg: MIPSRegister) -> &X64Register {
+  pub fn mips_to_x64(&self, mips_reg: MIPSRegister) -> &X64Register {
     match self.mappings.iter().find(|&map| map.mips_reg == mips_reg) {
       Some(map) => &map.x64_reg,
       None => unreachable!("{:#?}", mips_reg),

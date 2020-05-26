@@ -294,23 +294,29 @@ impl MacroAssembler {
     //      })
     //    }
     //  };
-    //  //ALU instructions with a register and immediate 16-bit data
-    //  (rt = rs $method:tt imm16) => {
-    //    {
-    //      let s = get_rs(op);
-    //      let imm16 = get_imm16(op);
-    //      let t = get_rt(op);
-    //      Box::new(move |vm| {
-    //        let rs = vm.r3000.nth_reg(s);
-    //        let rt = vm.r3000.nth_reg_mut(t);
-    //        vm.modified_register = rt.maybe_set(rs.$method(imm16));
-    //        log!("R{} = R{} {} {:#x}\n  = {:#x} {} {:#x}\n  = {:#x}",
-    //                  t, s, stringify!($method), imm16,
-    //                  rs, stringify!($method), imm16, vm.r3000.nth_reg(t));
-    //        None
-    //      })
-    //    }
-    //  };
+      //ALU instructions with a register and immediate 16-bit data
+      (rt = rs or imm16) => {
+        {
+          let s = get_rs(op);
+          let imm16 = get_imm16(op) as u16;
+          let t = get_rt(op);
+          if t != 0 {
+            let src = register_map.mips_to_x64(s).num();
+            let dest = register_map.mips_to_x64(t).num();
+            self.emit_movl_rr(src, dest);
+            self.emit_orw_ir(imm16, dest);
+          };
+          //Box::new(move |vm| {
+          //  let rs = vm.r3000.nth_reg(s);
+          //  let rt = vm.r3000.nth_reg_mut(t);
+          //  vm.modified_register = rt.maybe_set(rs.$method(imm16));
+          //  log!("R{} = R{} {} {:#x}\n  = {:#x} {} {:#x}\n  = {:#x}",
+          //            t, s, stringify!($method), imm16,
+          //            rs, stringify!($method), imm16, vm.r3000.nth_reg(t));
+          //  None
+          //})
+        }
+      };
     //  //ALU instructions with a register and immediate 16-bit data
     //  (rt = rs $method:tt signed imm16) => {
     //    {
@@ -366,13 +372,9 @@ impl MacroAssembler {
           let t = get_rt(op);
           let imm16 = get_imm16(op);
           let result = imm16 << 16;
-          todo!("implement this");
-          //Box::new(move |vm| {
-          //  let rt = vm.r3000.nth_reg_mut(t);
-          //  vm.modified_register = rt.maybe_set(result);
-          //  log!("R{} = {:#x} << 16 \n  = {:#x}", t, imm16, vm.r3000.nth_reg(t));
-          //  None
-          //})
+          if t != 0 {
+            self.emit_movl_ir(result, register_map.mips_to_x64(t).num());
+          };
         }
       };
     //  (hi:lo = rs * rt) => {
@@ -981,11 +983,11 @@ impl MacroAssembler {
     //    log!("> ANDI");
     //    compute!(rt = rs and imm16)
     //  },
-    //  0x0D => {
-    //    //ORI
-    //    log!("> ORI");
-    //    compute!(rt = rs or imm16)
-    //  },
+      0x0D => {
+        //ORI
+        log!("> ORI");
+        compute!(rt = rs or imm16)
+      },
     //  0x0E => {
     //    //XORI
     //    log!("> XORI");

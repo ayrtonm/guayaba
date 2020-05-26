@@ -42,51 +42,18 @@ impl Block {
     let mut masm = MacroAssembler::new();
     let mut register_map = RegisterMap::new(&tagged_opcodes);
     masm.load_registers(&register_map, &console);
-    //for insn in tagged_opcodes {
-    //let insn = &tagged_opcodes[0];
-    //  insn.inputs()
-    //      .iter()
-    //      .filter(|&&i| i != 0)
-    //      .for_each(|&i| {
-    //        register_map.load_mips(i)
-    //                    .map(|x64_reg| masm.emit_swap(x64_reg));
-    //      });
-    //  masm.emit_insn(&insn, &register_map, logging);
-    //};
+    for insn in &tagged_opcodes[0..3] {
+      insn.inputs()
+          .iter()
+          .filter(|&&i| i != 0)
+          .for_each(|&i| {
+            register_map.load_mips(i)
+                        .map(|x64_reg| masm.emit_swap(x64_reg));
+          });
+      masm.emit_insn(&insn, &register_map, logging);
+    };
     masm.save_registers(&register_map, &console);
     Ok(masm.compile_buffer()?)
-  }
-  fn load_registers(r3000: &R3000) {
-    let registers = (0..=31).map(|n| r3000.nth_reg(n)).collect::<Vec<u32>>();
-    //let code_offset = 4 * (registers.len() as u8 - 1);
-    let offset = 16;
-    unsafe {
-      asm!("leaq label(%rip), %r14
-            addq %r13, %r14
-            jmp *%r14
-            label:
-            movq 104(%r15), %r14
-            movq 96(%r15), %r13
-            movq 88(%r15), %r12
-            movq 80(%r15), %r11
-            movq 72(%r15), %r10
-            movq 64(%r15), %r9
-            movq 56(%r15), %r8
-            movq 48(%r15), %rbp
-            movq 40(%r15), %rdi
-            movq 32(%r15), %rsi
-            movq 24(%r15), %rdx
-            movq 16(%r15), %rcx
-            movq 8(%r15), %rbx
-            movq (%r15), %rax"
-            //112(%r15) contains R29
-            //116(%r15) contains R30
-            //120(%r15) contains R31
-            //use the following to access them
-            //pushq 112(%r15)
-            //popq %r15
-            ::"{r15}"(&registers[0]),"{r13}"(offset));
-    }
   }
   pub fn final_pc(&self) -> u32 {
     self.final_pc
