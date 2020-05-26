@@ -42,13 +42,13 @@ impl Block {
     let mut masm = MacroAssembler::new();
     let mut register_map = RegisterMap::new(&tagged_opcodes);
     masm.load_registers(&register_map, &console);
-    for insn in &tagged_opcodes[0..3] {
+    for insn in &tagged_opcodes[0..4] {
       insn.inputs()
           .iter()
           .filter(|&&i| i != 0)
           .for_each(|&i| {
             register_map.load_mips(i)
-                        .map(|x64_reg| masm.emit_swap(x64_reg));
+                        .map(|x64_reg| masm.emit_rotate(x64_reg));
           });
       masm.emit_insn(&insn, &register_map, logging);
     };

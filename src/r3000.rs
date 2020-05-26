@@ -101,10 +101,8 @@ impl R3000 {
     }
   }
   //this should only be used to save a JIT block's registers
-  pub fn nth_reg_ptr(&self, idx: u32) -> *const u32 {
-    assert!(idx != 0);
-    let idx = idx as usize;
-    &self.general_registers[idx - 1] as *const u32
+  pub fn reg_ptr(&self) -> *const u32 {
+    &self.general_registers[0] as *const u32
   }
   //this methods returns a mutable reference to R1 through R31
   //R0 is always mapped to zero so it doesn't make sense here

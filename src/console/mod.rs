@@ -135,30 +135,30 @@ impl Console {
     }
     true
   }
-  pub fn read_byte_sign_extended(&mut self, address: u32) -> u32 {
+  pub extern fn read_byte_sign_extended(&mut self, address: u32) -> u32 {
     handle_response!(self.memory.read_byte_sign_extended(address), self)
   }
-  pub fn read_half_sign_extended(&mut self, address: u32) -> u32 {
+  pub extern fn read_half_sign_extended(&mut self, address: u32) -> u32 {
     handle_response!(self.memory.read_half_sign_extended(address), self)
   }
-  pub fn read_byte(&mut self, address: u32) -> u32 {
+  pub extern fn read_byte(&mut self, address: u32) -> u32 {
     handle_response!(self.memory.read_byte(address), self)
   }
-  pub fn read_half(&mut self, address: u32) -> u32 {
+  pub extern fn read_half(&mut self, address: u32) -> u32 {
     handle_response!(self.memory.read_half(address), self)
   }
-  pub fn read_word(&mut self, address: u32) -> u32 {
+  pub extern fn read_word(&mut self, address: u32) -> u32 {
     handle_response!(self.memory.read_word(address), self)
   }
-  pub fn write_byte(&mut self, address: u32, value: u32) {
+  pub extern fn write_byte(&mut self, address: u32, value: u32) {
     self.overwritten.insert(Console::physical(address));
     handle_action!(self.memory.write_byte(address, value), self);
   }
-  pub fn write_half(&mut self, address: u32, value: u32) {
+  pub extern fn write_half(&mut self, address: u32, value: u32) {
     self.overwritten.insert(Console::physical(address));
     handle_action!(self.memory.write_half(address, value), self);
   }
-  pub fn write_word(&mut self, address: u32, value: u32) {
+  pub extern fn write_word(&mut self, address: u32, value: u32) {
     self.overwritten.insert(Console::physical(address));
     handle_action!(self.memory.write_word(address, value), self);
   }
