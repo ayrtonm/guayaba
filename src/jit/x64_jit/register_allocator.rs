@@ -23,6 +23,7 @@ pub enum X64RegNum {
   R12 = 12,
   R13 = 13,
   R14 = 14,
+  R15 = 15,
 }
 
 #[derive(Debug)]
@@ -75,7 +76,9 @@ impl RegisterMap {
     let mips_registers = tagged_opcodes.registers_by_frequency();
     let mut x64_registers = Vec::new();
     for b in &[false, true] {
-      let valid_regs: Vec<_> = (0..=14).filter(|&x| x != X64RegNum::RSP as u32).collect();
+      let valid_regs: Vec<_> = (0..=15).filter(|&x| x != X64RegNum::RSP as u32)
+                                       .filter(|&x| x != X64RegNum::RBP as u32)
+                                       .collect();
       for i in valid_regs {
         x64_registers.push(X64Register { reg_num: i, shelved: *b });
       }

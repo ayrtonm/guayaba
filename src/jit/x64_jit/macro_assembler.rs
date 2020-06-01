@@ -36,23 +36,43 @@ impl MacroAssembler {
   }
   pub fn load_registers(&mut self, register_map: &RegisterMap, console: &Console) {
     for mapping in register_map.mappings() {
-      //FIXME: I shouldn't load the mips reg value here, I need the mips reg
-      //addr AOT to load the mips reg value in the JIT code
-      let mips_reg_value = console.r3000.nth_reg(mapping.mips_reg());
-      //movl mips_reg_value, %exx
+      let mips_reg_idx = 4 * mapping.mips_reg() as u64;
+      let mips_reg_addr = console.r3000.reg_ptr() as u64 + mips_reg_idx;
       let x64_reg = mapping.x64_reg().num();
-      self.emit_movl_ir(mips_reg_value, x64_reg);
+      //movq mips_reg_addr, %r14
+      self.emit_movq_ir(mips_reg_addr, 0);
+      //movl (%r14), %exx
+      self.emit_movl_mr(x64_reg, 0);
     }
   }
   pub fn save_registers(&mut self, register_map: &RegisterMap, console: &Console) {
     for mapping in register_map.mappings() {
-      let mips_reg_addr = console.r3000.reg_ptr() as u64 + (4 * mapping.mips_reg() as u64);
+      let mips_reg_idx = 4 * mapping.mips_reg() as u64;
+      let mips_reg_addr = console.r3000.reg_ptr() as u64 + mips_reg_idx;
       let x64_reg = mapping.x64_reg().num();
       //movq mips_reg_addr, %r14
       self.emit_movq_ir(mips_reg_addr, 0);
       //movl %exx, (%r14)
       self.emit_movl_rm(x64_reg, 0);
     }
+  }
+  pub fn emit_xorw_ir(&mut self, imm16: u16, reg: u32) {
+    self.buffer.push(0x66);
+    if reg == X64RegNum::RAX as u32 {
+      self.buffer.push(0x35);
+    } else {
+      if reg.nth_bit_bool(3) {
+        self.buffer.push(0x41);
+      };
+      self.buffer.push(0x81);
+      let specify_reg = if reg.nth_bit_bool(3) {
+        0xc8 + (reg as u8 - 8)
+      } else {
+        0xc8 + (reg as u8)
+      };
+      self.buffer.push(specify_reg);
+    }
+    self.emit_imm16(imm16);
   }
   pub fn emit_orw_ir(&mut self, imm16: u16, reg: u32) {
     self.buffer.push(0x66);
@@ -103,6 +123,18 @@ impl MacroAssembler {
       0x07 + (reg as u8 * 8)
     };
     self.buffer.push(0x89);
+    self.buffer.push(specify_reg - 1);
+  }
+  fn emit_movl_mr(&mut self, reg: u32, idx: u32) {
+    //idx register is hardcoded to %r14 for now
+    let specify_reg = if reg.nth_bit_bool(3) {
+      self.buffer.push(0x45);
+      0x07 + ((reg - 8) as u8 * 8)
+    } else {
+      self.buffer.push(0x41);
+      0x07 + (reg as u8 * 8)
+    };
+    self.buffer.push(0x8b);
     self.buffer.push(specify_reg - 1);
   }
   fn emit_ret(&mut self) {

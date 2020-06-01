@@ -139,6 +139,7 @@ impl MacroAssembler {
           let s = get_rs(op);
           let t = get_rt(op);
           let imm16 = get_imm16(op).half_sign_extended();
+          //TODO: come up with a barebones ABI and implement this correctly
           //movl $0, r15d
           //addw imm16, r15w
           ////with r15d as first argument
