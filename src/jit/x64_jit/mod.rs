@@ -42,6 +42,9 @@ impl X64JIT {
           unsafe {
             asm!("callq *$0"::"r"(block.function.name));
           }
+          let mem_value = self.console.read_word(0x1f80_1010);
+          assert!(self.console.r3000.nth_reg(1) == 0x1f80_0000);
+          assert!(self.console.r3000.nth_reg(8) == 0x13243f);
           panic!("");
           //let stubs = block.stubs();
           //for stub in stubs {

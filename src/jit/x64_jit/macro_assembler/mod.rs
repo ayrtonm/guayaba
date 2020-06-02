@@ -6,11 +6,21 @@ use crate::jit::jit_fn::JIT_Fn;
 use crate::jit::x64_jit::register_allocator::RegisterMap;
 use crate::jit::x64_jit::register_allocator::X64RegNum;
 
+mod mov;
+mod alu;
+
 pub struct MacroAssembler {
   buffer: Vec<u8>,
 }
 
 impl MacroAssembler {
+  pub const Mod11: u8 = 0b1100_0000;
+  pub const REXB: u8 = 0x41;
+  pub const REXX: u8 = 0x42;
+  pub const REXR: u8 = 0x44;
+  pub const REXRB: u8 = 0x45;
+  pub const REXW: u8 = 0x48;
+  pub const REXWB: u8 = 0x49;
   pub fn new() -> Self {
     MacroAssembler {
       buffer: Vec::new(),
@@ -41,114 +51,38 @@ impl MacroAssembler {
   pub fn load_registers(&mut self, register_map: &RegisterMap, console: &Console) {
     let init_size = self.buffer.len();
     for mapping in register_map.mappings() {
-      let mips_reg_idx = 4 * mapping.mips_reg() as u64;
+      let mips_reg_idx = 4 * (mapping.mips_reg() as u64 - 1);
       let mips_reg_addr = console.r3000.reg_ptr() as u64 + mips_reg_idx;
       let x64_reg = mapping.x64_reg().num();
       //movq mips_reg_addr, %r14
-      self.emit_movq_ir(mips_reg_addr, 0);
+      self.emit_movq_ir(mips_reg_addr, X64RegNum::R14 as u32);
       //movl (%r14), %exx
-      self.emit_movl_mr(x64_reg, 0);
+      self.emit_movl_mr(x64_reg, X64RegNum::R14 as u32);
     }
     println!("added {} bytes to the function in load_registers", self.buffer.len() - init_size);
   }
   pub fn save_registers(&mut self, register_map: &RegisterMap, console: &Console) {
     let init_size = self.buffer.len();
+    self.emit_movq_ir(console.r3000.reg_ptr() as u64, X64RegNum::R14 as u32);
     for mapping in register_map.mappings() {
-      let mips_reg_idx = 4 * mapping.mips_reg() as u64;
-      let mips_reg_addr = console.r3000.reg_ptr() as u64 + mips_reg_idx;
+      let mips_reg_idx = 4 * (mapping.mips_reg() - 1);
+      self.emit_movl_ir(mips_reg_idx, X64RegNum::R13 as u32);
+      //let mips_reg_addr = console.r3000.reg_ptr() as u64 + mips_reg_idx;
       let x64_reg = mapping.x64_reg().num();
-      //movq mips_reg_addr, %r14
-      self.emit_movq_ir(mips_reg_addr, 0);
+      self.emit_movl_rm_sib_offset(x64_reg, X64RegNum::R14 as u32, X64RegNum::R13 as u32, 1, 0);
+      ////movq mips_reg_addr, %r14
+      //self.emit_movq_ir(mips_reg_addr, X64RegNum::R14 as u32);
       //movl %exx, (%r14)
-      self.emit_movl_rm(x64_reg, 0);
+      //self.emit_movl_rm(x64_reg, X64RegNum::R14 as u32);
     }
     println!("added {} bytes to the function in save_registers", self.buffer.len() - init_size);
-  }
-  pub fn emit_xorw_ir(&mut self, imm16: u16, reg: u32) {
-    self.buffer.push(0x66);
-    if reg == X64RegNum::RAX as u32 {
-      self.buffer.push(0x35);
-    } else {
-      if reg.nth_bit_bool(3) {
-        self.buffer.push(0x41);
-      };
-      self.buffer.push(0x81);
-      let specify_reg = if reg.nth_bit_bool(3) {
-        0xc8 + (reg as u8 - 8)
-      } else {
-        0xc8 + (reg as u8)
-      };
-      self.buffer.push(specify_reg);
-    }
-    self.emit_imm16(imm16);
-  }
-  pub fn emit_orw_ir(&mut self, imm16: u16, reg: u32) {
-    self.buffer.push(0x66);
-    if reg == X64RegNum::RAX as u32 {
-      self.buffer.push(0x0d);
-    } else {
-      if reg.nth_bit_bool(3) {
-        self.buffer.push(0x41);
-      };
-      self.buffer.push(0x81);
-      let specify_reg = if reg.nth_bit_bool(3) {
-        0xc8 + (reg as u8 - 8)
-      } else {
-        0xc8 + (reg as u8)
-      };
-      self.buffer.push(specify_reg);
-    }
-    self.emit_imm16(imm16);
-  }
-  pub fn emit_movl_rr(&mut self, src: u32, dest: u32) {
-    self.buffer.push(0x89);
-    let specify_reg = 0xc0 + (dest as u8) + (src as u8 * 8);
-    self.buffer.push(specify_reg);
-  }
-  pub fn emit_movl_ir(&mut self, imm32: u32, reg: u32) {
-    let specify_reg = if reg.nth_bit_bool(3) {
-      self.buffer.push(0x41);
-      0xb8 + (reg as u8 - 8)
-    } else {
-      0xb8 + (reg as u8)
-    };
-    self.buffer.push(specify_reg);
-    self.emit_imm32(imm32);
-  }
-  fn emit_movq_ir(&mut self, imm64: u64, reg: u32) {
-    //reg is hardcoded to %r14 for now
-    self.buffer.push(0x49);
-    self.buffer.push(0xbe);
-    self.emit_imm64(imm64);
-  }
-  fn emit_movl_rm(&mut self, reg: u32, idx: u32) {
-    //idx register is hardcoded to %r14 for now
-    let specify_reg = if reg.nth_bit_bool(3) {
-      self.buffer.push(0x45);
-      0x07 + ((reg - 8) as u8 * 8)
-    } else {
-      self.buffer.push(0x41);
-      0x07 + (reg as u8 * 8)
-    };
-    self.buffer.push(0x89);
-    self.buffer.push(specify_reg - 1);
-  }
-  //emit movl (%reg), %idx
-  fn emit_movl_mr(&mut self, reg: u32, idx: u32) {
-    //idx register is hardcoded to %r14 for now
-    let specify_reg = if reg.nth_bit_bool(3) {
-      self.buffer.push(0x45);
-      0x07 + ((reg - 8) as u8 * 8)
-    } else {
-      self.buffer.push(0x41);
-      0x07 + (reg as u8 * 8)
-    };
-    self.buffer.push(0x8b);
-    self.buffer.push(specify_reg - 1);
   }
   //emit return
   fn emit_ret(&mut self) {
     self.buffer.push(0xc3);
+  }
+  fn emit_nop(&mut self) {
+    self.buffer.push(0x90);
   }
   //emit an immediate value
   fn emit_imm16(&mut self, imm16: u16) {
