@@ -39,11 +39,10 @@ impl X64JIT {
       match maybe_block {
         Some(block) => {
           let t0 = Instant::now();
-          println!("{:#x?}", self.console.r3000);
           unsafe {
             asm!("callq *$0"::"r"(block.function.name));
           }
-          panic!("{:#x?}", self.console.r3000);
+          panic!("");
           //let stubs = block.stubs();
           //for stub in stubs {
           //  self.console.r3000.flush_write_cache(&mut self.console.delayed_writes,

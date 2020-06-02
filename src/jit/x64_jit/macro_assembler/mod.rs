@@ -16,8 +16,12 @@ impl MacroAssembler {
       buffer: Vec::new(),
     }
   }
+  pub fn len(&self) -> usize {
+    self.buffer.len()
+  }
   pub fn compile_buffer(&mut self) -> io::Result<JIT_Fn> {
     self.emit_ret();
+    println!("compiled a {} byte function", self.buffer.len());
     let mut mmap = MmapMut::map_anon(self.buffer.len())?;
     mmap.copy_from_slice(&self.buffer);
     let mmap = mmap.make_exec()?;
@@ -35,6 +39,7 @@ impl MacroAssembler {
     self.buffer.push(0x20);
   }
   pub fn load_registers(&mut self, register_map: &RegisterMap, console: &Console) {
+    let init_size = self.buffer.len();
     for mapping in register_map.mappings() {
       let mips_reg_idx = 4 * mapping.mips_reg() as u64;
       let mips_reg_addr = console.r3000.reg_ptr() as u64 + mips_reg_idx;
@@ -44,8 +49,10 @@ impl MacroAssembler {
       //movl (%r14), %exx
       self.emit_movl_mr(x64_reg, 0);
     }
+    println!("added {} bytes to the function in load_registers", self.buffer.len() - init_size);
   }
   pub fn save_registers(&mut self, register_map: &RegisterMap, console: &Console) {
+    let init_size = self.buffer.len();
     for mapping in register_map.mappings() {
       let mips_reg_idx = 4 * mapping.mips_reg() as u64;
       let mips_reg_addr = console.r3000.reg_ptr() as u64 + mips_reg_idx;
@@ -55,6 +62,7 @@ impl MacroAssembler {
       //movl %exx, (%r14)
       self.emit_movl_rm(x64_reg, 0);
     }
+    println!("added {} bytes to the function in save_registers", self.buffer.len() - init_size);
   }
   pub fn emit_xorw_ir(&mut self, imm16: u16, reg: u32) {
     self.buffer.push(0x66);
@@ -125,6 +133,7 @@ impl MacroAssembler {
     self.buffer.push(0x89);
     self.buffer.push(specify_reg - 1);
   }
+  //emit movl (%reg), %idx
   fn emit_movl_mr(&mut self, reg: u32, idx: u32) {
     //idx register is hardcoded to %r14 for now
     let specify_reg = if reg.nth_bit_bool(3) {
@@ -137,8 +146,15 @@ impl MacroAssembler {
     self.buffer.push(0x8b);
     self.buffer.push(specify_reg - 1);
   }
+  //emit return
   fn emit_ret(&mut self) {
-    self.buffer.push(0xc3);//RET
+    self.buffer.push(0xc3);
+  }
+  //emit an immediate value
+  fn emit_imm16(&mut self, imm16: u16) {
+    imm16.to_ne_bytes().iter().for_each(|&b| {
+      self.buffer.push(b);
+    });
   }
   fn emit_imm32(&mut self, imm32: u32) {
     imm32.to_ne_bytes().iter().for_each(|&b| {
@@ -149,43 +165,5 @@ impl MacroAssembler {
     imm64.to_ne_bytes().iter().for_each(|&b| {
       self.buffer.push(b);
     });
-  }
-
-  //this is unorganized garbage
-  pub fn emit_call(&mut self, function_addr: u64, arg_addr: u64) {
-    self.emit_mov_r64(function_addr);
-    self.emit_mov_rdi(arg_addr);
-    //subq $8 %rsp for stack alignment
-    self.buffer.push(0x48);
-    self.buffer.push(0x83);
-    self.buffer.push(0xec);
-    self.buffer.push(0x08);
-    self.emit_call_r();
-    //addq $8 %rsp to undo stack alignment fix
-    self.buffer.push(0x48);
-    self.buffer.push(0x83);
-    self.buffer.push(0xc4);
-    self.buffer.push(0x08);
-  }
-  fn emit_imm16(&mut self, imm16: u16) {
-    imm16.to_ne_bytes().iter().for_each(|&b| {
-      self.buffer.push(b);
-    });
-  }
-  //hardcoded to mov rcx, imm64 for now
-  fn emit_mov_r64(&mut self, imm64: u64) {
-    self.buffer.push(0x48);
-    self.buffer.push(0xb8);
-    self.emit_imm64(imm64);
-  }
-  fn emit_mov_rdi(&mut self, imm64: u64) {
-    self.buffer.push(0x48);
-    self.buffer.push(0xbf);
-    self.emit_imm64(imm64);
-  }
-  //hardcoded to call rcx for now
-  fn emit_call_r(&mut self) {
-    self.buffer.push(0xff);
-    self.buffer.push(0xd0);
   }
 }

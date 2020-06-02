@@ -53,7 +53,10 @@ impl Block {
       masm.emit_insn(&insn, &register_map, logging);
     };
     masm.save_registers(&register_map, &console);
-    Ok(masm.compile_buffer()?)
+    let jit_fn = masm.compile_buffer()?;
+    println!("recompiled {} bytes of MIPS code into {} bytes of x64 code",
+              4 * 3, masm.len());
+    Ok(jit_fn)
   }
   pub fn final_pc(&self) -> u32 {
     self.final_pc
