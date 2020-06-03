@@ -79,23 +79,3 @@ impl MacroAssembler {
     self.emit_imm64(imm64);
   }
 }
-
-#[cfg(test)]
-mod tests {
-  use super::*;
-
-  #[test]
-  fn test_movq() {
-    let mut masm = MacroAssembler::new();
-    const TEST_VALUE: u64 = 0xdeadbeef_bfc0_0001;
-    masm.emit_movq_ir(TEST_VALUE, X64RegNum::R8 as u32);
-    let jit_fn = masm.compile_buffer().unwrap();
-    let out: u64;
-    unsafe {
-      asm!("callq *$1"
-          :"={r8}"(out)
-          :"r"(jit_fn.name));
-    }
-    assert_eq!(out, TEST_VALUE);
-  }
-}

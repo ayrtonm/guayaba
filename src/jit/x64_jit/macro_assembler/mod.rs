@@ -6,6 +6,7 @@ use crate::jit::jit_fn::JIT_Fn;
 use crate::jit::x64_jit::register_allocator::RegisterMap;
 use crate::jit::x64_jit::register_allocator::X64RegNum;
 
+mod stack;
 mod mov;
 mod alu;
 

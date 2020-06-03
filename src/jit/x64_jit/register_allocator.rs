@@ -7,6 +7,7 @@ use crate::jit::insn::MIPSRegister;
 //if we have to work with more than 28 MIPS registers in a block then r15 will
 //point to the excess registers (up to 3) and they'll be swapped with the first
 //14 registers as needed
+#[derive(Copy, Clone, Debug)]
 pub enum X64RegNum {
   RAX = 0,
   RCX = 1,
