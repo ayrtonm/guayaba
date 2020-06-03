@@ -5,7 +5,7 @@ use crate::jit::x64_jit::register_allocator::X64RegNum;
 impl MacroAssembler {
   //FIXME: doesn't seem like this'll work with extended registers i.e. r8-r15
   fn specify_rr(src: u32, dest: u32) -> u8 {
-    MacroAssembler::Mod11 | ((src as u8) << 3) | (dest as u8)
+    MacroAssembler::MOD11 | ((src as u8) << 3) | (dest as u8)
   }
   fn specify_rm(src: u32, ptr_dest: u32) -> u8 {
     (src.lowest_bits(3) << 3) as u8 | (ptr_dest.lowest_bits(3) as u8)
@@ -48,9 +48,9 @@ impl MacroAssembler {
   }
   pub fn emit_movl_rm_offset(&mut self, src: u32, ptr_dest: u32, offset: u32) {
     let specify_regs = MacroAssembler::specify_rm(src, ptr_dest); 
-    let sib = MacroAssembler::specify_sib(ptr_dest, ptr_dest, 1);
+    //let sib = MacroAssembler::specify_sib(ptr_dest, ptr_dest, 1);
     self.buffer.push(0x89);
-    self.buffer.push(sib);
+    //self.buffer.push(sib);
     self.buffer.push(specify_regs);
     self.emit_imm32(offset);
   }
@@ -85,12 +85,17 @@ mod tests {
   use super::*;
 
   #[test]
-  fn test_movl_rr() {
+  fn test_movq() {
     let mut masm = MacroAssembler::new();
-    masm.emit_movl_rr(X64RegNum::R13 as u32, X64RegNum::R14 as u32);
+    const TEST_VALUE: u64 = 0xdeadbeef_bfc0_0001;
+    masm.emit_movq_ir(TEST_VALUE, X64RegNum::R8 as u32);
     let jit_fn = masm.compile_buffer().unwrap();
+    let out: u64;
     unsafe {
-      asm!("callq *$0"::"r"(jit_fn.name));
+      asm!("callq *$1"
+          :"={r8}"(out)
+          :"r"(jit_fn.name));
     }
+    assert_eq!(out, TEST_VALUE);
   }
 }

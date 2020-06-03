@@ -14,7 +14,7 @@ pub struct MacroAssembler {
 }
 
 impl MacroAssembler {
-  pub const Mod11: u8 = 0b1100_0000;
+  pub const MOD11: u8 = 0b1100_0000;
   pub const REXB: u8 = 0x41;
   pub const REXX: u8 = 0x42;
   pub const REXR: u8 = 0x44;
