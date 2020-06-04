@@ -8,9 +8,7 @@ use crate::jit::x64_jit::register_allocator::X64RegNum;
 impl MacroAssembler {
   pub fn emit_push_r32(&mut self, reg: u32) {
     assert!(reg != X64RegNum::RSP as u32);
-    if reg.nth_bit_bool(3) {
-      self.emit_rexb();
-    };
+    self.emit_conditional_rexb(reg);
     self.buffer.push(0x50 | reg.lowest_bits(3) as u8);
   }
   pub fn emit_push_r16(&mut self, reg: u32) {
@@ -20,9 +18,7 @@ impl MacroAssembler {
   }
   pub fn emit_pop_r32(&mut self, reg: u32) {
     assert!(reg != X64RegNum::RSP as u32);
-    if reg.nth_bit_bool(3) {
-      self.emit_rexb();
-    };
+    self.emit_conditional_rexb(reg);
     self.buffer.push(0x58 | reg.lowest_bits(3) as u8);
   }
   pub fn emit_pop_r16(&mut self, reg: u32) {
@@ -41,9 +37,7 @@ impl MacroAssembler {
   }
   pub fn emit_push_m32(&mut self, reg: u32) {
     assert!(reg != X64RegNum::RSP as u32);
-    if reg.nth_bit_bool(3) {
-      self.emit_rexb();
-    };
+    self.emit_conditional_rexb(reg);
     self.buffer.push(0xff);
     if reg.lowest_bits(3) == 5 {
       self.buffer.push(0x75);
@@ -57,9 +51,7 @@ impl MacroAssembler {
   }
   pub fn emit_pop_m32(&mut self, reg: u32) {
     assert!(reg != X64RegNum::RSP as u32);
-    if reg.nth_bit_bool(3) {
-      self.emit_rexb();
-    };
+    self.emit_conditional_rexb(reg);
     self.buffer.push(0x8f);
     self.buffer.push(0x00 | reg.lowest_bits(3) as u8);
   }

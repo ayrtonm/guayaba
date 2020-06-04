@@ -1,7 +1,10 @@
 use std::collections::HashSet;
+use crate::console::Console;
 use crate::jit::insn::Insn;
 use crate::jit::insn::InsnRegisters;
 use crate::jit::insn::MIPSRegister;
+use crate::jit::x64_jit::macro_assembler::MacroAssembler;
+use crate::register::BitTwiddle;
 
 //the x64's r15 won't have fixed MIPS registers in them
 //if we have to work with more than 28 MIPS registers in a block then r15 will
@@ -122,5 +125,37 @@ impl RegisterMap {
         .for_each(|mut map| {
           map.x64_reg.shelved = !map.x64_reg.shelved;
         });
+  }
+}
+
+impl MacroAssembler {
+  pub fn load_registers(&mut self, register_map: &RegisterMap, console: &Console) {
+    let init_size = self.len();
+    for mapping in register_map.mappings() {
+      let mips_reg_idx = 4 * (mapping.mips_reg() as u64 - 1);
+      let mips_reg_addr = console.r3000.reg_ptr() as u64 + mips_reg_idx;
+      let x64_reg = mapping.x64_reg().num();
+      //movq mips_reg_addr, %r14
+      self.emit_movq_ir(mips_reg_addr, X64RegNum::R14 as u32);
+      //movl (%r14), %exx
+      self.emit_movl_mr(x64_reg, X64RegNum::R14 as u32);
+    }
+    println!("added {} bytes to the function in load_registers", self.len() - init_size);
+  }
+  pub fn save_registers(&mut self, register_map: &RegisterMap, console: &Console) {
+    let init_size = self.len();
+    self.emit_movq_ir(console.r3000.reg_ptr() as u64, X64RegNum::R14 as u32);
+    for mapping in register_map.mappings() {
+      let mips_reg_idx = 4 * (mapping.mips_reg() - 1);
+      self.emit_movl_ir(mips_reg_idx, X64RegNum::R13 as u32);
+      //let mips_reg_addr = console.r3000.reg_ptr() as u64 + mips_reg_idx;
+      let x64_reg = mapping.x64_reg().num();
+      self.emit_movl_rm_sib_offset(x64_reg, X64RegNum::R14 as u32, X64RegNum::R13 as u32, 1, 0);
+      ////movq mips_reg_addr, %r14
+      //self.emit_movq_ir(mips_reg_addr, X64RegNum::R14 as u32);
+      //movl %exx, (%r14)
+      //self.emit_movl_rm(x64_reg, X64RegNum::R14 as u32);
+    }
+    println!("added {} bytes to the function in save_registers", self.len() - init_size);
   }
 }
