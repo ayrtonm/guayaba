@@ -2,24 +2,31 @@ use crate::register::BitTwiddle;
 use crate::jit::x64_jit::macro_assembler::MacroAssembler;
 use crate::jit::x64_jit::register_allocator::X64RegNum;
 
+//note that none of these methods should be called with %rsp as an operand
+//while these types of instructions are encodable, I should avoid having the JIT
+//produce complex x64 code for now
 impl MacroAssembler {
   pub fn emit_push_r32(&mut self, reg: u32) {
+    assert!(reg != X64RegNum::RSP as u32);
     if reg.nth_bit_bool(3) {
       self.emit_rexb();
     };
     self.buffer.push(0x50 | reg.lowest_bits(3) as u8);
   }
   pub fn emit_push_r16(&mut self, reg: u32) {
+    assert!(reg != X64RegNum::RSP as u32);
     self.emit_16bit_prefix();
     self.emit_push_r32(reg);
   }
   pub fn emit_pop_r32(&mut self, reg: u32) {
+    assert!(reg != X64RegNum::RSP as u32);
     if reg.nth_bit_bool(3) {
       self.emit_rexb();
     };
     self.buffer.push(0x58 | reg.lowest_bits(3) as u8);
   }
   pub fn emit_pop_r16(&mut self, reg: u32) {
+    assert!(reg != X64RegNum::RSP as u32);
     self.emit_16bit_prefix();
     self.emit_pop_r32(reg);
   }
@@ -32,16 +39,24 @@ impl MacroAssembler {
     self.buffer.push(0x68);
     self.emit_imm16(imm16);
   }
-  //FIXME: may be wrong for rsp and rbp
-  pub fn emit_push_m64(&mut self, reg: u32) {
+  pub fn emit_push_m32(&mut self, reg: u32) {
+    assert!(reg != X64RegNum::RSP as u32);
     if reg.nth_bit_bool(3) {
       self.emit_rexb();
     };
     self.buffer.push(0xff);
-    self.buffer.push(0x30 | reg.lowest_bits(3) as u8);
+    if reg.lowest_bits(3) == 5 {
+      self.buffer.push(0x75);
+      self.buffer.push(0x00);
+    } else {
+      self.buffer.push(0x30 | reg.lowest_bits(3) as u8);
+      if reg.lowest_bits(3) == 4 {
+        self.buffer.push(0x24);
+      };
+    }
   }
-  //FIXME: may be wrong for rsp and rbp
-  pub fn emit_pop_m64(&mut self, reg: u32) {
+  pub fn emit_pop_m32(&mut self, reg: u32) {
+    assert!(reg != X64RegNum::RSP as u32);
     if reg.nth_bit_bool(3) {
       self.emit_rexb();
     };
@@ -49,12 +64,14 @@ impl MacroAssembler {
     self.buffer.push(0x00 | reg.lowest_bits(3) as u8);
   }
   pub fn emit_push_m16(&mut self, reg: u32) {
+    assert!(reg != X64RegNum::RSP as u32);
     self.emit_16bit_prefix();
-    self.emit_push_m64(reg);
+    self.emit_push_m32(reg);
   }
   pub fn emit_pop_m16(&mut self, reg: u32) {
+    assert!(reg != X64RegNum::RSP as u32);
     self.emit_16bit_prefix();
-    self.emit_pop_m64(reg);
+    self.emit_pop_m32(reg);
   }
 }
 
@@ -63,7 +80,7 @@ mod tests {
   use super::*;
 
   fn test_regs() -> Vec<u32> {
-    (0..=15).filter(|&x| x != 4 && x != 5).collect()
+    (0..=15).filter(|&x| x != 4).collect()
   }
   fn save_reserved_registers(masm: &mut MacroAssembler) {
     masm.emit_push_r32(12);
@@ -120,13 +137,13 @@ mod tests {
   #[test]
   fn stack_memory_16bit() {
     for reg in test_regs() {
-      let modify_me: u16 = 0xf0f0;
-      let ptr = &modify_me as *const u16 as u64;
+      let read_me: u16 = 0xf0f0;
+      let ptr = &read_me as *const u16 as u64;
       let mut masm = MacroAssembler::new();
       save_reserved_registers(&mut masm);
-      //masm.emit_movq_ir(ptr, reg);
-      //masm.emit_push_m16(reg);
-      //masm.emit_pop_m16(0);
+      masm.emit_movq_ir(ptr, reg);
+      masm.emit_push_m16(reg);
+      masm.emit_pop_r16(0);
       load_reserved_registers(&mut masm);
       let jit_fn = masm.compile_buffer().unwrap();
       let out: u16;
@@ -135,6 +152,28 @@ mod tests {
             :"={ax}"(out)
             :"{rbp}"(jit_fn.name));
       }
+      assert_eq!(out, read_me);
+    }
+  }
+  #[test]
+  fn stack_memory_32bit() {
+    for reg in test_regs() {
+      let read_me: u32 = 0xff00_f0f0;
+      let ptr = &read_me as *const u32 as u64;
+      let mut masm = MacroAssembler::new();
+      save_reserved_registers(&mut masm);
+      masm.emit_movq_ir(ptr, reg);
+      masm.emit_push_m32(reg);
+      masm.emit_pop_r32(0);
+      load_reserved_registers(&mut masm);
+      let jit_fn = masm.compile_buffer().unwrap();
+      let out: u32;
+      unsafe {
+        asm!("callq *%rbp"
+            :"={rax}"(out)
+            :"{rbp}"(jit_fn.name));
+      }
+      assert_eq!(out, read_me);
     }
   }
 }

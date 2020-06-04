@@ -32,7 +32,7 @@ impl MacroAssembler {
   }
   pub fn compile_buffer(&mut self) -> io::Result<JIT_Fn> {
     self.emit_ret();
-    println!("compiled a {} byte function", self.buffer.len());
+    //println!("compiled a {} byte function", self.buffer.len());
     let mut mmap = MmapMut::map_anon(self.buffer.len())?;
     mmap.copy_from_slice(&self.buffer);
     let mmap = mmap.make_exec()?;

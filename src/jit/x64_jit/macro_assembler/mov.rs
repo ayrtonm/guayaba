@@ -73,9 +73,13 @@ impl MacroAssembler {
     self.emit_imm32(imm32);
   }
   pub fn emit_movq_ir(&mut self, imm64: u64, dest: u32) {
-    self.buffer.push(MacroAssembler::REXWB);
-    let specify_reg = dest.lowest_bits(4) as u8;
-    self.buffer.push(0xb0 | specify_reg);
+    if dest.nth_bit_bool(3) {
+      self.buffer.push(MacroAssembler::REXWB);
+    } else {
+      self.buffer.push(MacroAssembler::REXW);
+    }
+    let specify_reg = dest.lowest_bits(3) as u8;
+    self.buffer.push(0xb8 | specify_reg);
     self.emit_imm64(imm64);
   }
 }
