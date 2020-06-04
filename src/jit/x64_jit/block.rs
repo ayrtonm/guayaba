@@ -41,12 +41,19 @@ impl Block {
                      logging: bool) -> io::Result<JIT_Fn> {
     let mut masm = MacroAssembler::new();
     let mut register_map = RegisterMap::new(&tagged_opcodes);
+    let cop0_reg_addr = console.cop0.reg_ptr() as u64;
+    masm.emit_movq_ir(cop0_reg_addr, 0);
+    masm.emit_push_r64(0);
     masm.load_registers(&register_map, &console);
     for insn in &tagged_opcodes[0..3] {
       //TODO: make sure all inputs are to this insn are in registers here
       masm.emit_insn(&insn, &register_map, logging);
     };
     masm.save_registers(&register_map, &console);
+    //remove COP0 registers to keep stack aligned
+    //TODO: if I end up adding more things onto the stack, I should probably do
+    //an add rsp * to realign the stack
+    masm.emit_pop_r64(0);
     let jit_fn = masm.compile_buffer()?;
     println!("recompiled {} bytes of MIPS code into {} bytes of x64 code",
               3 * 3, masm.len());

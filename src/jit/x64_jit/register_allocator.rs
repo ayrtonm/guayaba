@@ -140,7 +140,6 @@ impl MacroAssembler {
       let x64_reg = mapping.x64_reg().num();
       self.emit_movl_mr_offset(X64RegNum::R15 as u32, x64_reg, mips_reg_idx as i32);
     }
-    println!("added {} bytes to the function in load_registers", self.len() - init_size);
   }
   pub fn save_registers(&mut self, register_map: &RegisterMap, console: &Console) {
     let init_size = self.len();
@@ -150,6 +149,5 @@ impl MacroAssembler {
       let x64_reg = mapping.x64_reg().num();
       self.emit_movl_rm_offset(x64_reg, X64RegNum::R15 as u32, mips_reg_idx as i32);
     }
-    println!("added {} bytes to the function in save_registers", self.len() - init_size);
   }
 }

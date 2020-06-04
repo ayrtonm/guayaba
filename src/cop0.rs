@@ -11,22 +11,27 @@ pub enum Cop0Exception {
 
 #[derive(Default)]
 pub struct Cop0 {
-  r12: u32,
-  r13: u32,
-  r14: u32,
+  //this only contains R12, R13 and R14
+  registers: [u32; 3],
 }
 
 impl Cop0 {
+  const IdxR12: usize = 0;
+  const IdxR13: usize = 1;
+  const IdxR14: usize = 2;
+  pub fn reg_ptr(&self) -> *const u32 {
+    &self.registers[0] as *const u32
+  }
   pub fn nth_data_reg(&self, idx: u32) -> u32 {
     match idx {
       12 => {
-        self.r12
+        self.registers[Cop0::IdxR12]
       },
       13 => {
-        self.r13
+        self.registers[Cop0::IdxR13]
       },
       14 => {
-        self.r14
+        self.registers[Cop0::IdxR14]
       },
       _ => {
         //println!("tried reading from commonly unused COP0 data register R{}", idx);
@@ -37,13 +42,13 @@ impl Cop0 {
   pub fn nth_data_reg_mut(&mut self, idx: u32) -> Option<&mut u32> {
     match idx {
       12 => {
-        Some(&mut self.r12)
+        Some(&mut self.registers[Cop0::IdxR12])
       },
       13 => {
-        Some(&mut self.r13)
+        Some(&mut self.registers[Cop0::IdxR13])
       },
       14 => {
-        Some(&mut self.r14)
+        Some(&mut self.registers[Cop0::IdxR14])
       },
       _ => {
         //println!("tried writing to commonly unused COP0 data register R{}", idx);
@@ -66,7 +71,7 @@ impl Cop0 {
   pub fn request_interrupt(&mut self, irq: u32) {
     //FIXME: double check what else needs to be done
     //there should be something that specifies which interrupt was requested right?
-    self.r13.set(10);
+    self.registers[Cop0::IdxR13].set(10);
   }
   pub fn generate_exception(&mut self, kind: Cop0Exception, current_pc: u32) -> u32 {
     self.store_pc(current_pc);
@@ -82,34 +87,34 @@ impl Cop0 {
     self.exception_vector()
   }
   pub fn cache_isolated(&self) -> bool {
-    self.r12.nth_bit_bool(16)
+    self.registers[Cop0::IdxR12].nth_bit_bool(16)
   }
   pub fn execute_command(&mut self, imm25: u32) -> Option<u32> {
     //this is the only legal COP0 command
     if imm25 == 0x0000_0010 {
-      let bits2_3 = (self.r12 & 0x0000_000c) >> 2;
-      let bits4_5 = (self.r12 & 0x0000_0030) >> 2;
-      self.r12.clear_mask(0x0f).set_mask(bits2_3).set_mask(bits4_5);
+      let bits2_3 = (self.registers[Cop0::IdxR12] & 0x0000_000c) >> 2;
+      let bits4_5 = (self.registers[Cop0::IdxR12] & 0x0000_0030) >> 2;
+      self.registers[Cop0::IdxR12].clear_mask(0x0f).set_mask(bits2_3).set_mask(bits4_5);
     }
     None
   }
   fn store_pc(&mut self, current_pc: u32) {
-    self.r14 = current_pc;
+    self.registers[Cop0::IdxR14] = current_pc;
   }
   fn set_exception_cause(&mut self, cause: u32) {
     assert!(cause < 0x20);
-    self.r13.clear(2).clear(3).clear(4).clear(5).clear(6).set_mask(cause << 2);
+    self.registers[Cop0::IdxR13].clear(2).clear(3).clear(4).clear(5).clear(6).set_mask(cause << 2);
   }
   fn exception_vector(&self) -> u32 {
-    if self.r12.nth_bit_bool(22) {
+    if self.registers[Cop0::IdxR12].nth_bit_bool(22) {
       0xbfc00180
     } else {
       0x80000080
     }
   }
   fn disable_interrupts(&mut self) {
-    let prev = self.r12.nth_bit(0);
-    self.r12.clear(0).clear(2).set_mask(prev << 2);
+    let prev = self.registers[Cop0::IdxR12].nth_bit(0);
+    self.registers[Cop0::IdxR12].clear(0).clear(2).set_mask(prev << 2);
   }
 }
 
