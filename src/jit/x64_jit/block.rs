@@ -41,11 +41,12 @@ impl Block {
                      logging: bool) -> io::Result<JIT_Fn> {
     let mut masm = MacroAssembler::new();
     let mut register_map = RegisterMap::new(&tagged_opcodes);
+    println!("{:#?}", register_map);
     let cop0_reg_addr = console.cop0.reg_ptr() as u64;
     masm.emit_movq_ir(cop0_reg_addr, 0);
     masm.emit_push_r64(0);
     masm.load_registers(&register_map, &console);
-    for insn in &tagged_opcodes[0..3] {
+    for insn in &tagged_opcodes[0..4] {
       //TODO: make sure all inputs are to this insn are in registers here
       masm.emit_insn(&insn, &register_map, logging);
     };
