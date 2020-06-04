@@ -28,16 +28,16 @@ impl MacroAssembler {
     masm
   }
   fn save_reserved_registers(&mut self) {
-    self.emit_push_r32(12);
-    self.emit_push_r32(13);
-    self.emit_push_r32(14);
-    self.emit_push_r32(15);
+    self.emit_push_r64(12);
+    self.emit_push_r64(13);
+    self.emit_push_r64(14);
+    self.emit_push_r64(15);
   }
   fn load_reserved_registers(&mut self) {
-    self.emit_pop_r32(15);
-    self.emit_pop_r32(14);
-    self.emit_pop_r32(13);
-    self.emit_pop_r32(12);
+    self.emit_pop_r64(15);
+    self.emit_pop_r64(14);
+    self.emit_pop_r64(13);
+    self.emit_pop_r64(12);
   }
   pub fn len(&self) -> usize {
     self.buffer.len()

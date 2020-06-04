@@ -6,7 +6,7 @@ use crate::jit::x64_jit::register_allocator::X64RegNum;
 //while these types of instructions are encodable, I should avoid having the JIT
 //produce complex x64 code for now
 impl MacroAssembler {
-  pub fn emit_push_r32(&mut self, reg: u32) {
+  pub fn emit_push_r64(&mut self, reg: u32) {
     assert!(reg != X64RegNum::RSP as u32);
     self.emit_conditional_rexb(reg);
     self.buffer.push(0x50 | reg.lowest_bits(3) as u8);
@@ -14,9 +14,9 @@ impl MacroAssembler {
   pub fn emit_push_r16(&mut self, reg: u32) {
     assert!(reg != X64RegNum::RSP as u32);
     self.emit_16bit_prefix();
-    self.emit_push_r32(reg);
+    self.emit_push_r64(reg);
   }
-  pub fn emit_pop_r32(&mut self, reg: u32) {
+  pub fn emit_pop_r64(&mut self, reg: u32) {
     assert!(reg != X64RegNum::RSP as u32);
     self.emit_conditional_rexb(reg);
     self.buffer.push(0x58 | reg.lowest_bits(3) as u8);
@@ -24,7 +24,7 @@ impl MacroAssembler {
   pub fn emit_pop_r16(&mut self, reg: u32) {
     assert!(reg != X64RegNum::RSP as u32);
     self.emit_16bit_prefix();
-    self.emit_pop_r32(reg);
+    self.emit_pop_r64(reg);
   }
   pub fn emit_push_imm32(&mut self, imm32: u32) {
     self.buffer.push(0x68);
@@ -75,13 +75,13 @@ mod tests {
   use super::*;
 
   #[test]
-  fn stack_32bit() {
+  fn stack_64bit() {
     for reg in MacroAssembler::test_regs() {
       let mut masm = MacroAssembler::new();
       masm.emit_push_imm32(0xdead_beef);
-      masm.emit_pop_r32(reg);
-      masm.emit_push_r32(reg);
-      masm.emit_pop_r32(0);
+      masm.emit_pop_r64(reg);
+      masm.emit_push_r64(reg);
+      masm.emit_pop_r64(0);
       let jit_fn = masm.compile_buffer().unwrap();
       let out: u32;
       unsafe {
@@ -137,7 +137,7 @@ mod tests {
       let mut masm = MacroAssembler::new();
       masm.emit_movq_ir(ptr, reg);
       masm.emit_push_m32(reg);
-      masm.emit_pop_r32(0);
+      masm.emit_pop_r64(0);
       let jit_fn = masm.compile_buffer().unwrap();
       let out: u32;
       unsafe {

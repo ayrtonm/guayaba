@@ -134,6 +134,7 @@ impl MacroAssembler {
     let init_size = self.len();
     let mips_reg_addr = console.r3000.reg_ptr() as u64;
     self.emit_movq_ir(mips_reg_addr, X64RegNum::R15 as u32);
+    self.emit_push_r64(15);
     for mapping in register_map.mappings() {
       let mips_reg_idx = 4 * (mapping.mips_reg() as u64 - 1);
       let x64_reg = mapping.x64_reg().num();
@@ -143,6 +144,7 @@ impl MacroAssembler {
   }
   pub fn save_registers(&mut self, register_map: &RegisterMap, console: &Console) {
     let init_size = self.len();
+    self.emit_pop_r64(15);
     for mapping in register_map.mappings() {
       let mips_reg_idx = 4 * (mapping.mips_reg() as u64 - 1);
       let x64_reg = mapping.x64_reg().num();

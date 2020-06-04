@@ -99,10 +99,10 @@ mod tests {
       for dest in MacroAssembler::test_regs() {
         let mut masm = MacroAssembler::new();
         masm.emit_push_imm32(0xbfc0_0101);
-        masm.emit_pop_r32(src);
+        masm.emit_pop_r64(src);
         masm.emit_movl_rr(src, dest);
-        masm.emit_push_r32(dest);
-        masm.emit_pop_r32(0);
+        masm.emit_push_r64(dest);
+        masm.emit_pop_r64(0);
         let jit_fn = masm.compile_buffer().unwrap();
         let out: u32;
         unsafe {
@@ -120,8 +120,8 @@ mod tests {
     for reg in MacroAssembler::test_regs() {
       let mut masm = MacroAssembler::new();
       masm.emit_movl_ir(0xadcb_1324, reg);
-      masm.emit_push_r32(reg);
-      masm.emit_pop_r32(0);
+      masm.emit_push_r64(reg);
+      masm.emit_pop_r64(0);
       let jit_fn = masm.compile_buffer().unwrap();
       let out: u32;
       unsafe {
@@ -159,7 +159,7 @@ mod tests {
         masm.emit_push_imm32(0xabcd_1235);
         masm.emit_movq_rr(X64RegNum::RSP as u32, ptr);
         masm.emit_movl_mr(ptr, dest);
-        masm.emit_pop_r32(1);
+        masm.emit_pop_r64(1);
         masm.emit_movl_rr(dest, 0);
         let jit_fn = masm.compile_buffer().unwrap();
         let out: u32;
@@ -179,10 +179,10 @@ mod tests {
       for src in MacroAssembler::test_regs() {
         let mut masm = MacroAssembler::new();
         masm.emit_movl_ir(0x5324_bcda, src);
-        masm.emit_push_r32(1);
+        masm.emit_push_r64(1);
         masm.emit_movq_rr(X64RegNum::RSP as u32, ptr);
         masm.emit_movl_rm(src, ptr);
-        masm.emit_pop_r32(0);
+        masm.emit_pop_r64(0);
         let jit_fn = masm.compile_buffer().unwrap();
         let out: u32;
         unsafe {
@@ -205,14 +205,14 @@ mod tests {
       for src in MacroAssembler::test_regs() {
         let mut masm = MacroAssembler::new();
         masm.emit_movl_ir(0xbdef_2398, src);
-        masm.emit_push_r32(1);
-        masm.emit_push_r32(1);
-        masm.emit_push_r32(1);
+        masm.emit_push_r64(1);
+        masm.emit_push_r64(1);
+        masm.emit_push_r64(1);
         masm.emit_movq_rr(X64RegNum::RSP as u32, ptr);
         masm.emit_movl_rm_offset(src, ptr, 16);
-        masm.emit_pop_r32(1);
-        masm.emit_pop_r32(1);
-        masm.emit_pop_r32(0);
+        masm.emit_pop_r64(1);
+        masm.emit_pop_r64(1);
+        masm.emit_pop_r64(0);
         let jit_fn = masm.compile_buffer().unwrap();
         let out: u32;
         unsafe {
@@ -233,14 +233,14 @@ mod tests {
       for dest in MacroAssembler::test_regs() {
         let mut masm = MacroAssembler::new();
         masm.emit_movl_ir(0xabcd_1235, 0);
-        masm.emit_push_r32(0);
-        masm.emit_push_r32(1);
-        masm.emit_push_r32(1);
+        masm.emit_push_r64(0);
+        masm.emit_push_r64(1);
+        masm.emit_push_r64(1);
         masm.emit_movq_rr(X64RegNum::RSP as u32, ptr);
         masm.emit_movl_mr_offset(ptr, dest, 16);
-        masm.emit_pop_r32(1);
-        masm.emit_pop_r32(1);
-        masm.emit_pop_r32(1);
+        masm.emit_pop_r64(1);
+        masm.emit_pop_r64(1);
+        masm.emit_pop_r64(1);
         masm.emit_movl_rr(dest, 0);
         let jit_fn = masm.compile_buffer().unwrap();
         let out: u32;
