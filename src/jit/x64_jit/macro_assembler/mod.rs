@@ -98,6 +98,10 @@ impl MacroAssembler {
     });
   }
   #[cfg(test)]
+  fn all_regs() -> Vec<u32> {
+    (0..=15).collect()
+  }
+  #[cfg(test)]
   fn test_regs() -> Vec<u32> {
     (0..=15).filter(|&x| x != X64RegNum::RSP as u32).collect()
   }

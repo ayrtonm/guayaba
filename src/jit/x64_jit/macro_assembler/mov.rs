@@ -160,7 +160,8 @@ mod tests {
 
   #[test]
   fn movl_mr() {
-    for ptr in MacroAssembler::test_regs() {
+    //using all_regs() in outer loop to test movl (%rsp), *
+    for ptr in MacroAssembler::all_regs() {
       for dest in MacroAssembler::test_regs() {
         let mut masm = MacroAssembler::new();
         masm.emit_push_imm32(0xabcd_1235);
