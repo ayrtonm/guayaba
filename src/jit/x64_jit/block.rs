@@ -42,14 +42,14 @@ impl Block {
     let mut masm = MacroAssembler::new();
     let mut register_map = RegisterMap::new(&tagged_opcodes);
     masm.load_registers(&register_map, &console);
-    for insn in &tagged_opcodes[0..4] {
+    for insn in &tagged_opcodes[0..3] {
       //TODO: make sure all inputs are to this insn are in registers here
       masm.emit_insn(&insn, &register_map, logging);
     };
     masm.save_registers(&register_map, &console);
     let jit_fn = masm.compile_buffer()?;
     println!("recompiled {} bytes of MIPS code into {} bytes of x64 code",
-              4 * 3, masm.len());
+              3 * 3, masm.len());
     Ok(jit_fn)
   }
   pub fn final_pc(&self) -> u32 {

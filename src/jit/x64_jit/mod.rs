@@ -39,9 +39,10 @@ impl X64JIT {
       match maybe_block {
         Some(block) => {
           let t0 = Instant::now();
-          unsafe {
-            asm!("callq *$0"::"r"(block.function.name));
-          }
+          //hopefully rustc is smart enough to inline the function this calls
+          //but it might be interesting to profile and compare with an inline
+          //assembly callq
+          block.function.execute();
           let mem_value = self.console.read_word(0x1f80_1010);
           assert!(self.console.r3000.nth_reg(1) == 0x1f80_0000);
           assert!(self.console.r3000.nth_reg(8) == 0x13243f);

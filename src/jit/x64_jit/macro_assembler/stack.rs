@@ -67,35 +67,24 @@ impl MacroAssembler {
   }
 }
 
+//the JIT functions here may return values of various sizes so we have to call
+//them with inline assembly. Note that there are implicit conversions from fn()
+//to u64 when assigning %rbp for callq
 #[cfg(test)]
 mod tests {
   use super::*;
 
   fn test_regs() -> Vec<u32> {
-    (0..=15).filter(|&x| x != 4).collect()
-  }
-  fn save_reserved_registers(masm: &mut MacroAssembler) {
-    masm.emit_push_r32(12);
-    masm.emit_push_r32(13);
-    masm.emit_push_r32(14);
-    masm.emit_push_r32(15);
-  }
-  fn load_reserved_registers(masm: &mut MacroAssembler) {
-    masm.emit_pop_r32(15);
-    masm.emit_pop_r32(14);
-    masm.emit_pop_r32(13);
-    masm.emit_pop_r32(12);
+    (0..=15).filter(|&x| x != X64RegNum::RSP as u32).collect()
   }
   #[test]
   fn stack_32bit() {
     for reg in test_regs() {
       let mut masm = MacroAssembler::new();
-      save_reserved_registers(&mut masm);
       masm.emit_push_imm32(0xdead_beef);
       masm.emit_pop_r32(reg);
       masm.emit_push_r32(reg);
       masm.emit_pop_r32(0);
-      load_reserved_registers(&mut masm);
       let jit_fn = masm.compile_buffer().unwrap();
       let out: u32;
       unsafe {
@@ -110,12 +99,10 @@ mod tests {
   fn stack_16bit() {
     for reg in test_regs() {
       let mut masm = MacroAssembler::new();
-      save_reserved_registers(&mut masm);
       masm.emit_push_imm16(0xbeef);
       masm.emit_pop_r16(reg);
       masm.emit_push_r16(reg);
       masm.emit_pop_r16(0);
-      load_reserved_registers(&mut masm);
       let jit_fn = masm.compile_buffer().unwrap();
       let out: u16;
       unsafe {
@@ -132,11 +119,9 @@ mod tests {
       let read_me: u16 = 0xf0f0;
       let ptr = &read_me as *const u16 as u64;
       let mut masm = MacroAssembler::new();
-      save_reserved_registers(&mut masm);
       masm.emit_movq_ir(ptr, reg);
       masm.emit_push_m16(reg);
       masm.emit_pop_r16(0);
-      load_reserved_registers(&mut masm);
       let jit_fn = masm.compile_buffer().unwrap();
       let out: u16;
       unsafe {
@@ -153,11 +138,9 @@ mod tests {
       let read_me: u32 = 0xff00_f0f0;
       let ptr = &read_me as *const u32 as u64;
       let mut masm = MacroAssembler::new();
-      save_reserved_registers(&mut masm);
       masm.emit_movq_ir(ptr, reg);
       masm.emit_push_m32(reg);
       masm.emit_pop_r32(0);
-      load_reserved_registers(&mut masm);
       let jit_fn = masm.compile_buffer().unwrap();
       let out: u32;
       unsafe {

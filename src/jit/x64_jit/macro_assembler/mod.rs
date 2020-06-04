@@ -21,30 +21,44 @@ impl MacroAssembler {
   pub const REXW: u8 = 0x48;
   pub const REXWB: u8 = 0x49;
   pub fn new() -> Self {
-    MacroAssembler {
+    let mut masm = MacroAssembler {
       buffer: Vec::new(),
-    }
+    };
+    masm.save_reserved_registers();
+    masm
+  }
+  fn save_reserved_registers(&mut self) {
+    self.emit_push_r32(12);
+    self.emit_push_r32(13);
+    self.emit_push_r32(14);
+    self.emit_push_r32(15);
+  }
+  fn load_reserved_registers(&mut self) {
+    self.emit_pop_r32(15);
+    self.emit_pop_r32(14);
+    self.emit_pop_r32(13);
+    self.emit_pop_r32(12);
   }
   pub fn len(&self) -> usize {
     self.buffer.len()
   }
   pub fn compile_buffer(&mut self) -> io::Result<JIT_Fn> {
+    self.load_reserved_registers();
     self.emit_ret();
-    //println!("compiled a {} byte function", self.buffer.len());
+    println!("compiled a {} byte function", self.buffer.len());
     let mut mmap = MmapMut::map_anon(self.buffer.len())?;
     mmap.copy_from_slice(&self.buffer);
     let mmap = mmap.make_exec()?;
     let addr = mmap.as_ptr();
-    let name = addr as u64;
-    Ok(JIT_Fn::new(mmap, name))
+    unsafe {
+      let function = std::mem::transmute::<*const u8, fn()>(addr);
+      Ok(JIT_Fn::new(mmap, function))
+    }
   }
   fn emit_conditional_rexb(&mut self, reg: u32) {
     if reg.nth_bit_bool(3) {
-      self.emit_rexb();
+      self.buffer.push(MacroAssembler::REXB);
     };
-  }
-  fn emit_rexb(&mut self) {
-    self.buffer.push(MacroAssembler::REXB);
   }
   fn emit_16bit_prefix(&mut self) {
     self.buffer.push(0x66);
