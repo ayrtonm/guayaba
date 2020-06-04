@@ -178,7 +178,7 @@ mod tests {
         masm.emit_push_imm32(0xabcd_1235);
         masm.emit_movq_rr(X64RegNum::RSP as u32, ptr);
         masm.emit_movl_mr(ptr, dest);
-        masm.emit_pop_r32(0);
+        masm.emit_pop_r32(1);
         masm.emit_movl_rr(dest, 0);
         let jit_fn = masm.compile_buffer().unwrap();
         let out: u32;
@@ -194,23 +194,26 @@ mod tests {
 
   #[test]
   fn movl_rm() {
-    for ptr in MacroAssembler::test_regs() {
+    for ptr in MacroAssembler::all_regs() {
       for src in MacroAssembler::test_regs() {
+        let memory: u32 = 0xfeaf_fb24;
+        let memory_location = &memory as *const u32 as u64;
+        let mut masm = MacroAssembler::new();
+        masm.emit_movl_ir(0x5324_bcda, src);
+        masm.emit_push_r32(1);
+        masm.emit_movq_rr(X64RegNum::RSP as u32, ptr);
+        masm.emit_movl_rm(src, ptr);
+        masm.emit_pop_r32(0);
+        let jit_fn = masm.compile_buffer().unwrap();
+        let out: u32;
+        unsafe {
+          asm!("callq *%rbp"
+              :"={rax}"(out)
+              :"{rbp}"(jit_fn.name));
+        }
+        //checking movl (%r), r is tricky since we need to get the value of %rsp out
+        //but we might as well run them anyway to make sure they don't segfault
         if ptr != src {
-          let memory: u32 = 0xfeaf_fb24;
-          let memory_location = &memory as *const u32 as u64;
-          let mut masm = MacroAssembler::new();
-          masm.emit_movl_ir(0x5324_bcda, src);
-          masm.emit_movq_ir(memory_location, ptr);
-          masm.emit_movl_rm(src, ptr);
-          masm.emit_movl_mr(ptr, 0);
-          let jit_fn = masm.compile_buffer().unwrap();
-          let out: u32;
-          unsafe {
-            asm!("callq *%rbp"
-                :"={rax}"(out)
-                :"{rbp}"(jit_fn.name));
-          }
           assert_eq!(out, 0x5324_bcda);
         }
       }
