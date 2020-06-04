@@ -74,12 +74,9 @@ impl MacroAssembler {
 mod tests {
   use super::*;
 
-  fn test_regs() -> Vec<u32> {
-    (0..=15).filter(|&x| x != X64RegNum::RSP as u32).collect()
-  }
   #[test]
   fn stack_32bit() {
-    for reg in test_regs() {
+    for reg in MacroAssembler::test_regs() {
       let mut masm = MacroAssembler::new();
       masm.emit_push_imm32(0xdead_beef);
       masm.emit_pop_r32(reg);
@@ -97,7 +94,7 @@ mod tests {
   }
   #[test]
   fn stack_16bit() {
-    for reg in test_regs() {
+    for reg in MacroAssembler::test_regs() {
       let mut masm = MacroAssembler::new();
       masm.emit_push_imm16(0xbeef);
       masm.emit_pop_r16(reg);
@@ -115,7 +112,7 @@ mod tests {
   }
   #[test]
   fn stack_memory_16bit() {
-    for reg in test_regs() {
+    for reg in MacroAssembler::test_regs() {
       let read_me: u16 = 0xf0f0;
       let ptr = &read_me as *const u16 as u64;
       let mut masm = MacroAssembler::new();
@@ -134,7 +131,7 @@ mod tests {
   }
   #[test]
   fn stack_memory_32bit() {
-    for reg in test_regs() {
+    for reg in MacroAssembler::test_regs() {
       let read_me: u32 = 0xff00_f0f0;
       let ptr = &read_me as *const u32 as u64;
       let mut masm = MacroAssembler::new();

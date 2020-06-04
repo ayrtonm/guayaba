@@ -13,13 +13,13 @@ pub struct MacroAssembler {
 }
 
 impl MacroAssembler {
-  pub const MOD11: u8 = 0b1100_0000;
-  pub const REXB: u8 = 0x41;
-  pub const REXX: u8 = 0x42;
-  pub const REXR: u8 = 0x44;
-  pub const REXRB: u8 = 0x45;
-  pub const REXW: u8 = 0x48;
-  pub const REXWB: u8 = 0x49;
+  const REX: u8 = 0x40;
+  const REXB: u8 = 0x41;
+  const REXX: u8 = 0x42;
+  const REXR: u8 = 0x44;
+  const REXRB: u8 = 0x45;
+  const REXW: u8 = 0x48;
+  const REXWB: u8 = 0x49;
   pub fn new() -> Self {
     let mut masm = MacroAssembler {
       buffer: Vec::new(),
@@ -45,7 +45,7 @@ impl MacroAssembler {
   pub fn compile_buffer(&mut self) -> io::Result<JIT_Fn> {
     self.load_reserved_registers();
     self.emit_ret();
-    println!("compiled a {} byte function", self.buffer.len());
+    //println!("compiled a {} byte function", self.buffer.len());
     let mut mmap = MmapMut::map_anon(self.buffer.len())?;
     mmap.copy_from_slice(&self.buffer);
     let mmap = mmap.make_exec()?;
@@ -59,6 +59,19 @@ impl MacroAssembler {
     if reg.nth_bit_bool(3) {
       self.buffer.push(MacroAssembler::REXB);
     };
+  }
+  fn emit_conditional_rexrb(&mut self, src: u32, dest: u32) {
+    let r = src.nth_bit(3) as u8;
+    let b = dest.nth_bit(3) as u8;
+    if (r | b) != 0 {
+      self.buffer.push(MacroAssembler::REX | b | r << 2);
+    };
+  }
+  fn conditional_rexb(reg: u32) -> u8 {
+    reg.nth_bit(3) as u8
+  }
+  fn conditional_rexr(reg: u32) -> u8 {
+    (reg.nth_bit(3) << 2) as u8
   }
   fn emit_16bit_prefix(&mut self) {
     self.buffer.push(0x66);
@@ -83,5 +96,9 @@ impl MacroAssembler {
     imm64.to_ne_bytes().iter().for_each(|&b| {
       self.buffer.push(b);
     });
+  }
+  #[cfg(test)]
+  fn test_regs() -> Vec<u32> {
+    (0..=15).filter(|&x| x != X64RegNum::RSP as u32).collect()
   }
 }

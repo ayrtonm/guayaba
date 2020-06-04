@@ -2,6 +2,9 @@ use memmap::Mmap;
 
 pub struct JIT_Fn {
   mmap: Mmap,
+  #[cfg(not(test))]
+  name: fn(),
+  #[cfg(test)]
   pub name: fn(),
 }
 
