@@ -60,9 +60,9 @@ impl MacroAssembler {
       self.buffer.push(MacroAssembler::REXB);
     };
   }
-  fn emit_conditional_rexrb(&mut self, src: u32, dest: u32) {
-    let r = src.nth_bit(3) as u8;
-    let b = dest.nth_bit(3) as u8;
+  fn emit_conditional_rexrb(&mut self, reg1: u32, reg2: u32) {
+    let r = reg1.nth_bit(3) as u8;
+    let b = reg2.nth_bit(3) as u8;
     if (r | b) != 0 {
       self.buffer.push(MacroAssembler::REX | b | r << 2);
     };

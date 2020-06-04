@@ -41,6 +41,17 @@ impl MacroAssembler {
     }
   }
   pub fn emit_movl_rm(&mut self, src: u32, ptr: u32) {
+    self.emit_conditional_rexrb(src, ptr);
+    self.buffer.push(0x89);
+    if ptr.lowest_bits(3) == 5 {
+      self.buffer.push(0x45 | (src.lowest_bits(3) << 3) as u8);
+      self.buffer.push(0x00);
+    } else {
+      self.buffer.push((src.lowest_bits(3) << 3) as u8 | ptr.lowest_bits(3) as u8);
+      if ptr.lowest_bits(3) == 4 {
+        self.buffer.push(0x24);
+      };
+    }
   }
   //FIXME: doesn't seem like this'll work with extended registers i.e. r8-r15
   //fn specify_rm(src: u32, ptr_dest: u32) -> u8 {
@@ -176,7 +187,32 @@ mod tests {
               :"={rax}"(out)
               :"{rbp}"(jit_fn.name));
         }
-        assert_eq!(out, 0xabcd_1235, "failed test {} {}", ptr, dest);
+        assert_eq!(out, 0xabcd_1235);
+      }
+    }
+  }
+
+  #[test]
+  fn movl_rm() {
+    for ptr in MacroAssembler::test_regs() {
+      for src in MacroAssembler::test_regs() {
+        if ptr != src {
+          let memory: u32 = 0xfeaf_fb24;
+          let memory_location = &memory as *const u32 as u64;
+          let mut masm = MacroAssembler::new();
+          masm.emit_movl_ir(0x5324_bcda, src);
+          masm.emit_movq_ir(memory_location, ptr);
+          masm.emit_movl_rm(src, ptr);
+          masm.emit_movl_mr(ptr, 0);
+          let jit_fn = masm.compile_buffer().unwrap();
+          let out: u32;
+          unsafe {
+            asm!("callq *%rbp"
+                :"={rax}"(out)
+                :"{rbp}"(jit_fn.name));
+          }
+          assert_eq!(out, 0x5324_bcda);
+        }
       }
     }
   }
