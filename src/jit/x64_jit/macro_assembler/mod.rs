@@ -78,7 +78,12 @@ impl MacroAssembler {
     }
     println!("added {} bytes to the function in save_registers", self.buffer.len() - init_size);
   }
-  //emit return
+  fn emit_rexb(&mut self) {
+    self.buffer.push(MacroAssembler::REXB);
+  }
+  fn emit_16bit_prefix(&mut self) {
+    self.buffer.push(0x66);
+  }
   fn emit_ret(&mut self) {
     self.buffer.push(0xc3);
   }
