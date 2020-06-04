@@ -82,6 +82,7 @@ impl RegisterMap {
     for b in &[false, true] {
       let valid_regs: Vec<_> = (0..=15).filter(|&x| x != X64RegNum::RSP as u32)
                                        .filter(|&x| x != X64RegNum::RBP as u32)
+                                       .filter(|&x| x != X64RegNum::R15 as u32)
                                        .collect();
       for i in valid_regs {
         x64_registers.push(X64Register { reg_num: i, shelved: *b });
@@ -131,30 +132,21 @@ impl RegisterMap {
 impl MacroAssembler {
   pub fn load_registers(&mut self, register_map: &RegisterMap, console: &Console) {
     let init_size = self.len();
+    let mips_reg_addr = console.r3000.reg_ptr() as u64;
+    self.emit_movq_ir(mips_reg_addr, X64RegNum::R15 as u32);
     for mapping in register_map.mappings() {
-      //let mips_reg_idx = 4 * (mapping.mips_reg() as u64 - 1);
-      //let mips_reg_addr = console.r3000.reg_ptr() as u64 + mips_reg_idx;
-      //let x64_reg = mapping.x64_reg().num();
-      ////movq mips_reg_addr, %r14
-      //self.emit_movq_ir(mips_reg_addr, X64RegNum::R14 as u32);
-      ////movl (%r14), %exx
-      //self.emit_movl_mr(x64_reg, X64RegNum::R14 as u32);
+      let mips_reg_idx = 4 * (mapping.mips_reg() as u64 - 1);
+      let x64_reg = mapping.x64_reg().num();
+      self.emit_movl_mr_offset(X64RegNum::R15 as u32, x64_reg, mips_reg_idx as i32);
     }
     println!("added {} bytes to the function in load_registers", self.len() - init_size);
   }
   pub fn save_registers(&mut self, register_map: &RegisterMap, console: &Console) {
     let init_size = self.len();
-    self.emit_movq_ir(console.r3000.reg_ptr() as u64, X64RegNum::R14 as u32);
     for mapping in register_map.mappings() {
-      //let mips_reg_idx = 4 * (mapping.mips_reg() - 1);
-      //self.emit_movl_ir(mips_reg_idx, X64RegNum::R13 as u32);
-      ////let mips_reg_addr = console.r3000.reg_ptr() as u64 + mips_reg_idx;
-      //let x64_reg = mapping.x64_reg().num();
-      //self.emit_movl_rm_sib_offset(x64_reg, X64RegNum::R14 as u32, X64RegNum::R13 as u32, 1, 0);
-      //////movq mips_reg_addr, %r14
-      ////self.emit_movq_ir(mips_reg_addr, X64RegNum::R14 as u32);
-      ////movl %exx, (%r14)
-      ////self.emit_movl_rm(x64_reg, X64RegNum::R14 as u32);
+      let mips_reg_idx = 4 * (mapping.mips_reg() as u64 - 1);
+      let x64_reg = mapping.x64_reg().num();
+      self.emit_movl_rm_offset(x64_reg, X64RegNum::R15 as u32, mips_reg_idx as i32);
     }
     println!("added {} bytes to the function in save_registers", self.len() - init_size);
   }
