@@ -307,8 +307,8 @@ impl MacroAssembler {
           let imm16 = get_imm16(op) as u16;
           let t = get_rt(op);
           if t != 0 {
-            let src = register_map.mips_to_x64(s).num();
-            let dest = register_map.mips_to_x64(t).num();
+            let src = register_map.mips_to_x64(s);
+            let dest = register_map.mips_to_x64(t);
             self.emit_movl_rr(src, dest);
             self.emit_orw_ir(imm16, dest);
           };
@@ -379,7 +379,7 @@ impl MacroAssembler {
           let imm16 = get_imm16(op);
           let result = imm16 << 16;
           if t != 0 {
-            self.emit_movl_ir(result, register_map.mips_to_x64(t).num());
+            self.emit_movl_ir(result, register_map.mips_to_x64(t));
           };
         }
       };

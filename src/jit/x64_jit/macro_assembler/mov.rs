@@ -1,6 +1,6 @@
 use crate::register::BitTwiddle;
 use crate::jit::x64_jit::macro_assembler::MacroAssembler;
-use crate::jit::x64_jit::register_allocator::X64RegNum;
+use crate::jit::x64_jit::register_allocator::X64_RSP;
 
 impl MacroAssembler {
   pub fn emit_movl_rr(&mut self, src: u32, dest: u32) {
@@ -95,8 +95,8 @@ mod tests {
 
   #[test]
   fn movl_rr() {
-    for src in MacroAssembler::test_regs() {
-      for dest in MacroAssembler::test_regs() {
+    for src in MacroAssembler::free_regs() {
+      for dest in MacroAssembler::free_regs() {
         let mut masm = MacroAssembler::new();
         masm.emit_push_imm32(0xbfc0_0101);
         masm.emit_pop_r64(src);
@@ -117,7 +117,7 @@ mod tests {
 
   #[test]
   fn movl_ir() {
-    for reg in MacroAssembler::test_regs() {
+    for reg in MacroAssembler::free_regs() {
       let mut masm = MacroAssembler::new();
       masm.emit_movl_ir(0xadcb_1324, reg);
       masm.emit_push_r64(reg);
@@ -135,7 +135,7 @@ mod tests {
 
   #[test]
   fn movq() {
-    for reg in MacroAssembler::test_regs() {
+    for reg in MacroAssembler::free_regs() {
       let mut masm = MacroAssembler::new();
       masm.emit_movq_ir(0xadcb_1324_ff00_dcda, reg);
       masm.emit_movq_rr(reg, 0);
@@ -154,10 +154,10 @@ mod tests {
   fn movl_mr() {
     //using all_regs() in outer loop to test movl (%rsp), *
     for ptr in MacroAssembler::all_regs() {
-      for dest in MacroAssembler::test_regs() {
+      for dest in MacroAssembler::free_regs() {
         let mut masm = MacroAssembler::new();
         masm.emit_push_imm32(0xabcd_1235);
-        masm.emit_movq_rr(X64RegNum::RSP as u32, ptr);
+        masm.emit_movq_rr(X64_RSP as u32, ptr);
         masm.emit_movl_mr(ptr, dest);
         masm.emit_pop_r64(1);
         masm.emit_movl_rr(dest, 0);
@@ -176,11 +176,11 @@ mod tests {
   #[test]
   fn movl_rm() {
     for ptr in MacroAssembler::all_regs() {
-      for src in MacroAssembler::test_regs() {
+      for src in MacroAssembler::free_regs() {
         let mut masm = MacroAssembler::new();
         masm.emit_movl_ir(0x5324_bcda, src);
         masm.emit_push_r64(1);
-        masm.emit_movq_rr(X64RegNum::RSP as u32, ptr);
+        masm.emit_movq_rr(X64_RSP as u32, ptr);
         masm.emit_movl_rm(src, ptr);
         masm.emit_pop_r64(0);
         let jit_fn = masm.compile_buffer().unwrap();
@@ -202,13 +202,13 @@ mod tests {
   #[test]
   fn movl_rm_offset() {
     for ptr in MacroAssembler::all_regs() {
-      for src in MacroAssembler::test_regs() {
+      for src in MacroAssembler::free_regs() {
         let mut masm = MacroAssembler::new();
         masm.emit_movl_ir(0xbdef_2398, src);
         masm.emit_push_r64(1);
         masm.emit_push_r64(1);
         masm.emit_push_r64(1);
-        masm.emit_movq_rr(X64RegNum::RSP as u32, ptr);
+        masm.emit_movq_rr(X64_RSP as u32, ptr);
         masm.emit_movl_rm_offset(src, ptr, 16);
         masm.emit_pop_r64(1);
         masm.emit_pop_r64(1);
@@ -230,13 +230,13 @@ mod tests {
   #[test]
   fn movl_mr_offset() {
     for ptr in MacroAssembler::all_regs() {
-      for dest in MacroAssembler::test_regs() {
+      for dest in MacroAssembler::free_regs() {
         let mut masm = MacroAssembler::new();
         masm.emit_movl_ir(0xabcd_1235, 0);
         masm.emit_push_r64(0);
         masm.emit_push_r64(1);
         masm.emit_push_r64(1);
-        masm.emit_movq_rr(X64RegNum::RSP as u32, ptr);
+        masm.emit_movq_rr(X64_RSP as u32, ptr);
         masm.emit_movl_mr_offset(ptr, dest, 16);
         masm.emit_pop_r64(1);
         masm.emit_pop_r64(1);

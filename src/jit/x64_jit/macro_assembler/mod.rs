@@ -2,7 +2,7 @@ use std::io;
 use memmap::MmapMut;
 use crate::register::BitTwiddle;
 use crate::jit::jit_fn::JIT_Fn;
-use crate::jit::x64_jit::register_allocator::X64RegNum;
+use crate::jit::x64_jit::register_allocator::X64_RSP;
 
 mod stack;
 mod mov;
@@ -101,8 +101,7 @@ impl MacroAssembler {
   fn all_regs() -> Vec<u32> {
     (0..=15).collect()
   }
-  #[cfg(test)]
-  fn test_regs() -> Vec<u32> {
-    (0..=15).filter(|&x| x != X64RegNum::RSP as u32).collect()
+  pub fn free_regs() -> Vec<u32> {
+    (0..=15).filter(|&x| x != X64_RSP).collect()
   }
 }
