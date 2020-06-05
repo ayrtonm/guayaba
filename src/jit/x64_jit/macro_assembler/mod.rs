@@ -63,9 +63,16 @@ impl MacroAssembler {
   pub fn compile_buffer(&mut self) -> io::Result<JIT_Fn> {
     self.load_reserved_registers();
     self.emit_ret();
+    println!("{:#?}", self.labels_used);
+    println!("{:#?}", self.labels_defined);
     for (&label, &loc) in self.labels_used.iter() {
       match self.labels_defined.get(&label) {
-        Some(&def) => self.buffer[loc] = (def as u8) - (loc as u8),
+        Some(&def) => {
+          let rel_distance = (def - loc - 1) as isize;
+          //TODO: extend this to handle longer jumps
+          assert!(rel_distance <= 127 && -128 <= rel_distance);
+          self.buffer[loc] = rel_distance as u8;
+        },
         None => panic!("used undefined label {} at {}", label, loc),
       }
     }

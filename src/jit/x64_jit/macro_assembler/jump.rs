@@ -37,19 +37,30 @@ mod tests {
 
   #[test]
   fn jmp_label() {
-    let mut masm = MacroAssembler::new();
-    let dest = masm.create_undefined_label();
-    masm.emit_movl_ir(0x1235_8732, X64_RAX);
-    masm.emit_jmp_label(dest);
-    masm.emit_movl_ir(0, X64_RAX);
-    masm.define_label(dest);
-    let jit_fn = masm.compile_buffer().unwrap();
-    let out: u32;
-    unsafe {
-      asm!("callq *%rbp"
-          :"={rax}"(out)
-          :"{rbp}"(jit_fn.name));
+    for i in 0..=1 {
+      let mut masm = MacroAssembler::new();
+      let dest = masm.create_undefined_label();
+      masm.emit_movl_ir(0x1235_8732, X64_RAX);
+      masm.emit_jmp_label(dest);
+      if i == 0 {
+        masm.emit_movl_ir(0, X64_RAX);
+        masm.define_label(dest);
+      } else {
+        masm.define_label(dest);
+        masm.emit_movl_ir(0, X64_RAX);
+      }
+      let jit_fn = masm.compile_buffer().unwrap();
+      let out: u32;
+      unsafe {
+        asm!("callq *%rbp"
+            :"={rax}"(out)
+            :"{rbp}"(jit_fn.name));
+      }
+      if i == 0 {
+        assert_eq!(out, 0x1235_8732);
+      } else {
+        assert_eq!(out, 0);
+      }
     }
-    assert_eq!(out, 0x1235_8732);
   }
 }
