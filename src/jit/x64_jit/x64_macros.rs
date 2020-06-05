@@ -167,7 +167,13 @@ impl MacroAssembler {
           let write_word_stack_position = 24 + stack_offset;
           self.emit_movq_mr_offset(X64_RSP, X64_R15, write_word_stack_position);
           self.emit_movq_mr_offset(X64_RSP, X64_RDI, console_stack_position);
-          self.emit_movl_rr(register_map.mips_to_x64(s), X64_RSI);
+          match register_map.mips_to_x64(s) {
+            Some(reg) => self.emit_movl_rr(reg, X64_RSI),
+            None => {
+              self.emit_xchgq_mr_offset(
+              self.emit_movl_rr(reg, X64_RSI)
+            },
+          }
           self.emit_addl_ir(imm16 as i32, X64_RSI);
           self.emit_movl_rr(register_map.mips_to_x64(t), X64_RDX);
           for i in MacroAssembler::caller_saved_regs() {

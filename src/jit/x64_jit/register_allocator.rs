@@ -28,22 +28,25 @@ pub const X64_R15: X64RegNum = 15;
 
 #[derive(Debug)]
 pub struct Mapping {
-  x64_reg: X64RegNum,
+  x64_reg: Option<X64RegNum>,
   mips_reg: MIPSRegister,
 }
 
 impl Mapping {
-  fn new_from_tuple(tuple: (X64RegNum, MIPSRegister)) -> Mapping {
+  fn new_from_tuple(tuple: (Option<&X64RegNum>, MIPSRegister)) -> Mapping {
     Mapping {
-      x64_reg: tuple.0,
+      x64_reg: tuple.0.map(|&num| num),
       mips_reg: tuple.1,
     }
   }
-  pub fn x64_reg(&self) -> X64RegNum {
+  pub fn x64_reg(&self) -> Option<X64RegNum> {
     self.x64_reg
   }
   pub fn mips_reg(&self) -> MIPSRegister {
     self.mips_reg
+  }
+  fn mips_loaded(&self) -> bool {
+    self.x64_reg.is_some()
   }
 }
 
@@ -54,8 +57,11 @@ pub struct RegisterMap {
 
 impl RegisterMap {
   pub fn new(tagged_opcodes: &Vec<Insn>) -> Self {
+    let none = [None].iter().map(|o| o.as_ref()).cycle();
     let mips_registers = tagged_opcodes.registers_by_frequency();
-    let mappings: Vec<_> = MacroAssembler::free_regs().into_iter()
+    let mappings: Vec<_> = MacroAssembler::free_regs().iter()
+                                        .map(|x| Some(x))
+                                        .chain(none)
                                         .zip(mips_registers.into_iter())
                                         .map(|t| Mapping::new_from_tuple(t))
                                         .collect();
@@ -68,16 +74,19 @@ impl RegisterMap {
       (self.mappings.len() - 15) as i32
     }
   }
+  pub fn load_mappings(&self) -> Vec<&Mapping> {
+    self.mappings.iter().filter(|map| map.x64_reg().is_some()).collect()
+  }
   pub fn mappings(&self) -> &Vec<Mapping> {
     &self.mappings
   }
   pub fn contains_x64(&self, x64_reg: X64RegNum) -> bool {
-    self.mappings.iter().any(|map| map.x64_reg == x64_reg)
+    self.mappings.iter().any(|map| map.x64_reg() == Some(x64_reg))
   }
-  pub fn mips_to_x64(&self, mips_reg: MIPSRegister) -> X64RegNum {
+  pub fn mips_to_x64(&self, mips_reg: MIPSRegister) -> Option<X64RegNum> {
     match self.mappings.iter().find(|&map| map.mips_reg == mips_reg) {
-      Some(map) => map.x64_reg,
-      None => unreachable!("{:#?}", mips_reg),
+      Some(map) => map.x64_reg(),
+      None => unreachable!("tried using unmapped MIPS register R{}", mips_reg),
     }
   }
 }
@@ -87,17 +96,17 @@ impl MacroAssembler {
     let mips_reg_addr = console.r3000.reg_ptr() as u64;
     self.emit_movq_ir(mips_reg_addr, X64_R15);
     self.emit_push_r64(15);
-    for mapping in register_map.mappings() {
+    for mapping in register_map.load_mappings() {
       let mips_reg_idx = 4 * (mapping.mips_reg() as u64 - 1);
-      let x64_reg = mapping.x64_reg();
+      let x64_reg = mapping.x64_reg().expect("MIPS register should be mapped");
       self.emit_movl_mr_offset(X64_R15, x64_reg, mips_reg_idx as i32);
     }
   }
   pub fn save_registers(&mut self, register_map: &RegisterMap, console: &Console) {
     self.emit_pop_r64(15);
-    for mapping in register_map.mappings() {
+    for mapping in register_map.load_mappings() {
       let mips_reg_idx = 4 * (mapping.mips_reg() as u64 - 1);
-      let x64_reg = mapping.x64_reg();
+      let x64_reg = mapping.x64_reg().expect("MIPS register should be mapped");
       self.emit_movl_rm_offset(x64_reg, X64_R15, mips_reg_idx as i32);
     }
   }
