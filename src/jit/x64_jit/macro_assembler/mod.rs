@@ -10,6 +10,7 @@ mod mov;
 mod jump;
 mod call;
 mod alu;
+mod bt;
 
 type Label = usize;
 type JITOffset = usize;

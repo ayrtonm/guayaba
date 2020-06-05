@@ -15,7 +15,6 @@ extern "C" fn no_arg() -> u32 {
   1
 }
 
-
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -28,14 +27,14 @@ mod tests {
       for i in MacroAssembler::caller_saved_regs() {
         masm.emit_push_r64(i);
       }
-      //this is for stack alignment
-      masm.emit_push_r64(15);
       masm.emit_callq_r64(reg);
-      //this is for stack alignment
-      masm.emit_pop_r64(15);
+      //store return value in r15 since there's a pop rax coming up
+      masm.emit_movq_rr(0, 15);
       for &i in MacroAssembler::caller_saved_regs().iter().rev() {
         masm.emit_pop_r64(i);
       }
+      //mov return value back to rax
+      masm.emit_movq_rr(15, 0);
       let jit_fn = masm.compile_buffer().unwrap();
       let out: u32;
       unsafe {
