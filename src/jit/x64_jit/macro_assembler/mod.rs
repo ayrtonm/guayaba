@@ -8,6 +8,7 @@ use crate::jit::x64_jit::register_allocator::X64_RSP;
 mod stack;
 mod mov;
 mod jump;
+mod call;
 mod alu;
 
 type Label = usize;

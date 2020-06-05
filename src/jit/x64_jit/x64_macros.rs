@@ -10,6 +10,10 @@ use crate::jit::x64_jit::register_allocator::RegisterMap;
 use crate::jit::x64_jit::register_allocator::X64_RAX;
 use crate::jit::x64_jit::register_allocator::X64_RDX;
 use crate::jit::x64_jit::register_allocator::X64_RSP;
+use crate::jit::x64_jit::register_allocator::X64_RBP;
+use crate::jit::x64_jit::register_allocator::X64_RSI;
+use crate::jit::x64_jit::register_allocator::X64_RDI;
+use crate::jit::x64_jit::register_allocator::X64_R14;
 use crate::jit::x64_jit::register_allocator::X64_R15;
 
 impl MacroAssembler {
@@ -149,13 +153,36 @@ impl MacroAssembler {
             self.emit_push_r64(X64_R15);
             cop0_stack_position += 8;
           };
+          if register_map.contains_x64(X64_R14) {
+            self.emit_push_r64(X64_R14);
+            cop0_stack_position += 8;
+          };
+          let write_word_stack_position = cop0_stack_position + 8;
+          let console_stack_position = write_word_stack_position + 8;
           //movq 8(%rsp), %r15
           self.emit_movq_mr_offset(X64_RSP, X64_R15, cop0_stack_position);
           //deference cop0 reg array to get cop0R12
           //movl (%r15), %r15
           self.emit_movl_mr(X64_R15, X64_R15);
+          //TODO: check cache isolation with cop0R12
+
+          //FIXME: I should be pushing two u32's and a u64 onto the stack instead
+          //of three u64's
+          self.emit_movq_mr_offset(X64_RSP, X64_R15, write_word_stack_position);
+          self.emit_movq_mr_offset(X64_RSP, X64_R14, console_stack_position);
+          self.emit_movq_rr(X64_R14, X64_RDX);
+          self.emit_movl_rr(register_map.mips_to_x64(s), X64_RSI);
+          self.emit_movl_rr(register_map.mips_to_x64(t), X64_RDI);
+          self.emit_callq_r64(X64_R15);
+
+          //TODO: conditionally call write_word with this label
           let skip_write = self.create_undefined_label();
 
+          self.define_label(skip_write);
+
+          if register_map.contains_x64(X64_R14) {
+            self.emit_pop_r64(X64_R14);
+          };
           if register_map.contains_x64(X64_R15) {
             self.emit_pop_r64(X64_R15);
           };

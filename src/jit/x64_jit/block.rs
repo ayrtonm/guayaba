@@ -42,6 +42,14 @@ impl Block {
     let mut masm = MacroAssembler::new();
     let mut register_map = RegisterMap::new(&tagged_opcodes);
     let cop0_reg_addr = console.cop0.reg_ptr() as u64;
+    //TODO: these should be conditionally pushed and popped onto/from the stack
+    //based on the tagged opcodes. I might need to tag them more thoroughly make
+    //good use of the stack space. This also means noting the position of each
+    //thing on the stack and passing the positions to emit_insn()
+    masm.emit_movq_ir(console as *const Console as u64, 0);
+    masm.emit_push_r64(0);
+    masm.emit_movq_ir(Console::write_word as u64, 0);
+    masm.emit_push_r64(0);
     masm.emit_movq_ir(cop0_reg_addr, 0);
     masm.emit_push_r64(0);
     masm.load_registers(&register_map, &console);
@@ -53,6 +61,8 @@ impl Block {
     //remove COP0 registers to keep stack aligned
     //TODO: if I end up adding more things onto the stack, I should probably do
     //an add rsp * to realign the stack
+    masm.emit_pop_r64(0);
+    masm.emit_pop_r64(0);
     masm.emit_pop_r64(0);
     let jit_fn = masm.compile_buffer()?;
     Ok(jit_fn)

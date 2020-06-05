@@ -159,6 +159,7 @@ impl Console {
     handle_action!(self.memory.write_half(address, value), self);
   }
   pub extern fn write_word(&mut self, address: u32, value: u32) {
+    println!("wrote {:#x} to {:#x}", value, address);
     self.overwritten.insert(Console::physical(address));
     handle_action!(self.memory.write_word(address, value), self);
   }
