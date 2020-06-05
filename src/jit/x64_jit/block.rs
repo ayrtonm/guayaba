@@ -47,19 +47,23 @@ impl Block {
     //based on the tagged opcodes. I might need to tag them more thoroughly make
     //good use of the stack space. This also means noting the position of each
     //thing on the stack and passing the positions to emit_insn()
-    masm.emit_movq_ir(console as *const Console as u64, 0);
-    masm.emit_push_r64(0);
-    masm.emit_movq_ir(Console::write_word as u64, 0);
-    masm.emit_push_r64(0);
-    masm.emit_movq_ir(cop0_reg_addr, 0);
-    masm.emit_push_r64(0);
+    masm.emit_push_imm64(Console::read_byte_sign_extended as u64);
+    masm.emit_push_imm64(Console::read_half_sign_extended as u64);
+    masm.emit_push_imm64(Console::read_byte as u64);
+    masm.emit_push_imm64(Console::read_half as u64);
+    masm.emit_push_imm64(Console::read_word as u64);
+    masm.emit_push_imm64(Console::write_byte as u64);
+    masm.emit_push_imm64(Console::write_half as u64);
+    masm.emit_push_imm64(Console::write_word as u64);
+    masm.emit_push_imm64(console as *const Console as u64);
+    masm.emit_push_imm64(cop0_reg_addr);
     masm.load_registers(&register_map, &console);
     for insn in tagged_opcodes {
       //TODO: make sure all inputs are to this insn are in registers here
       masm.emit_insn(&insn, &register_map, logging);
     };
     masm.save_registers(&register_map, &console);
-    masm.emit_addq_ir(24, X64_RSP);
+    masm.emit_addq_ir(80, X64_RSP);
     let jit_fn = masm.compile_buffer()?;
     Ok(jit_fn)
   }

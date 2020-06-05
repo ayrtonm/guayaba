@@ -1,6 +1,6 @@
 use crate::register::BitTwiddle;
 use crate::jit::x64_jit::macro_assembler::MacroAssembler;
-use crate::jit::x64_jit::register_allocator::X64_RSP;
+use crate::jit::x64_jit::register_allocator::*;
 
 //note that none of these methods should be called with %rsp as an operand
 //while these types of instructions are encodable, I should avoid having the JIT
@@ -25,6 +25,11 @@ impl MacroAssembler {
     assert!(reg != X64_RSP);
     self.emit_16bit_prefix();
     self.emit_pop_r64(reg);
+  }
+  //TODO: modify this to use xchg and not trash %rax
+  pub fn emit_push_imm64(&mut self, imm64: u64) {
+    self.emit_movq_ir(imm64, X64_RAX);
+    self.emit_push_r64(X64_RAX);
   }
   pub fn emit_push_imm32(&mut self, imm32: u32) {
     self.buffer.push(0x68);

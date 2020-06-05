@@ -43,13 +43,6 @@ impl X64JIT {
           //but it might be interesting to profile and compare with an inline
           //assembly callq
           block.function.execute();
-          let mem_value_0 = self.console.read_word(0x1f80_1010);
-          let mem_value_1 = self.console.read_word(0x1f80_1060);
-          assert!(mem_value_0 == 0x13243f);
-          assert!(mem_value_1 == 0xb88);
-          assert!(self.console.r3000.nth_reg(1) == 0x1f80_0000);
-          assert!(self.console.r3000.nth_reg(8) == 0xb88, "{:#x?}", self.console.r3000.nth_reg(8));
-          panic!("");
           //let stubs = block.stubs();
           //for stub in stubs {
           //  self.console.r3000.flush_write_cache(&mut self.console.delayed_writes,

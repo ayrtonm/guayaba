@@ -1,0 +1,51 @@
+all x64 registers except %rsp should be used to store MIPS registers
+MIPS registers are prioritized according to the number of times they're used
+and mapped to x64 registers in the following orders
+%eax
+%ecx
+%edx
+%ebx
+%ebp
+%esi
+%edi
+%r8d
+%r9d
+%r10d
+%r11d
+%r12d
+%r13d
+%r14d
+%r15d
+
+since %r15d should contain the least frequently used MIPS (except in the case of overflow) let's use it for calling functions
+functions called must conform to the System V amd64 ABI so arguments must be passed in %rdi, %rsi, %rdx
+
+if we just need to check a bit in cop0, let's use %r15 then if necessary %r14, %r13, etc...
+|------------------------|
+| console::read_byte_se  |
+|------------------------|
+| console::read_half_se  |
+|------------------------|
+| console::read_byte     |
+|------------------------|
+| console::read_half     |
+|------------------------|
+| console::read_word     |
+|------------------------|
+| console::write_byte    |
+|------------------------|
+| console::write_half    |
+|------------------------|
+| console::write_word    |
+|------------------------|
+| &console               |
+|------------------------|
+| &cop0 reg array        |
+|------------------------|
+| &R3000 reg array       |
+|------------------------| <--- maximum %rsp
+| R3000 reg overflow x16 | <--- these are optional
+|------------------------| <--- minimum %rsp
+           ||
+           ||
+           \/ stack grows downward

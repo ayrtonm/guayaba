@@ -1,3 +1,4 @@
+use std::cmp::max;
 use std::collections::HashSet;
 use crate::console::Console;
 use crate::jit::insn::Insn;
@@ -59,6 +60,13 @@ impl RegisterMap {
                                         .map(|t| Mapping::new_from_tuple(t))
                                         .collect();
     RegisterMap { mappings }
+  }
+  pub fn overflow_registers(&self) -> i32 {
+    if self.mappings.len() < 16 {
+      0
+    } else {
+      (self.mappings.len() - 15) as i32
+    }
   }
   pub fn mappings(&self) -> &Vec<Mapping> {
     &self.mappings

@@ -140,80 +140,62 @@ impl MacroAssembler {
           let s = get_rs(op);
           let t = get_rt(op);
           let imm16 = get_imm16(op).half_sign_extended();
-          //COP0 register array address is at 8(%rsp)
-          let mut cop0_stack_position = 8;
+          let mut stack_offset = register_map.overflow_registers();
           if register_map.contains_x64(X64_R15) {
             self.emit_push_r64(X64_R15);
-            cop0_stack_position += 8;
-          };
-          if register_map.contains_x64(X64_R14) {
-            self.emit_push_r64(X64_R14);
-            cop0_stack_position += 8;
-          };
-          let write_word_stack_position = cop0_stack_position + 8;
-          let console_stack_position = write_word_stack_position + 8;
-          //movq 8(%rsp), %r15
+            stack_offset += 8;
+          }
+          let cop0_stack_position = 8 + stack_offset;
           self.emit_movq_mr_offset(X64_RSP, X64_R15, cop0_stack_position);
-          //deference cop0 reg array to get cop0R12
-          //movl (%r15), %r15
           self.emit_movl_mr(X64_R15, X64_R15);
           let skip_write = self.create_undefined_label();
           self.emit_btl_ir(16, X64_R15);
           self.emit_jb_label(skip_write);
+          if register_map.contains_x64(X64_RDI) {
+            self.emit_push_r64(X64_RDI);
+            stack_offset += 8;
+          }
+          if register_map.contains_x64(X64_RSI) {
+            self.emit_push_r64(X64_RSI);
+            stack_offset += 8;
+          }
+          if register_map.contains_x64(X64_RDX) {
+            self.emit_push_r64(X64_RDX);
+            stack_offset += 8;
+          }
+          let console_stack_position = 16 + stack_offset;
+          let write_word_stack_position = 24 + stack_offset;
           self.emit_movq_mr_offset(X64_RSP, X64_R15, write_word_stack_position);
-          self.emit_movq_mr_offset(X64_RSP, X64_R14, console_stack_position);
-          //TODO: make sure to preserve these registers if they are in the mapping
-          self.emit_movq_rr(X64_R14, X64_RDI);
+          self.emit_movq_mr_offset(X64_RSP, X64_RDI, console_stack_position);
           self.emit_movl_rr(register_map.mips_to_x64(s), X64_RSI);
-          self.emit_movl_rr(register_map.mips_to_x64(t), X64_RDX);
           self.emit_addl_ir(imm16 as i32, X64_RSI);
+          self.emit_movl_rr(register_map.mips_to_x64(t), X64_RDX);
           for i in MacroAssembler::caller_saved_regs() {
             self.emit_push_r64(i);
           }
+          if stack_offset % 16 == 0 {
+            self.emit_addq_ir(-8, X64_RSP);
+          }
           self.emit_callq_r64(X64_R15);
+          if stack_offset % 16 == 0 {
+            self.emit_addq_ir(8, X64_RSP);
+          }
           for &i in MacroAssembler::caller_saved_regs().iter().rev() {
             self.emit_pop_r64(i);
           }
+          if register_map.contains_x64(X64_RDX) {
+            self.emit_pop_r64(X64_RDX);
+          }
+          if register_map.contains_x64(X64_RSI) {
+            self.emit_pop_r64(X64_RSI);
+          }
+          if register_map.contains_x64(X64_RDI) {
+            self.emit_pop_r64(X64_RDI);
+          }
           self.define_label(skip_write);
-          if register_map.contains_x64(X64_R14) {
-            self.emit_pop_r64(X64_R14);
-          };
           if register_map.contains_x64(X64_R15) {
             self.emit_pop_r64(X64_R15);
-          };
-          //TODO: come up with a barebones ABI and implement this correctly
-          //movl $0, r15d
-          //addw imm16, r15w
-          ////with r15d as first argument
-          ////and  $1 as second argument
-          //callq write_word
-    //      if imm16 == 0 {
-    //        Box::new(move |vm| {
-    //          let rs = vm.r3000.nth_reg(s);
-    //          let rt = vm.r3000.nth_reg(t);
-    //          log!("[{:#x} + {:#x}] = [{:#x}] \n  = R{}\n  = {:#x} {}",
-    //                    rs, 0, rs, t, rt, stringify!($method));
-    //          if !vm.cop0.cache_isolated() {
-    //            vm.$method(rs, rt);
-    //          } else {
-    //            log!("ignoring write while cache is isolated");
-    //          };
-    //          None
-    //        })
-    //      } else {
-    //        Box::new(move |vm| {
-    //          let rs = vm.r3000.nth_reg(s);
-    //          let rt = vm.r3000.nth_reg(t);
-    //          log!("[{:#x} + {:#x}] = [{:#x}] \n  = R{}\n  = {:#x} {}",
-    //                    rs, imm16, rs.wrapping_add(imm16), t, rt, stringify!($method));
-    //          if !vm.cop0.cache_isolated() {
-    //            vm.$method(rs.wrapping_add(imm16), rt);
-    //          } else {
-    //            log!("ignoring write while cache is isolated");
-    //          };
-    //          None
-    //        })
-    //      }
+          }
         }
       };
     //  (lo = rs) => {
@@ -977,7 +959,7 @@ impl MacroAssembler {
     //      },
           _ => {
             //invalid opcode
-            unreachable!("ran into invalid opcode")
+            unreachable!("ran into invalid opcode {:#x}", op)
           }
         }
       },
