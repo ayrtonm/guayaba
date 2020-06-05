@@ -64,29 +64,21 @@ impl MaybeSet for Option<&mut u32> {
   }
 }
 
-//FIXME: is struct packing questionable?
-#[derive(Debug,Default)]
 pub struct R3000 {
-  //R1-R31, PC
-  general_registers: [u32; 32],
-  //pc: u32,
-  hi: u32,
-  lo: u32,
+  //R1-R31, PC, HI, LO in that order
+  registers: [u32; 34],
 }
 
 impl R3000 {
   const ZERO: u32 = 0;
+  const PC_IDX: usize = 31;
+  const HI_IDX: usize = 32;
+  const LO_IDX: usize = 33;
   pub fn new() -> Self {
-    let mut general_registers: [u32; 32] = Default::default();
-    general_registers[31] = 0xbfc0_0000;
-    //let pc = 0xbfc0_0000;
-    let hi = Default::default();
-    let lo = Default::default();
+    let mut registers = [0; 34];
+    registers[R3000::PC_IDX] = 0xbfc0_0000;
     R3000 {
-      general_registers,
-      //pc,
-      hi,
-      lo,
+      registers,
     }
   }
   //general purpose MIPS registers are referred to as R0..R31
@@ -99,13 +91,13 @@ impl R3000 {
         R3000::ZERO
       },
       _ => {
-        self.general_registers[idx - 1]
+        self.registers[idx - 1]
       },
     }
   }
-  //this should only be used to save a JIT block's registers
+  //this should only be used in the JIT
   pub fn reg_ptr(&self) -> *const u32 {
-    &self.general_registers[0] as *const u32
+    &self.registers[0] as *const u32
   }
   //this methods returns a mutable reference to R1 through R31
   //R0 is always mapped to zero so it doesn't make sense here
@@ -117,7 +109,7 @@ impl R3000 {
         None
       },
       _ => {
-        Some(Mutu32::new(&mut self.general_registers[idx - 1], Name::Rn(idx as u32)))
+        Some(Mutu32::new(&mut self.registers[idx - 1], Name::Rn(idx as u32)))
       },
     }
   }
@@ -130,24 +122,22 @@ impl R3000 {
   }
   //these are the special purpose MIPS registers
   pub fn pc(&self) -> u32 {
-    //self.pc
-    self.general_registers[31]
+    self.registers[R3000::PC_IDX]
   }
   pub fn pc_mut(&mut self) -> &mut u32 {
-    //&mut self.pc
-    &mut self.general_registers[31]
+    &mut self.registers[R3000::PC_IDX]
   }
   pub fn lo(&self) -> u32 {
-    self.lo
+    self.registers[R3000::LO_IDX]
   }
   pub fn lo_mut(&mut self) -> &mut u32 {
-    &mut self.lo
+    &mut self.registers[R3000::LO_IDX]
   }
   pub fn hi(&self) -> u32 {
-    self.hi
+    self.registers[R3000::HI_IDX]
   }
   pub fn hi_mut(&mut self) -> &mut u32 {
-    &mut self.hi
+    &mut self.registers[R3000::HI_IDX]
   }
   pub fn flush_write_cache(&mut self, operations: &mut VecDeque<DelayedWrite>,
                            modified_register: &mut Option<Name>) {
@@ -175,10 +165,10 @@ impl R3000 {
         *self.pc_mut() = operation.value;
       },
       Name::Hi => {
-        self.hi = operation.value;
+        *self.hi_mut() = operation.value;
       },
       Name::Lo => {
-        self.lo = operation.value;
+        *self.lo_mut() = operation.value;
       },
       Name::Rn(idx) => {
         self.nth_reg_mut(idx).maybe_set(operation.value);

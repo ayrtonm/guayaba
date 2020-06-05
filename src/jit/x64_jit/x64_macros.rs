@@ -166,7 +166,7 @@ impl MacroAssembler {
           self.emit_movq_rr(X64_R14, X64_RDI);
           self.emit_movl_rr(register_map.mips_to_x64(s), X64_RSI);
           self.emit_movl_rr(register_map.mips_to_x64(t), X64_RDX);
-          self.emit_addl_ir(imm16, X64_RSI);
+          self.emit_addl_ir(imm16 as i32, X64_RSI);
           for i in MacroAssembler::caller_saved_regs() {
             self.emit_push_r64(i);
           }
@@ -355,7 +355,7 @@ impl MacroAssembler {
               self.emit_movl_rr(src, dest);
               self.emit_orw_ir(imm16, dest);
             } else {
-              self.emit_movl_ir(imm16, dest);
+              self.emit_movl_ir(imm16 as u32, dest);
             }
           };
         }
@@ -371,7 +371,7 @@ impl MacroAssembler {
             if s != 0 {
               let src = register_map.mips_to_x64(s);
               self.emit_movl_rr(src, dest);
-              self.emit_addl_ir(imm16, dest);
+              self.emit_addl_ir(imm16 as i32, dest);
             } else {
               self.emit_movl_ir(imm16, dest);
             }
@@ -672,9 +672,9 @@ impl MacroAssembler {
           self.emit_movq_mr(X64_RSP, X64_R14);
           let pc_idx = 31;
           self.emit_movl_mr_offset(X64_R14, X64_R15, 4 * pc_idx);
-          self.emit_addl_ir(offset, X64_R15);
+          self.emit_addl_ir(offset as i32, X64_R15);
           self.emit_andl_ir(0xf000_0000, X64_R15);
-          self.emit_addl_ir(shifted_imm26, X64_R15);
+          self.emit_addl_ir(shifted_imm26 as i32, X64_R15);
           self.emit_movl_rm_offset(X64_R15, X64_R14, 4 * pc_idx);
     //      Box::new(move |vm| {
     //        let pc = vm.r3000.pc().wrapping_add(offset);
