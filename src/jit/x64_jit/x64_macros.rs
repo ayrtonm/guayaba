@@ -171,17 +171,23 @@ impl MacroAssembler {
           self.emit_addl_ir(imm16 as i32, X64_RSI);
           self.emit_movl_rr(register_map.mips_to_x64(t), X64_RDX);
           for i in MacroAssembler::caller_saved_regs() {
-            self.emit_push_r64(i);
+            if register_map.contains_x64(i) {
+              self.emit_push_r64(i);
+              stack_offset += 8;
+            }
           }
-          if stack_offset % 16 == 0 {
+          if stack_offset % 16 == 8 {
             self.emit_addq_ir(-8, X64_RSP);
           }
           self.emit_callq_r64(X64_R15);
-          if stack_offset % 16 == 0 {
+          if stack_offset % 16 == 8 {
             self.emit_addq_ir(8, X64_RSP);
           }
           for &i in MacroAssembler::caller_saved_regs().iter().rev() {
-            self.emit_pop_r64(i);
+            if register_map.contains_x64(i) {
+              self.emit_pop_r64(i);
+              stack_offset += 8;
+            }
           }
           if register_map.contains_x64(X64_RDX) {
             self.emit_pop_r64(X64_RDX);
