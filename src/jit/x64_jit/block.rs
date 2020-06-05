@@ -3,6 +3,7 @@ use crate::jit::insn::Insn;
 use crate::jit::jit_fn::JIT_Fn;
 use crate::jit::x64_jit::macro_assembler::MacroAssembler;
 use crate::jit::x64_jit::register_allocator::RegisterMap;
+use crate::jit::x64_jit::register_allocator::*;
 use crate::cd::CD;
 use crate::r3000::R3000;
 use crate::console::Console;
@@ -58,12 +59,7 @@ impl Block {
       masm.emit_insn(&insn, &register_map, logging);
     };
     masm.save_registers(&register_map, &console);
-    //remove COP0 registers to keep stack aligned
-    //TODO: if I end up adding more things onto the stack, I should probably do
-    //an add rsp * to realign the stack
-    masm.emit_pop_r64(0);
-    masm.emit_pop_r64(0);
-    masm.emit_pop_r64(0);
+    masm.emit_addq_ir(24, X64_RSP);
     let jit_fn = masm.compile_buffer()?;
     Ok(jit_fn)
   }

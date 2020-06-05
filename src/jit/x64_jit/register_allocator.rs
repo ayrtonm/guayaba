@@ -76,7 +76,6 @@ impl RegisterMap {
 
 impl MacroAssembler {
   pub fn load_registers(&mut self, register_map: &RegisterMap, console: &Console) {
-    let init_size = self.len();
     let mips_reg_addr = console.r3000.reg_ptr() as u64;
     self.emit_movq_ir(mips_reg_addr, X64_R15);
     self.emit_push_r64(15);
@@ -87,7 +86,6 @@ impl MacroAssembler {
     }
   }
   pub fn save_registers(&mut self, register_map: &RegisterMap, console: &Console) {
-    let init_size = self.len();
     self.emit_pop_r64(15);
     for mapping in register_map.mappings() {
       let mips_reg_idx = 4 * (mapping.mips_reg() as u64 - 1);

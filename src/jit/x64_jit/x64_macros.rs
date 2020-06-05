@@ -7,14 +7,7 @@ use crate::register::BitTwiddle;
 use crate::jit::insn::Insn;
 use crate::jit::x64_jit::macro_assembler::MacroAssembler;
 use crate::jit::x64_jit::register_allocator::RegisterMap;
-use crate::jit::x64_jit::register_allocator::X64_RAX;
-use crate::jit::x64_jit::register_allocator::X64_RDX;
-use crate::jit::x64_jit::register_allocator::X64_RSP;
-use crate::jit::x64_jit::register_allocator::X64_RBP;
-use crate::jit::x64_jit::register_allocator::X64_RSI;
-use crate::jit::x64_jit::register_allocator::X64_RDI;
-use crate::jit::x64_jit::register_allocator::X64_R14;
-use crate::jit::x64_jit::register_allocator::X64_R15;
+use crate::jit::x64_jit::register_allocator::*;
 
 impl MacroAssembler {
   pub fn emit_insn(&mut self, insn: &Insn, register_map: &RegisterMap, logging: bool) {
@@ -175,10 +168,10 @@ impl MacroAssembler {
             self.emit_push_r64(i);
           }
           //this is for stack alignment
-          self.emit_push_r64(15);
+          self.emit_addq_ir(-8, X64_RSP);
           self.emit_callq_r64(X64_R15);
           //this is for stack alignment
-          self.emit_pop_r64(15);
+          self.emit_addq_ir(8, X64_RSP);
           for &i in MacroAssembler::caller_saved_regs().iter().rev() {
             self.emit_pop_r64(i);
           }
