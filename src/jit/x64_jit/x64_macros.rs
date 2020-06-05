@@ -167,11 +167,7 @@ impl MacroAssembler {
           for i in MacroAssembler::caller_saved_regs() {
             self.emit_push_r64(i);
           }
-          //this is for stack alignment
-          self.emit_addq_ir(-8, X64_RSP);
           self.emit_callq_r64(X64_R15);
-          //this is for stack alignment
-          self.emit_addq_ir(8, X64_RSP);
           for &i in MacroAssembler::caller_saved_regs().iter().rev() {
             self.emit_pop_r64(i);
           }

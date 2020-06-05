@@ -134,9 +134,10 @@ impl MacroAssembler {
   pub fn free_regs() -> Vec<u32> {
     (0..=15).filter(|&x| x != X64_RSP).collect()
   }
+  //note that this includes rax meaning any return value will be overwritten if
+  //this is pushed and popped
   pub fn caller_saved_regs() -> Vec<u32> {
     (0..=15).filter(|&x| x != X64_RSP)
-            .filter(|&x| x != X64_RAX)
             .filter(|&x| x != X64_RBX)
             .filter(|&x| x != X64_RBP)
             .filter(|&x| x != X64_R12)
