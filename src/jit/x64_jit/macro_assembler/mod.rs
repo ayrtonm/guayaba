@@ -86,6 +86,9 @@ impl MacroAssembler {
       Ok(JIT_Fn::new(mmap, function))
     }
   }
+  pub fn emit_ret(&mut self) {
+    self.buffer.push(0xc3);
+  }
   fn emit_conditional_rexb(&mut self, reg: u32) {
     if reg.nth_bit_bool(3) {
       self.buffer.push(MacroAssembler::REXB);
@@ -106,9 +109,6 @@ impl MacroAssembler {
   }
   fn emit_16bit_prefix(&mut self) {
     self.buffer.push(0x66);
-  }
-  fn emit_ret(&mut self) {
-    self.buffer.push(0xc3);
   }
   fn emit_nop(&mut self) {
     self.buffer.push(0x90);

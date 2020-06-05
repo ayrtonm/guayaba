@@ -3,11 +3,33 @@ use crate::jit::x64_jit::macro_assembler::MacroAssembler;
 use crate::jit::x64_jit::register_allocator::X64_RAX;
 
 impl MacroAssembler {
+  //TODO: test this
+  pub fn emit_andl_ir(&mut self, imm32: u32, dest: u32) {
+    let imm32 = imm32 as i32;
+    self.emit_conditional_rexb(dest);
+    match imm32 {
+      -128..=127 => {
+        self.buffer.push(0x83);
+        self.buffer.push(0xe0 | dest.lowest_bits(3) as u8);
+        self.buffer.push(imm32 as u8);
+      },
+      _ => {
+        if dest == X64_RAX {
+          self.buffer.push(0x25);
+        } else {
+          self.buffer.push(0x81);
+          self.buffer.push(0xe0 | dest.lowest_bits(3) as u8);
+        }
+        self.emit_imm32(imm32 as u32);
+      },
+    }
+  }
   fn emit_add_rr(&mut self, src: u32, dest: u32) {
     self.buffer.push(0x01);
     self.buffer.push(0xc0 | (src.lowest_bits(3) << 3) as u8 | dest.lowest_bits(3) as u8);
   }
-  fn emit_add_ir(&mut self, imm32: i32, dest: u32) {
+  fn emit_add_ir(&mut self, imm32: u32, dest: u32) {
+    let imm32 = imm32 as i32;
     match imm32 {
       -128..=127 => {
         self.buffer.push(0x83);
@@ -36,11 +58,11 @@ impl MacroAssembler {
     self.buffer.push(rex_prefix);
     self.emit_add_rr(src, dest);
   }
-  pub fn emit_addl_ir(&mut self, imm32: i32, dest: u32) {
+  pub fn emit_addl_ir(&mut self, imm32: u32, dest: u32) {
     self.emit_conditional_rexb(dest);
     self.emit_add_ir(imm32, dest);
   }
-  pub fn emit_addq_ir(&mut self, imm32: i32, dest: u32) {
+  pub fn emit_addq_ir(&mut self, imm32: u32, dest: u32) {
     let rex_prefix = MacroAssembler::REXW |
                      MacroAssembler::conditional_rexb(dest);
     self.buffer.push(rex_prefix);

@@ -166,7 +166,7 @@ impl MacroAssembler {
           self.emit_movq_rr(X64_R14, X64_RDI);
           self.emit_movl_rr(register_map.mips_to_x64(s), X64_RSI);
           self.emit_movl_rr(register_map.mips_to_x64(t), X64_RDX);
-          self.emit_addl_ir(imm16 as i32, X64_RSI);
+          self.emit_addl_ir(imm16, X64_RSI);
           for i in MacroAssembler::caller_saved_regs() {
             self.emit_push_r64(i);
           }
@@ -349,24 +349,19 @@ impl MacroAssembler {
           let imm16 = get_imm16(op) as u16;
           let t = get_rt(op);
           if t != 0 {
-            let src = register_map.mips_to_x64(s);
             let dest = register_map.mips_to_x64(t);
-            self.emit_movl_rr(src, dest);
-            self.emit_orw_ir(imm16, dest);
+            if s != 0 {
+              let src = register_map.mips_to_x64(s);
+              self.emit_movl_rr(src, dest);
+              self.emit_orw_ir(imm16, dest);
+            } else {
+              self.emit_movl_ir(imm16, dest);
+            }
           };
-          //Box::new(move |vm| {
-          //  let rs = vm.r3000.nth_reg(s);
-          //  let rt = vm.r3000.nth_reg_mut(t);
-          //  vm.modified_register = rt.maybe_set(rs.$method(imm16));
-          //  log!("R{} = R{} {} {:#x}\n  = {:#x} {} {:#x}\n  = {:#x}",
-          //            t, s, stringify!($method), imm16,
-          //            rs, stringify!($method), imm16, vm.r3000.nth_reg(t));
-          //  None
-          //})
         }
       };
       //ALU instructions with a register and immediate 16-bit data
-      (rt = rs $method:tt signed imm16) => {
+      (rt = rs wrapping_add signed imm16) => {
         {
           let s = get_rs(op);
           let imm16 = get_imm16(op).half_sign_extended();
@@ -376,11 +371,29 @@ impl MacroAssembler {
             if s != 0 {
               let src = register_map.mips_to_x64(s);
               self.emit_movl_rr(src, dest);
-              self.emit_addl_ir(imm16 as i32, dest);
+              self.emit_addl_ir(imm16, dest);
             } else {
-              self.emit_movl_rr(imm16, dest);
+              self.emit_movl_ir(imm16, dest);
             }
           };
+        }
+      };
+    ////ALU instructions with a register and immediate 16-bit data
+    //(rt = rs $method:tt signed imm16) => {
+    //  {
+    //    let s = get_rs(op);
+    //    let imm16 = get_imm16(op).half_sign_extended();
+    //    let t = get_rt(op);
+    //    if t != 0 {
+    //      let dest = register_map.mips_to_x64(t);
+    //      if s != 0 {
+    //        let src = register_map.mips_to_x64(s);
+    //        self.emit_movl_rr(src, dest);
+    //        self.emit_addl_ir(imm16, dest);
+    //      } else {
+    //        self.emit_movl_rr(imm16, dest);
+    //      }
+    //    };
     //      Box::new(move |vm| {
     //        let rs = vm.r3000.nth_reg(s);
     //        let rt = vm.r3000.nth_reg_mut(t);
@@ -390,8 +403,8 @@ impl MacroAssembler {
     //                  rs, stringify!($method), imm16, vm.r3000.nth_reg(t));
     //        None
     //      })
-        }
-      };
+    //  }
+    //};
       //shifts a register based on immediate 5 bits
       (rd = rt $method:tt imm5) => {
         {
@@ -655,7 +668,14 @@ impl MacroAssembler {
         {
           let imm26 = get_imm26(op);
           let shifted_imm26 = imm26 * 4;
-          todo!("implement J in x64 assembly");
+          //TODO: conditionally push r15 and r14
+          self.emit_movq_mr(X64_RSP, X64_R14);
+          let pc_idx = 31;
+          self.emit_movl_mr_offset(X64_R14, X64_R15, 4 * pc_idx);
+          self.emit_addl_ir(offset, X64_R15);
+          self.emit_andl_ir(0xf000_0000, X64_R15);
+          self.emit_addl_ir(shifted_imm26, X64_R15);
+          self.emit_movl_rm_offset(X64_R15, X64_R14, 4 * pc_idx);
     //      Box::new(move |vm| {
     //        let pc = vm.r3000.pc().wrapping_add(offset);
     //        let pc_hi_bits = pc & 0xf000_0000;

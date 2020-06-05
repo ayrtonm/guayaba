@@ -64,10 +64,12 @@ impl MaybeSet for Option<&mut u32> {
   }
 }
 
+//FIXME: is struct packing questionable?
 #[derive(Debug,Default)]
 pub struct R3000 {
-  general_registers: [u32; 31],
-  pc: u32,
+  //R1-R31, PC
+  general_registers: [u32; 32],
+  //pc: u32,
   hi: u32,
   lo: u32,
 }
@@ -75,13 +77,14 @@ pub struct R3000 {
 impl R3000 {
   const ZERO: u32 = 0;
   pub fn new() -> Self {
-    let general_registers = Default::default();
-    let pc = 0xbfc0_0000;
+    let mut general_registers: [u32; 32] = Default::default();
+    general_registers[31] = 0xbfc0_0000;
+    //let pc = 0xbfc0_0000;
     let hi = Default::default();
     let lo = Default::default();
     R3000 {
       general_registers,
-      pc,
+      //pc,
       hi,
       lo,
     }
@@ -127,10 +130,12 @@ impl R3000 {
   }
   //these are the special purpose MIPS registers
   pub fn pc(&self) -> u32 {
-    self.pc
+    //self.pc
+    self.general_registers[31]
   }
   pub fn pc_mut(&mut self) -> &mut u32 {
-    &mut self.pc
+    //&mut self.pc
+    &mut self.general_registers[31]
   }
   pub fn lo(&self) -> u32 {
     self.lo
@@ -167,7 +172,7 @@ impl R3000 {
   fn do_write(&mut self, operation: &DelayedWrite) {
     match operation.register_name {
       Name::Pc => {
-        self.pc = operation.value;
+        *self.pc_mut() = operation.value;
       },
       Name::Hi => {
         self.hi = operation.value;
@@ -189,14 +194,14 @@ mod tests {
   #[test]
   fn initial_values() {
     let r3000 = R3000::new();
-    assert_eq!(r3000.pc, 0xbfc0_0000);
+    assert_eq!(r3000.pc(), 0xbfc0_0000);
   }
 
   #[test]
   fn set_register() {
     let mut r3000 = R3000::new();
     *r3000.pc_mut() = 2;
-    assert_eq!(r3000.pc, 2);
+    assert_eq!(r3000.pc(), 2);
   }
 
   #[test]
