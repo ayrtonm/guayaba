@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use memmap::MmapMut;
 use crate::register::BitTwiddle;
 use crate::jit::jit_fn::JIT_Fn;
-use crate::jit::x64_jit::register_allocator::X64_RSP;
+use crate::jit::x64_jit::register_allocator::*;
 
 mod stack;
 mod mov;
@@ -133,5 +133,16 @@ impl MacroAssembler {
   }
   pub fn free_regs() -> Vec<u32> {
     (0..=15).filter(|&x| x != X64_RSP).collect()
+  }
+  pub fn caller_saved_regs() -> Vec<u32> {
+    (0..=15).filter(|&x| x != X64_RSP)
+            .filter(|&x| x != X64_RAX)
+            .filter(|&x| x != X64_RBX)
+            .filter(|&x| x != X64_RBP)
+            .filter(|&x| x != X64_R12)
+            .filter(|&x| x != X64_R13)
+            .filter(|&x| x != X64_R14)
+            .filter(|&x| x != X64_R15)
+            .collect()
   }
 }

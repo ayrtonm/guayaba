@@ -166,14 +166,22 @@ impl MacroAssembler {
           self.emit_movl_mr(X64_R15, X64_R15);
           //TODO: check cache isolation with cop0R12
 
-          //FIXME: I should be pushing two u32's and a u64 onto the stack instead
-          //of three u64's
           self.emit_movq_mr_offset(X64_RSP, X64_R15, write_word_stack_position);
           self.emit_movq_mr_offset(X64_RSP, X64_R14, console_stack_position);
-          self.emit_movq_rr(X64_R14, X64_RDX);
+          self.emit_movq_rr(X64_R14, X64_RDI);
           self.emit_movl_rr(register_map.mips_to_x64(s), X64_RSI);
-          self.emit_movl_rr(register_map.mips_to_x64(t), X64_RDI);
+          self.emit_movl_rr(register_map.mips_to_x64(t), X64_RDX);
+          for i in MacroAssembler::caller_saved_regs() {
+            self.emit_push_r64(i);
+          }
+          //this is for stack alignment
+          self.emit_push_r64(15);
           self.emit_callq_r64(X64_R15);
+          //this is for stack alignment
+          self.emit_pop_r64(15);
+          for &i in MacroAssembler::caller_saved_regs().iter().rev() {
+            self.emit_pop_r64(i);
+          }
 
           //TODO: conditionally call write_word with this label
           let skip_write = self.create_undefined_label();
