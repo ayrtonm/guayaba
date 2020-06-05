@@ -12,7 +12,7 @@ mod call;
 mod alu;
 mod bt;
 
-type Label = usize;
+pub type Label = usize;
 type JITOffset = usize;
 
 pub struct MacroAssembler {

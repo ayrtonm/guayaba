@@ -161,6 +161,7 @@ impl MacroAssembler {
 
           self.emit_movq_mr_offset(X64_RSP, X64_R15, write_word_stack_position);
           self.emit_movq_mr_offset(X64_RSP, X64_R14, console_stack_position);
+          //TODO: make sure to preserve these registers if they are in the mapping
           self.emit_movq_rr(X64_R14, X64_RDI);
           self.emit_movl_rr(register_map.mips_to_x64(s), X64_RSI);
           self.emit_movl_rr(register_map.mips_to_x64(t), X64_RDX);

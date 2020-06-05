@@ -2,7 +2,7 @@ use crate::register::BitTwiddle;
 use crate::jit::x64_jit::macro_assembler::MacroAssembler;
 
 impl MacroAssembler {
-  //TODO: test this
+  //TODO: do more thorough testing than the one in jump.rs
   pub fn emit_btl_ir(&mut self, imm: u32, reg: u32) {
     assert!(imm < 32);
     self.emit_conditional_rexb(reg);
