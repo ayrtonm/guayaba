@@ -63,6 +63,9 @@ impl RegisterMap {
   pub fn mappings(&self) -> &Vec<Mapping> {
     &self.mappings
   }
+  pub fn contains_x64(&self, x64_reg: X64RegNum) -> bool {
+    self.mappings.iter().any(|map| map.x64_reg == x64_reg)
+  }
   pub fn mips_to_x64(&self, mips_reg: MIPSRegister) -> X64RegNum {
     match self.mappings.iter().find(|&map| map.mips_reg == mips_reg) {
       Some(map) => map.x64_reg,

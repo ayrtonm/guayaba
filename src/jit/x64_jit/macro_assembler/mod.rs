@@ -1,4 +1,5 @@
 use std::io;
+use std::collections::HashMap;
 use memmap::MmapMut;
 use crate::register::BitTwiddle;
 use crate::jit::jit_fn::JIT_Fn;
@@ -6,10 +7,17 @@ use crate::jit::x64_jit::register_allocator::X64_RSP;
 
 mod stack;
 mod mov;
+mod jump;
 mod alu;
+
+type Label = usize;
+type JITOffset = usize;
 
 pub struct MacroAssembler {
   buffer: Vec<u8>,
+  next_label: usize,
+  labels_used: HashMap<JITOffset, Label>,
+  labels_defined: HashMap<Label, JITOffset>,
 }
 
 impl MacroAssembler {
@@ -23,9 +31,22 @@ impl MacroAssembler {
   pub fn new() -> Self {
     let mut masm = MacroAssembler {
       buffer: Vec::new(),
+      next_label: 0,
+      labels_used: Default::default(),
+      labels_defined: Default::default(),
     };
     masm.save_reserved_registers();
     masm
+  }
+  pub fn len(&self) -> usize {
+    self.buffer.len()
+  }
+  pub fn create_undefined_label(&mut self) -> usize {
+    self.next_label += 1;
+    self.next_label - 1
+  }
+  pub fn define_label(&mut self, label: Label) {
+    self.labels_defined.insert(label, self.buffer.len());
   }
   fn save_reserved_registers(&mut self) {
     self.emit_push_r64(12);
@@ -39,12 +60,15 @@ impl MacroAssembler {
     self.emit_pop_r64(13);
     self.emit_pop_r64(12);
   }
-  pub fn len(&self) -> usize {
-    self.buffer.len()
-  }
   pub fn compile_buffer(&mut self) -> io::Result<JIT_Fn> {
     self.load_reserved_registers();
     self.emit_ret();
+    for (&label, &loc) in self.labels_used.iter() {
+      match self.labels_defined.get(&label) {
+        Some(&def) => self.buffer[loc] = (def as u8) - (loc as u8),
+        None => panic!("used undefined label {} at {}", label, loc),
+      }
+    }
     //println!("compiled a {} byte function", self.buffer.len());
     let mut mmap = MmapMut::map_anon(self.buffer.len())?;
     mmap.copy_from_slice(&self.buffer);
