@@ -54,7 +54,7 @@ impl Block {
     masm.emit_movq_ir(cop0_reg_addr, 0);
     masm.emit_push_r64(0);
     masm.load_registers(&register_map, &console);
-    for insn in &tagged_opcodes[0..4] {
+    for insn in tagged_opcodes {
       //TODO: make sure all inputs are to this insn are in registers here
       masm.emit_insn(&insn, &register_map, logging);
     };

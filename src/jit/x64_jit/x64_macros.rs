@@ -166,6 +166,7 @@ impl MacroAssembler {
           self.emit_movq_rr(X64_R14, X64_RDI);
           self.emit_movl_rr(register_map.mips_to_x64(s), X64_RSI);
           self.emit_movl_rr(register_map.mips_to_x64(t), X64_RDX);
+          self.emit_addl_ir(imm16 as i32, X64_RSI);
           for i in MacroAssembler::caller_saved_regs() {
             self.emit_push_r64(i);
           }
@@ -364,12 +365,22 @@ impl MacroAssembler {
           //})
         }
       };
-    //  //ALU instructions with a register and immediate 16-bit data
-    //  (rt = rs $method:tt signed imm16) => {
-    //    {
-    //      let s = get_rs(op);
-    //      let imm16 = get_imm16(op).half_sign_extended();
-    //      let t = get_rt(op);
+      //ALU instructions with a register and immediate 16-bit data
+      (rt = rs $method:tt signed imm16) => {
+        {
+          let s = get_rs(op);
+          let imm16 = get_imm16(op).half_sign_extended();
+          let t = get_rt(op);
+          if t != 0 {
+            let dest = register_map.mips_to_x64(t);
+            if s != 0 {
+              let src = register_map.mips_to_x64(s);
+              self.emit_movl_rr(src, dest);
+              self.emit_addl_ir(imm16 as i32, dest);
+            } else {
+              self.emit_movl_rr(imm16, dest);
+            }
+          };
     //      Box::new(move |vm| {
     //        let rs = vm.r3000.nth_reg(s);
     //        let rt = vm.r3000.nth_reg_mut(t);
@@ -379,25 +390,28 @@ impl MacroAssembler {
     //                  rs, stringify!($method), imm16, vm.r3000.nth_reg(t));
     //        None
     //      })
-    //    }
-    //  };
-    //  //shifts a register based on immediate 5 bits
-    //  (rd = rt $method:tt imm5) => {
-    //    {
-    //      let t = get_rt(op);
-    //      let imm5 = get_imm5(op);
-    //      let d = get_rd(op);
-    //      Box::new(move |vm| {
-    //        let rt = vm.r3000.nth_reg(t);
-    //        let rd = vm.r3000.nth_reg_mut(d);
-    //        vm.modified_register = rd.maybe_set(rt.$method(imm5));
-    //        log!("R{} = R{} {} {:#x}\n  = {:#x} {} {:#x}\n  = {:#x}",
-    //                  d, t, stringify!($method), imm5,
-    //                  rt, stringify!($method), imm5, vm.r3000.nth_reg(d));
-    //        None
-    //      })
-    //    }
-    //  };
+        }
+      };
+      //shifts a register based on immediate 5 bits
+      (rd = rt $method:tt imm5) => {
+        {
+          let t = get_rt(op);
+          let imm5 = get_imm5(op);
+          let d = get_rd(op);
+          if d != 0 {
+            todo!("implement SLL in x64 assembly");
+          }
+          //Box::new(move |vm| {
+          //  let rt = vm.r3000.nth_reg(t);
+          //  let rd = vm.r3000.nth_reg_mut(d);
+          //  vm.modified_register = rd.maybe_set(rt.$method(imm5));
+          //  log!("R{} = R{} {} {:#x}\n  = {:#x} {} {:#x}\n  = {:#x}",
+          //            d, t, stringify!($method), imm5,
+          //            rt, stringify!($method), imm5, vm.r3000.nth_reg(d));
+          //  None
+          //})
+        }
+      };
     //  //shifts a register based on the lowest 5 bits of another register
     //  (rd = rt $method:tt (rs and 0x1F)) => {
     //    {
@@ -636,11 +650,12 @@ impl MacroAssembler {
     //    }
     //  }
     //}
-    //macro_rules! jump {
-    //  (imm26) => {
-    //    {
-    //      let imm26 = get_imm26(op);
-    //      let shifted_imm26 = imm26 * 4;
+    macro_rules! jump {
+      (imm26) => {
+        {
+          let imm26 = get_imm26(op);
+          let shifted_imm26 = imm26 * 4;
+          todo!("implement J in x64 assembly");
     //      Box::new(move |vm| {
     //        let pc = vm.r3000.pc().wrapping_add(offset);
     //        let pc_hi_bits = pc & 0xf000_0000;
@@ -649,8 +664,8 @@ impl MacroAssembler {
     //                  imm26, pc_hi_bits, shifted_imm26, dest);
     //        Some(dest)
     //      })
-    //    }
-    //  };
+        }
+      };
     //  (rs) => {
     //    {
     //      let s = get_rs(op);
@@ -708,7 +723,7 @@ impl MacroAssembler {
     //      })
     //    }
     //  };
-    //}
+    }
     //macro_rules! call {
     //  (imm26) => {
     //    {
@@ -792,14 +807,14 @@ impl MacroAssembler {
     //  };
     //}
     match get_primary_field(op) {
-    //  0x00 => {
-    //    //SPECIAL
-    //    match get_secondary_field(op) {
-    //      0x00 => {
-    //        //SLL
-    //        log!("> SLL");
-    //        compute!(rd = rt shl imm5)
-    //      },
+      0x00 => {
+        //SPECIAL
+        match get_secondary_field(op) {
+          0x00 => {
+            //SLL
+            log!("> SLL");
+            compute!(rd = rt shl imm5)
+          },
     //      0x02 => {
     //        //SRL
     //        log!("> SRL");
@@ -940,12 +955,12 @@ impl MacroAssembler {
     //        log!("> SLTU");
     //        compute!(rd = rs compare rt)
     //      },
-    //      _ => {
-    //        //invalid opcode
-    //        unreachable!("ran into invalid opcode")
-    //      }
-    //    }
-    //  },
+          _ => {
+            //invalid opcode
+            unreachable!("ran into invalid opcode")
+          }
+        }
+      },
     //  0x01 => {
     //    //BcondZ
     //    match get_rt(op) {
@@ -975,11 +990,11 @@ impl MacroAssembler {
     //      },
     //    }
     //  },
-    //  0x02 => {
-    //    //J
-    //    log!("> J");
-    //    jump!(imm26)
-    //  },
+      0x02 => {
+        //J
+        log!("> J");
+        jump!(imm26)
+      },
     //  0x03 => {
     //    //JAL
     //    log!("> JAL");
@@ -1010,11 +1025,11 @@ impl MacroAssembler {
     //    log!("> ADDI");
     //    compute!(rt = rs checked_add signed imm16 trap)
     //  },
-    //  0x09 => {
-    //    //ADDIU
-    //    log!("> ADDIU");
-    //    compute!(rt = rs wrapping_add signed imm16)
-    //  },
+      0x09 => {
+        //ADDIU
+        log!("> ADDIU");
+        compute!(rt = rs wrapping_add signed imm16)
+      },
     //  0x0A => {
     //    //SLTI
     //    log!("> SLTI");
@@ -1157,7 +1172,7 @@ impl MacroAssembler {
     //  },
       _ => {
         //invalid opcode
-        todo!("ran into unimplemented opcode")
+        todo!("ran into unimplemented opcode {:#x?}", op)
       }
     };
   }
