@@ -157,8 +157,9 @@ impl MacroAssembler {
           //deference cop0 reg array to get cop0R12
           //movl (%r15), %r15
           self.emit_movl_mr(X64_R15, X64_R15);
-          //TODO: check cache isolation with cop0R12
-
+          let skip_write = self.create_undefined_label();
+          self.emit_btl_ir(16, X64_R15);
+          self.emit_jb_label(skip_write);
           self.emit_movq_mr_offset(X64_RSP, X64_R15, write_word_stack_position);
           self.emit_movq_mr_offset(X64_RSP, X64_R14, console_stack_position);
           //TODO: make sure to preserve these registers if they are in the mapping
@@ -172,19 +173,13 @@ impl MacroAssembler {
           for &i in MacroAssembler::caller_saved_regs().iter().rev() {
             self.emit_pop_r64(i);
           }
-
-          //TODO: conditionally call write_word with this label
-          let skip_write = self.create_undefined_label();
-
           self.define_label(skip_write);
-
           if register_map.contains_x64(X64_R14) {
             self.emit_pop_r64(X64_R14);
           };
           if register_map.contains_x64(X64_R15) {
             self.emit_pop_r64(X64_R15);
           };
-
           //TODO: come up with a barebones ABI and implement this correctly
           //movl $0, r15d
           //addw imm16, r15w
