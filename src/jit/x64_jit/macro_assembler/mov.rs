@@ -87,6 +87,42 @@ impl MacroAssembler {
       }
     }
   }
+  pub fn emit_movq_mr(&mut self, ptr: u32, dest: u32) {
+    let rex_prefix = MacroAssembler::REXW |
+                     MacroAssembler::conditional_rexb(ptr) |
+                     MacroAssembler::conditional_rexr(dest);
+    self.buffer.push(rex_prefix);
+    self.buffer.push(0x8b);
+    if ptr.lowest_bits(3) == 5 {
+      self.buffer.push(0x45 | (dest.lowest_bits(3) << 3) as u8);
+      self.buffer.push(0x00);
+    } else {
+      self.buffer.push((dest.lowest_bits(3) << 3) as u8 | ptr.lowest_bits(3) as u8);
+      if ptr.lowest_bits(3) == 4 {
+        self.buffer.push(0x24);
+      };
+    }
+  }
+  pub fn emit_movq_mr_offset(&mut self, ptr: u32, dest: u32, offset: i32) {
+    if offset == 0 {
+      self.emit_movq_mr(ptr, dest);
+    } else {
+      let rex_prefix = MacroAssembler::REXW |
+                       MacroAssembler::conditional_rexb(ptr) |
+                       MacroAssembler::conditional_rexr(dest);
+      self.buffer.push(rex_prefix);
+      self.buffer.push(0x8b);
+      self.buffer.push(0x40 | (dest.lowest_bits(3) << 3) as u8 | ptr.lowest_bits(3) as u8);
+      if ptr.lowest_bits(3) == 4 {
+        self.buffer.push(0x24);
+      };
+      match offset {
+        0 => unreachable!(""),
+        -128..=127 => self.buffer.push(offset as u8),
+        _ => self.emit_imm32(offset as u32),
+      }
+    }
+  }
 }
 
 #[cfg(test)]
@@ -251,6 +287,57 @@ mod tests {
         }
         if ptr != dest {
           assert_eq!(out, 0xabcd_1235);
+        }
+      }
+    }
+  }
+
+  #[test]
+  fn movq_mr() {
+    //using all_regs() in outer loop to test movl (%rsp), *
+    for ptr in MacroAssembler::all_regs() {
+      for dest in MacroAssembler::free_regs() {
+        let mut masm = MacroAssembler::new();
+        masm.emit_push_imm32(0x8bcd_1235);
+        masm.emit_movq_rr(X64_RSP as u32, ptr);
+        masm.emit_movq_mr(ptr, dest);
+        masm.emit_pop_r64(1);
+        masm.emit_movq_rr(dest, 0);
+        let jit_fn = masm.compile_buffer().unwrap();
+        let out: u64;
+        unsafe {
+          asm!("callq *%rbp"
+              :"={rax}"(out)
+              :"{rbp}"(jit_fn.name));
+        }
+        assert_eq!(out, 0xffff_ffff_8bcd_1235);
+      }
+    }
+  }
+
+  #[test]
+  fn movq_mr_offset() {
+    for ptr in MacroAssembler::all_regs() {
+      for dest in MacroAssembler::free_regs() {
+        let mut masm = MacroAssembler::new();
+        masm.emit_push_imm32(0x8bcd_1235);
+        masm.emit_push_r64(1);
+        masm.emit_push_r64(1);
+        masm.emit_movq_rr(X64_RSP as u32, ptr);
+        masm.emit_movq_mr_offset(ptr, dest, 16);
+        masm.emit_pop_r64(1);
+        masm.emit_pop_r64(1);
+        masm.emit_pop_r64(1);
+        masm.emit_movq_rr(dest, 0);
+        let jit_fn = masm.compile_buffer().unwrap();
+        let out: u64;
+        unsafe {
+          asm!("callq *%rbp"
+              :"={rax}"(out)
+              :"{rbp}"(jit_fn.name));
+        }
+        if ptr != dest {
+          assert_eq!(out, 0xffff_ffff_8bcd_1235);
         }
       }
     }

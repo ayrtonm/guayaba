@@ -7,6 +7,10 @@ use crate::register::BitTwiddle;
 use crate::jit::insn::Insn;
 use crate::jit::x64_jit::macro_assembler::MacroAssembler;
 use crate::jit::x64_jit::register_allocator::RegisterMap;
+use crate::jit::x64_jit::register_allocator::X64_RAX;
+use crate::jit::x64_jit::register_allocator::X64_RDX;
+use crate::jit::x64_jit::register_allocator::X64_RSP;
+use crate::jit::x64_jit::register_allocator::X64_R15;
 
 impl MacroAssembler {
   pub fn emit_insn(&mut self, insn: &Insn, register_map: &RegisterMap, logging: bool) {
@@ -139,6 +143,23 @@ impl MacroAssembler {
           let s = get_rs(op);
           let t = get_rt(op);
           let imm16 = get_imm16(op).half_sign_extended();
+          //COP0 register array address is at 8(%rsp)
+          let mut cop0_stack_position = 8;
+          if register_map.contains_x64(X64_R15) {
+            self.emit_push_r64(X64_R15);
+            cop0_stack_position += 8;
+          };
+          //movq 8(%rsp), %r15
+          self.emit_movq_mr_offset(X64_RSP, X64_R15, cop0_stack_position);
+          //deference cop0 reg array to get cop0R12
+          //movl (%r15), %r15
+          self.emit_movl_mr(X64_R15, X64_R15);
+          let skip_write = self.create_undefined_label();
+
+          if register_map.contains_x64(X64_R15) {
+            self.emit_pop_r64(X64_R15);
+          };
+
           //TODO: come up with a barebones ABI and implement this correctly
           //movl $0, r15d
           //addw imm16, r15w

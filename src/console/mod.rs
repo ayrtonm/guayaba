@@ -73,7 +73,7 @@ impl Console {
   pub fn new(bios_filename: &String, infile: Option<&String>, gpu_logging: bool,
              wx: u32, wy: u32) -> io::Result<Self> {
     let r3000 = R3000::new();
-    let cop0 = Default::default();
+    let cop0: Cop0 = Default::default();
     let memory = Memory::new(bios_filename)?;
     let gpu = GPU::new(gpu_logging);
     let gte = Default::default();

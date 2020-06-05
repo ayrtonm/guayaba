@@ -41,7 +41,6 @@ impl Block {
                      logging: bool) -> io::Result<JIT_Fn> {
     let mut masm = MacroAssembler::new();
     let mut register_map = RegisterMap::new(&tagged_opcodes);
-    println!("{:#?}", register_map);
     let cop0_reg_addr = console.cop0.reg_ptr() as u64;
     masm.emit_movq_ir(cop0_reg_addr, 0);
     masm.emit_push_r64(0);
@@ -56,8 +55,6 @@ impl Block {
     //an add rsp * to realign the stack
     masm.emit_pop_r64(0);
     let jit_fn = masm.compile_buffer()?;
-    println!("recompiled {} bytes of MIPS code into {} bytes of x64 code",
-              3 * 3, masm.len());
     Ok(jit_fn)
   }
   pub fn final_pc(&self) -> u32 {
