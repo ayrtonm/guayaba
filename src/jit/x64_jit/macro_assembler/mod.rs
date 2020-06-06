@@ -11,6 +11,7 @@ mod jump;
 mod call;
 mod alu;
 mod bt;
+mod xchg;
 
 pub type Label = usize;
 type JITOffset = usize;
