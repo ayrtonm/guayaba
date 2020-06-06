@@ -27,26 +27,43 @@ pub const X64_R14: X64RegNum = 14;
 pub const X64_R15: X64RegNum = 15;
 
 #[derive(Debug)]
+pub enum Location {
+  X64Register(X64RegNum),
+  Stack(i32),
+}
+#[derive(Debug)]
 pub struct Mapping {
-  x64_reg: Option<X64RegNum>,
+  x64_reg: Location,
   mips_reg: MIPSRegister,
 }
 
 impl Mapping {
-  fn new_from_tuple(tuple: (Option<&X64RegNum>, MIPSRegister)) -> Mapping {
+  fn new_from_tuple(tuple: (Location, MIPSRegister)) -> Mapping {
     Mapping {
-      x64_reg: tuple.0.map(|&num| num),
+      x64_reg: tuple.0,
       mips_reg: tuple.1,
     }
   }
   pub fn x64_reg(&self) -> Option<X64RegNum> {
-    self.x64_reg
+    match self.x64_reg {
+      Location::X64Register(x) => Some(x),
+      Location::Stack(_) => None,
+    }
+  }
+  pub fn stack_location(&self) -> Option<i32> {
+    match self.x64_reg {
+      Location::Stack(offset) => Some(offset),
+      Location::X64Register(_) => None,
+    }
   }
   pub fn mips_reg(&self) -> MIPSRegister {
     self.mips_reg
   }
+  fn remap_location(&mut self, mips_reg: MIPSRegister) {
+    self.mips_reg = mips_reg;
+  }
   fn mips_loaded(&self) -> bool {
-    self.x64_reg.is_some()
+    self.x64_reg().is_some()
   }
 }
 
@@ -57,11 +74,13 @@ pub struct RegisterMap {
 
 impl RegisterMap {
   pub fn new(tagged_opcodes: &Vec<Insn>) -> Self {
-    let none = [None].iter().map(|o| o.as_ref()).cycle();
+    let stack_locations = [0, 1, 2].iter()
+                                   .map(|&offset| Location::Stack(offset))
+                                   .collect::<Vec<_>>();
     let mips_registers = tagged_opcodes.registers_by_frequency();
     let mappings: Vec<_> = MacroAssembler::free_regs().iter()
-                                        .map(|x| Some(x))
-                                        .chain(none)
+                                        .map(|&x| Location::X64Register(x))
+                                        .chain(stack_locations)
                                         .zip(mips_registers.into_iter())
                                         .map(|t| Mapping::new_from_tuple(t))
                                         .collect();
@@ -74,11 +93,14 @@ impl RegisterMap {
       (self.mappings.len() - 15) as i32
     }
   }
-  pub fn load_mappings(&self) -> Vec<&Mapping> {
+  pub fn loaded_mappings(&self) -> Vec<&Mapping> {
     self.mappings.iter().filter(|map| map.x64_reg().is_some()).collect()
   }
   pub fn mappings(&self) -> &Vec<Mapping> {
     &self.mappings
+  }
+  fn mappings_mut(&mut self) -> &mut Vec<Mapping> {
+    &mut self.mappings
   }
   pub fn contains_x64(&self, x64_reg: X64RegNum) -> bool {
     self.mappings.iter().any(|map| map.x64_reg() == Some(x64_reg))
@@ -89,6 +111,52 @@ impl RegisterMap {
       None => unreachable!("tried using unmapped MIPS register R{}", mips_reg),
     }
   }
+  pub fn mips_stack_location(&self, mips_reg: MIPSRegister) -> Option<i32> {
+    match self.mappings.iter().find(|&map| map.mips_reg == mips_reg) {
+      Some(map) => map.stack_location(),
+      None => unreachable!("tried using unmapped MIPS register R{}", mips_reg),
+    }
+  }
+  fn location_to_mips(&self, location: &Location) -> Option<MIPSRegister> {
+    match *location {
+      Location::X64Register(reg) => {
+        self.mappings.iter().find(|&map| map.x64_reg() == Some(reg)).map(|mapping| mapping.mips_reg())
+      },
+      Location::Stack(offset) => {
+        self.mappings.iter().find(|&map| map.stack_location() == Some(offset)).map(|mapping| mapping.mips_reg())
+      },
+    }
+  }
+  fn remap_location(&mut self, location: &Location, mips_reg: MIPSRegister) {
+    match *location {
+      Location::X64Register(reg) => {
+        self.mappings_mut()
+            .into_iter()
+            .find(|map| map.x64_reg() == Some(reg))
+            .map(|mut map| {
+              map.remap_location(mips_reg);
+            });
+      },
+      Location::Stack(offset) => {
+        self.mappings_mut()
+            .into_iter()
+            .find(|map| map.stack_location() == Some(offset))
+            .map(|mut map| {
+              map.remap_location(mips_reg);
+            });
+      },
+    }
+  }
+  pub fn swap_mappings(&mut self, loc1: Location, loc2: Location) {
+    let mips_reg1 = self.location_to_mips(&loc1);
+    let mips_reg2 = self.location_to_mips(&loc2);
+    mips_reg1.map(|value_reg1| {
+      self.remap_location(&loc2, value_reg1);
+    });
+    mips_reg2.map(|value_reg2| {
+      self.remap_location(&loc1, value_reg2);
+    });
+  }
 }
 
 impl MacroAssembler {
@@ -96,7 +164,7 @@ impl MacroAssembler {
     let mips_reg_addr = console.r3000.reg_ptr() as u64;
     self.emit_movq_ir(mips_reg_addr, X64_R15);
     self.emit_push_r64(15);
-    for mapping in register_map.load_mappings() {
+    for mapping in register_map.loaded_mappings() {
       let mips_reg_idx = 4 * (mapping.mips_reg() as u64 - 1);
       let x64_reg = mapping.x64_reg().expect("MIPS register should be mapped");
       self.emit_movl_mr_offset(X64_R15, x64_reg, mips_reg_idx as i32);
@@ -104,7 +172,7 @@ impl MacroAssembler {
   }
   pub fn save_registers(&mut self, register_map: &RegisterMap, console: &Console) {
     self.emit_pop_r64(15);
-    for mapping in register_map.load_mappings() {
+    for mapping in register_map.loaded_mappings() {
       let mips_reg_idx = 4 * (mapping.mips_reg() as u64 - 1);
       let x64_reg = mapping.x64_reg().expect("MIPS register should be mapped");
       self.emit_movl_rm_offset(x64_reg, X64_R15, mips_reg_idx as i32);

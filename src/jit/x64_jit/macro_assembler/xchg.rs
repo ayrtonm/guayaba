@@ -124,7 +124,7 @@ mod tests {
         let x = 0x0703_b452;
         masm.emit_movl_ir(x, 0);
         masm.emit_push_r64(0);
-        masm.emit_push_r64(0);
+        masm.emit_push_r64(1);
         masm.emit_movq_rr(X64_RSP, ptr);
         masm.emit_xchgl_rm_offset(reg, ptr, 8);
         masm.emit_movl_rr(reg, 0);

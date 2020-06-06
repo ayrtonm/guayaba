@@ -10,7 +10,7 @@ use crate::jit::x64_jit::register_allocator::RegisterMap;
 use crate::jit::x64_jit::register_allocator::*;
 
 impl MacroAssembler {
-  pub fn emit_insn(&mut self, insn: &Insn, register_map: &RegisterMap, logging: bool) {
+  pub fn emit_insn(&mut self, insn: &Insn, register_map: &mut RegisterMap, logging: bool) {
     let op = insn.op();
     let offset = insn.offset();
     macro_rules! log {
@@ -140,6 +140,7 @@ impl MacroAssembler {
           let s = get_rs(op);
           let t = get_rt(op);
           let imm16 = get_imm16(op).half_sign_extended();
+          //this is the opcode's frame pointer relative to the stack pointer
           let mut stack_offset = register_map.overflow_registers();
           if register_map.contains_x64(X64_R15) {
             self.emit_push_r64(X64_R15);
@@ -155,10 +156,10 @@ impl MacroAssembler {
             self.emit_push_r64(X64_RDI);
             stack_offset += 8;
           }
-          if register_map.contains_x64(X64_RSI) {
-            self.emit_push_r64(X64_RSI);
-            stack_offset += 8;
-          }
+          //if register_map.contains_x64(X64_RSI) {
+          //  self.emit_push_r64(X64_RSI);
+          //  stack_offset += 8;
+          //}
           if register_map.contains_x64(X64_RDX) {
             self.emit_push_r64(X64_RDX);
             stack_offset += 8;
@@ -167,14 +168,14 @@ impl MacroAssembler {
           let write_word_stack_position = 24 + stack_offset;
           self.emit_movq_mr_offset(X64_RSP, X64_R15, write_word_stack_position);
           self.emit_movq_mr_offset(X64_RSP, X64_RDI, console_stack_position);
-          //match register_map.mips_to_x64(s) {
-          //  Some(reg) => self.emit_movl_rr(reg, X64_RSI),
-          //  None => {
-          //    //self.emit_xchgq_rm_offset(
-          //    self.emit_movl_rr(reg, X64_RSI)
-          //  },
-          //}
-          self.emit_movl_rr(register_map.mips_to_x64(s).unwrap(), X64_RSI);
+          match register_map.mips_to_x64(s) {
+            Some(rs) => self.emit_movl_rr(rs, X64_RSI),
+            None => {
+              let offset = register_map.mips_stack_location(s).expect("");
+              self.emit_xchgl_rm_offset(X64_RSI, X64_RSP, offset);
+              register_map.swap_mappings(Location::X64Register(X64_RSI), Location::Stack(offset));
+            },
+          }
           self.emit_addl_ir(imm16 as i32, X64_RSI);
           self.emit_movl_rr(register_map.mips_to_x64(t).unwrap(), X64_RDX);
           for i in MacroAssembler::caller_saved_regs() {
@@ -199,9 +200,9 @@ impl MacroAssembler {
           if register_map.contains_x64(X64_RDX) {
             self.emit_pop_r64(X64_RDX);
           }
-          if register_map.contains_x64(X64_RSI) {
-            self.emit_pop_r64(X64_RSI);
-          }
+          //if register_map.contains_x64(X64_RSI) {
+          //  self.emit_pop_r64(X64_RSI);
+          //}
           if register_map.contains_x64(X64_RDI) {
             self.emit_pop_r64(X64_RDI);
           }
