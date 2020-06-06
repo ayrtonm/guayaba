@@ -102,6 +102,13 @@ impl MacroAssembler {
       self.buffer.push(MacroAssembler::REX | b | r << 2);
     };
   }
+  fn emit_conditional_rexwrb(&mut self, reg1: u32, reg2: u32) {
+    let r = reg1.nth_bit(3) as u8;
+    let b = reg2.nth_bit(3) as u8;
+    if (r | b) != 0 {
+      self.buffer.push(MacroAssembler::REXW | b | r << 2);
+    };
+  }
   fn conditional_rexb(reg: u32) -> u8 {
     reg.nth_bit(3) as u8
   }

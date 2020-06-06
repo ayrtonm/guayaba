@@ -43,6 +43,9 @@ impl X64JIT {
           //but it might be interesting to profile and compare with an inline
           //assembly callq
           block.function.execute();
+          assert_eq!(self.console.r3000.nth_reg(1), 0x1f80_0000);
+          assert_eq!(self.console.r3000.nth_reg(8), 0xb88);
+          panic!("");
           //let stubs = block.stubs();
           //for stub in stubs {
           //  self.console.r3000.flush_write_cache(&mut self.console.delayed_writes,

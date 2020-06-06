@@ -167,15 +167,16 @@ impl MacroAssembler {
           let write_word_stack_position = 24 + stack_offset;
           self.emit_movq_mr_offset(X64_RSP, X64_R15, write_word_stack_position);
           self.emit_movq_mr_offset(X64_RSP, X64_RDI, console_stack_position);
-          match register_map.mips_to_x64(s) {
-            Some(reg) => self.emit_movl_rr(reg, X64_RSI),
-            None => {
-              self.emit_xchgq_mr_offset(
-              self.emit_movl_rr(reg, X64_RSI)
-            },
-          }
+          //match register_map.mips_to_x64(s) {
+          //  Some(reg) => self.emit_movl_rr(reg, X64_RSI),
+          //  None => {
+          //    //self.emit_xchgq_rm_offset(
+          //    self.emit_movl_rr(reg, X64_RSI)
+          //  },
+          //}
+          self.emit_movl_rr(register_map.mips_to_x64(s).unwrap(), X64_RSI);
           self.emit_addl_ir(imm16 as i32, X64_RSI);
-          self.emit_movl_rr(register_map.mips_to_x64(t), X64_RDX);
+          self.emit_movl_rr(register_map.mips_to_x64(t).unwrap(), X64_RDX);
           for i in MacroAssembler::caller_saved_regs() {
             if register_map.contains_x64(i) {
               self.emit_push_r64(i);
@@ -343,9 +344,9 @@ impl MacroAssembler {
           let imm16 = get_imm16(op) as u16;
           let t = get_rt(op);
           if t != 0 {
-            let dest = register_map.mips_to_x64(t);
+            let dest = register_map.mips_to_x64(t).unwrap();
             if s != 0 {
-              let src = register_map.mips_to_x64(s);
+              let src = register_map.mips_to_x64(s).unwrap();
               self.emit_movl_rr(src, dest);
               self.emit_orw_ir(imm16, dest);
             } else {
@@ -361,9 +362,9 @@ impl MacroAssembler {
           let imm16 = get_imm16(op).half_sign_extended();
           let t = get_rt(op);
           if t != 0 {
-            let dest = register_map.mips_to_x64(t);
+            let dest = register_map.mips_to_x64(t).unwrap();
             if s != 0 {
-              let src = register_map.mips_to_x64(s);
+              let src = register_map.mips_to_x64(s).unwrap();
               self.emit_movl_rr(src, dest);
               self.emit_addl_ir(imm16 as i32, dest);
             } else {
@@ -379,9 +380,9 @@ impl MacroAssembler {
     //    let imm16 = get_imm16(op).half_sign_extended();
     //    let t = get_rt(op);
     //    if t != 0 {
-    //      let dest = register_map.mips_to_x64(t);
+    //      let dest = register_map.mips_to_x64(t).unwrap();
     //      if s != 0 {
-    //        let src = register_map.mips_to_x64(s);
+    //        let src = register_map.mips_to_x64(s).unwrap();
     //        self.emit_movl_rr(src, dest);
     //        self.emit_addl_ir(imm16, dest);
     //      } else {
@@ -441,7 +442,7 @@ impl MacroAssembler {
           let imm16 = get_imm16(op);
           let result = imm16 << 16;
           if t != 0 {
-            self.emit_movl_ir(result, register_map.mips_to_x64(t));
+            self.emit_movl_ir(result, register_map.mips_to_x64(t).unwrap());
           };
         }
       };
