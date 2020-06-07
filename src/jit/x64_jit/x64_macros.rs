@@ -141,7 +141,7 @@ impl MacroAssembler {
           let t = get_rt(op);
           let imm16 = get_imm16(op).half_sign_extended();
           //this is the opcode's frame pointer relative to the stack pointer
-          let mut stack_offset = register_map.count_overflow_registers() as i32;
+          let mut stack_offset = 4 * register_map.count_overflow_registers() as i32;
           if register_map.contains_x64(X64_R15) {
             self.emit_push_r64(X64_R15);
             stack_offset += 8;
@@ -193,16 +193,19 @@ impl MacroAssembler {
           for &i in MacroAssembler::caller_saved_regs().iter().rev() {
             if register_map.contains_x64(i) {
               self.emit_pop_r64(i);
-              stack_offset += 8;
+              stack_offset -= 8;
             }
           }
           if register_map.contains_x64(X64_RDI) {
             self.emit_pop_r64(X64_RDI);
+            stack_offset -= 8;
           }
           self.define_label(skip_write);
           if register_map.contains_x64(X64_R15) {
             self.emit_pop_r64(X64_R15);
+            stack_offset -= 8;
           }
+          assert_eq!(stack_offset, 4 * register_map.count_overflow_registers() as i32);
         }
       };
     //  (lo = rs) => {
