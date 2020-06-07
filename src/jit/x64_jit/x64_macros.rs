@@ -13,6 +13,8 @@ impl MacroAssembler {
   pub fn emit_insn(&mut self, insn: &Insn, register_map: &mut RegisterMap, logging: bool) {
     let op = insn.op();
     let offset = insn.offset();
+    let frame_pointer = 4 * register_map.count_overflow_registers() as i32;
+    let mut stack_pointer = frame_pointer;
     macro_rules! log {
       () => ($crate::print!("\n"));
       ($($arg:tt)*) => ({
@@ -140,75 +142,73 @@ impl MacroAssembler {
           let s = get_rs(op);
           let t = get_rt(op);
           let imm16 = get_imm16(op).half_sign_extended();
-          //this is the opcode's stack pointer which is initially set to its frame pointer
-          let frame_pointer = 4 * register_map.count_overflow_registers() as i32;
-          let mut stack_offset = frame_pointer;
-          if register_map.contains_x64(X64_R15) {
-            self.emit_push_r64(X64_R15);
-            stack_offset += 8;
-          }
-          let cop0_stack_position = 8 + stack_offset;
-          self.emit_movq_mr_offset(X64_RSP, X64_R15, cop0_stack_position);
-          self.emit_movl_mr(X64_R15, X64_R15);
-          let skip_write = self.create_undefined_label();
-          self.emit_btl_ir(16, X64_R15);
-          self.emit_jb_label(skip_write);
           if register_map.contains_x64(X64_RDI) {
             self.emit_push_r64(X64_RDI);
-            stack_offset += 8;
+            stack_pointer += 8;
           }
-          let console_stack_position = 16 + stack_offset;
+          let cop0_stack_position = 8 + stack_pointer;
+          self.emit_movq_mr_offset(X64_RSP, X64_RDI, cop0_stack_position);
+          self.emit_movl_mr(X64_RDI, X64_RDI);
+          let skip_write = self.create_undefined_label();
+          self.emit_btl_ir(16, X64_RDI);
+          self.emit_jb_label(skip_write);
+          let console_stack_position = 16 + stack_pointer;
           self.emit_movq_mr_offset(X64_RSP, X64_RDI, console_stack_position);
           match register_map.mips_to_x64(s) {
-            Some(rs) => self.emit_movl_rr(rs, X64_RSI),
+            Some(rs) => {
+              self.emit_xchgq_rr(rs, X64_RSI);
+              register_map.swap_mappings(Location::X64Register(X64_RSI), Location::X64Register(rs));
+            },
             None => {
               let offset = register_map.mips_stack_location(s).expect("");
-              self.emit_xchgl_rm_offset(X64_RSI, X64_RSP, offset);
+              self.emit_xchgl_rm_offset(X64_RSI, X64_RSP, offset * 4);
               register_map.swap_mappings(Location::X64Register(X64_RSI), Location::Stack(offset));
             },
           }
+          self.emit_push_r64(X64_RSI);
+          stack_pointer += 8;
           self.emit_addl_ir(imm16 as i32, X64_RSI);
           match register_map.mips_to_x64(t) {
-            Some(rt) => self.emit_movl_rr(rt, X64_RDX),
+            Some(rt) => {
+              self.emit_xchgq_rr(rt, X64_RDX);
+              register_map.swap_mappings(Location::X64Register(X64_RDX), Location::X64Register(rt));
+            },
             None => {
               let offset = register_map.mips_stack_location(t).expect("");
-              self.emit_xchgl_rm_offset(X64_RDX, X64_RSP, offset);
+              self.emit_xchgl_rm_offset(X64_RDX, X64_RSP, offset * 4);
               register_map.swap_mappings(Location::X64Register(X64_RDX), Location::Stack(offset));
             },
           }
           for i in MacroAssembler::caller_saved_regs() {
             if register_map.contains_x64(i) {
               self.emit_push_r64(i);
-              stack_offset += 8;
+              stack_pointer += 8;
             }
           }
-          let stack_unaligned = stack_offset % 16 == 8;
+          let stack_unaligned = stack_pointer % 16 == 8;
           if stack_unaligned {
             self.emit_addq_ir(-8, X64_RSP);
-            stack_offset += 8;
+            stack_pointer += 8;
           }
-          let write_word_stack_position = 24 + stack_offset;
+          let write_word_stack_position = 24 + stack_pointer;
           self.emit_callq_m64_offset(X64_RSP, write_word_stack_position);
           if stack_unaligned {
             self.emit_addq_ir(8, X64_RSP);
-            stack_offset -= 8;
+            stack_pointer -= 8;
           }
           for &i in MacroAssembler::caller_saved_regs().iter().rev() {
             if register_map.contains_x64(i) {
               self.emit_pop_r64(i);
-              stack_offset -= 8;
+              stack_pointer -= 8;
             }
           }
+          self.emit_pop_r64(X64_RSI);
+          stack_pointer -= 8;
           if register_map.contains_x64(X64_RDI) {
             self.emit_pop_r64(X64_RDI);
-            stack_offset -= 8;
+            stack_pointer -= 8;
           }
           self.define_label(skip_write);
-          if register_map.contains_x64(X64_R15) {
-            self.emit_pop_r64(X64_R15);
-            stack_offset -= 8;
-          }
-          assert_eq!(stack_offset, frame_pointer);
         }
       };
     //  (lo = rs) => {
@@ -663,14 +663,29 @@ impl MacroAssembler {
         {
           let imm26 = get_imm26(op);
           let shifted_imm26 = imm26 * 4;
-          //TODO: conditionally push r15 and r14
-          self.emit_movq_mr(X64_RSP, X64_R14);
+          if register_map.contains_x64(X64_R14) {
+            self.emit_push_r64(X64_R14);
+            stack_pointer += 8;
+          }
+          if register_map.contains_x64(X64_R15) {
+            self.emit_push_r64(X64_R15);
+            stack_pointer += 8;
+          }
+          self.emit_movq_mr_offset(X64_RSP, X64_R14, stack_pointer);
           let pc_idx = 31;
           self.emit_movl_mr_offset(X64_R14, X64_R15, 4 * pc_idx);
           self.emit_addl_ir(offset as i32, X64_R15);
           self.emit_andl_ir(0xf000_0000, X64_R15);
           self.emit_addl_ir(shifted_imm26 as i32, X64_R15);
           self.emit_movl_rm_offset(X64_R15, X64_R14, 4 * pc_idx);
+          if register_map.contains_x64(X64_R15) {
+            self.emit_pop_r64(X64_R15);
+            stack_pointer -= 8;
+          }
+          if register_map.contains_x64(X64_R14) {
+            self.emit_pop_r64(X64_R14);
+            stack_pointer -= 8;
+          }
     //      Box::new(move |vm| {
     //        let pc = vm.r3000.pc().wrapping_add(offset);
     //        let pc_hi_bits = pc & 0xf000_0000;
@@ -1190,5 +1205,6 @@ impl MacroAssembler {
         todo!("ran into unimplemented opcode {:#x?}", op)
       }
     };
+    assert_eq!(stack_pointer, frame_pointer);
   }
 }
