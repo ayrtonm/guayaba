@@ -162,38 +162,78 @@ impl RegisterMap {
 }
 
 impl MacroAssembler {
+  //emit an instruction to load a MIPS register into the specified x64 register
+  //also loads the value in the specified x64 register into the x64 register which contained the MIPS register
+  //then updates the register map accordingly so we avoid having to swap them back
+  pub fn emit_swap_mips_registers(&mut self, register_map: &mut RegisterMap, mips_reg: u32, x64_reg1: u32) {
+    match register_map.mips_to_x64(mips_reg) {
+      Some(x64_reg2) => {
+        self.emit_xchgq_rr(x64_reg2, x64_reg1);
+        register_map.swap_mappings(Location::X64Register(x64_reg1), Location::X64Register(x64_reg2));
+      },
+      None => {
+        let idx = register_map.mips_stack_location(mips_reg).expect("");
+        self.emit_xchgl_rm_offset(x64_reg1, X64_RSP, idx * 4);
+        register_map.swap_mappings(Location::X64Register(x64_reg1), Location::Stack(idx));
+      },
+    }
+  }
+  pub fn emit_conditional_pop_r64(&mut self, register_map: &RegisterMap, reg: u32) -> i32 {
+    if register_map.contains_x64(reg) {
+      self.emit_pop_r64(reg);
+      -8
+    } else {
+      0
+    }
+  }
+  pub fn emit_conditional_push_r64(&mut self, register_map: &RegisterMap, reg: u32) -> i32 {
+    if register_map.contains_x64(reg) {
+      self.emit_push_r64(reg);
+      8
+    } else {
+      0
+    }
+  }
   pub fn load_registers(&mut self, register_map: &RegisterMap, console: &Console) {
     let mips_reg_addr = console.r3000.reg_ptr() as u64;
     self.emit_movq_ir(mips_reg_addr, X64_R15);
     self.emit_push_r64(X64_R15);
     self.emit_addq_ir(-(register_map.count_overflow_registers() as i32) * 4, X64_RSP);
     for mapping in register_map.overflow_mappings() {
-      let stack_offset = mapping.stack_location().expect("MIPS register should be mapped to the stack") * 4;
+      let stack_offset = mapping.stack_location()
+                                .expect("MIPS register should be mapped to the stack") * 4;
       let mips_reg_idx = 4 * (mapping.mips_reg() - 1) as i32;
       self.emit_movl_mr_offset(X64_R15, X64_R14, mips_reg_idx);
       self.emit_movl_rm_offset(X64_R14, X64_RSP, stack_offset);
     }
     for mapping in register_map.loaded_mappings() {
-      let x64_reg = mapping.x64_reg().expect("MIPS register should be mapped to an x64 register");
+      let x64_reg = mapping.x64_reg()
+                           .expect("MIPS register should be mapped to an x64 register");
       let mips_reg_idx = 4 * (mapping.mips_reg() - 1) as i32;
       self.emit_movl_mr_offset(X64_R15, x64_reg, mips_reg_idx);
     }
   }
   pub fn save_registers(&mut self, register_map: &RegisterMap, console: &Console) {
     let mut stack_offset = register_map.count_overflow_registers() as i32 * 4;
-    let r15_in_use = register_map.loaded_mappings().iter().any(|&map| map.x64_reg() == Some(X64_R15));
+    let r15_in_use = register_map.loaded_mappings()
+                                 .iter()
+                                 .any(|&map| map.x64_reg() == Some(X64_R15));
     if r15_in_use {
       self.emit_push_r64(X64_R15);
       stack_offset += 8;
     }
     self.emit_movq_mr_offset(X64_RSP, X64_R15, stack_offset);
-    for &mapping in register_map.loaded_mappings().iter().filter(|&map| map.x64_reg() != Some(X64_R15)) {
-      let x64_reg = mapping.x64_reg().expect("MIPS register should be mapped to an x64 register");
+    for &mapping in register_map.loaded_mappings()
+                                .iter()
+                                .filter(|&map| map.x64_reg() != Some(X64_R15)) {
+      let x64_reg = mapping.x64_reg()
+                           .expect("MIPS register should be mapped to an x64 register");
       let mips_reg_idx = 4 * (mapping.mips_reg() - 1) as i32;
       self.emit_movl_rm_offset(x64_reg, X64_R15, mips_reg_idx);
     }
     for mapping in register_map.overflow_mappings() {
-      let mut stack_location = mapping.stack_location().expect("MIPS register should be mapped to the stack") * 4;
+      let mut stack_location = mapping.stack_location()
+                                      .expect("MIPS register should be mapped to the stack") * 4;
       if r15_in_use {
         stack_location += 8;
       }

@@ -142,72 +142,40 @@ impl MacroAssembler {
           let s = get_rs(op);
           let t = get_rt(op);
           let imm16 = get_imm16(op).half_sign_extended();
-          if register_map.contains_x64(X64_RDI) {
-            self.emit_push_r64(X64_RDI);
-            stack_pointer += 8;
-          }
+          stack_pointer += self.emit_conditional_push_r64(register_map, X64_RDI);
           let cop0_stack_position = 8 + stack_pointer;
           self.emit_movq_mr_offset(X64_RSP, X64_RDI, cop0_stack_position);
           self.emit_movl_mr(X64_RDI, X64_RDI);
-          let skip_write = self.create_undefined_label();
           self.emit_btl_ir(16, X64_RDI);
+          let skip_write = self.create_undefined_label();
           self.emit_jb_label(skip_write);
           let console_stack_position = 16 + stack_pointer;
           self.emit_movq_mr_offset(X64_RSP, X64_RDI, console_stack_position);
-          match register_map.mips_to_x64(s) {
-            Some(rs) => {
-              self.emit_xchgq_rr(rs, X64_RSI);
-              register_map.swap_mappings(Location::X64Register(X64_RSI), Location::X64Register(rs));
-            },
-            None => {
-              let offset = register_map.mips_stack_location(s).expect("");
-              self.emit_xchgl_rm_offset(X64_RSI, X64_RSP, offset * 4);
-              register_map.swap_mappings(Location::X64Register(X64_RSI), Location::Stack(offset));
-            },
-          }
+          self.emit_swap_mips_registers(register_map, s, X64_RSI);
           self.emit_push_r64(X64_RSI);
           stack_pointer += 8;
           self.emit_addl_ir(imm16 as i32, X64_RSI);
-          match register_map.mips_to_x64(t) {
-            Some(rt) => {
-              self.emit_xchgq_rr(rt, X64_RDX);
-              register_map.swap_mappings(Location::X64Register(X64_RDX), Location::X64Register(rt));
-            },
-            None => {
-              let offset = register_map.mips_stack_location(t).expect("");
-              self.emit_xchgl_rm_offset(X64_RDX, X64_RSP, offset * 4);
-              register_map.swap_mappings(Location::X64Register(X64_RDX), Location::Stack(offset));
-            },
-          }
+          self.emit_swap_mips_registers(register_map, t, X64_RDX);
           for i in MacroAssembler::caller_saved_regs() {
-            if register_map.contains_x64(i) {
-              self.emit_push_r64(i);
-              stack_pointer += 8;
-            }
+            stack_pointer += self.emit_conditional_push_r64(register_map, i);
           }
-          let stack_unaligned = stack_pointer % 16 == 8;
-          if stack_unaligned {
+          let stack_unaligned_at_call = stack_pointer % 16 == 8;
+          if stack_unaligned_at_call {
             self.emit_addq_ir(-8, X64_RSP);
             stack_pointer += 8;
           }
           let write_word_stack_position = 24 + stack_pointer;
           self.emit_callq_m64_offset(X64_RSP, write_word_stack_position);
-          if stack_unaligned {
+          if stack_unaligned_at_call {
             self.emit_addq_ir(8, X64_RSP);
             stack_pointer -= 8;
           }
           for &i in MacroAssembler::caller_saved_regs().iter().rev() {
-            if register_map.contains_x64(i) {
-              self.emit_pop_r64(i);
-              stack_pointer -= 8;
-            }
+            stack_pointer += self.emit_conditional_pop_r64(register_map, i);
           }
           self.emit_pop_r64(X64_RSI);
           stack_pointer -= 8;
-          if register_map.contains_x64(X64_RDI) {
-            self.emit_pop_r64(X64_RDI);
-            stack_pointer -= 8;
-          }
+          stack_pointer += self.emit_conditional_pop_r64(register_map, X64_RDI);
           self.define_label(skip_write);
         }
       };
