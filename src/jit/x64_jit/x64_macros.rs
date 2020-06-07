@@ -158,8 +158,6 @@ impl MacroAssembler {
             stack_offset += 8;
           }
           let console_stack_position = 16 + stack_offset;
-          let write_word_stack_position = 24 + stack_offset;
-          self.emit_movq_mr_offset(X64_RSP, X64_R15, write_word_stack_position);
           self.emit_movq_mr_offset(X64_RSP, X64_RDI, console_stack_position);
           match register_map.mips_to_x64(s) {
             Some(rs) => self.emit_movl_rr(rs, X64_RSI),
@@ -184,12 +182,16 @@ impl MacroAssembler {
               stack_offset += 8;
             }
           }
-          if stack_offset % 16 == 8 {
+          let stack_unaligned = stack_offset % 16 == 8;
+          if stack_unaligned {
             self.emit_addq_ir(-8, X64_RSP);
+            stack_offset += 8;
           }
-          self.emit_callq_r64(X64_R15);
-          if stack_offset % 16 == 8 {
+          let write_word_stack_position = 24 + stack_offset;
+          self.emit_callq_m64_offset(X64_RSP, write_word_stack_position);
+          if stack_unaligned {
             self.emit_addq_ir(8, X64_RSP);
+            stack_offset -= 8;
           }
           for &i in MacroAssembler::caller_saved_regs().iter().rev() {
             if register_map.contains_x64(i) {

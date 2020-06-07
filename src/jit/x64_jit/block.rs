@@ -56,7 +56,7 @@ impl Block {
     masm.emit_push_imm64(console as *const Console as u64);
     masm.emit_push_imm64(cop0_reg_addr);
     masm.load_registers(&register_map, &console);
-    for insn in tagged_opcodes {
+    for insn in &tagged_opcodes[0..4] {
       //this is for debugging
       if insn.op() == 0x825 {
         break

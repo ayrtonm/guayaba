@@ -76,7 +76,9 @@ impl RegisterMap {
   pub fn new(tagged_opcodes: &Vec<Insn>) -> Self {
     let stack_locations = (0..=15).map(|offset| Location::Stack(offset))
                                  .collect::<Vec<_>>();
-    let mips_registers = tagged_opcodes.registers_by_frequency();
+    //let mips_registers = tagged_opcodes.registers_by_frequency();
+    //debugging with all MIPS registers mapped
+    let mips_registers = (1..=31).collect::<Vec<_>>();
     let mappings: Vec<_> = MacroAssembler::free_regs().iter()
                                         .map(|&x| Location::X64Register(x))
                                         .chain(stack_locations)
