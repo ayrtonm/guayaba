@@ -2,7 +2,7 @@ use std::cmp::max;
 use std::collections::HashSet;
 use crate::console::Console;
 use crate::jit::insn::Insn;
-use crate::jit::insn::InsnRegisters;
+use crate::jit::insn::InsnRegisterFrequency;
 use crate::jit::insn::MIPSRegister;
 use crate::jit::x64_jit::macro_assembler::MacroAssembler;
 use crate::register::BitTwiddle;
@@ -74,9 +74,8 @@ pub struct RegisterMap {
 
 impl RegisterMap {
   pub fn new(tagged_opcodes: &Vec<Insn>) -> Self {
-    let stack_locations = [0, 1, 2].iter()
-                                   .map(|&offset| Location::Stack(offset))
-                                   .collect::<Vec<_>>();
+    let stack_locations = (0..=15).map(|offset| Location::Stack(offset))
+                                 .collect::<Vec<_>>();
     let mips_registers = tagged_opcodes.registers_by_frequency();
     let mappings: Vec<_> = MacroAssembler::free_regs().iter()
                                         .map(|&x| Location::X64Register(x))
@@ -86,18 +85,14 @@ impl RegisterMap {
                                         .collect();
     RegisterMap { mappings }
   }
-  pub fn overflow_registers(&self) -> i32 {
-    if self.mappings.len() < 16 {
-      0
-    } else {
-      (self.mappings.len() - 15) as i32
-    }
+  pub fn count_overflow_registers(&self) -> usize {
+    self.mappings.iter().filter(|&map| !map.mips_loaded()).count()
   }
   pub fn loaded_mappings(&self) -> Vec<&Mapping> {
-    self.mappings.iter().filter(|map| map.x64_reg().is_some()).collect()
+    self.mappings.iter().filter(|map| map.mips_loaded()).collect()
   }
-  pub fn mappings(&self) -> &Vec<Mapping> {
-    &self.mappings
+  pub fn overflow_mappings(&self) -> Vec<&Mapping> {
+    self.mappings.iter().filter(|map| !map.mips_loaded()).collect()
   }
   fn mappings_mut(&mut self) -> &mut Vec<Mapping> {
     &mut self.mappings
@@ -120,10 +115,14 @@ impl RegisterMap {
   fn location_to_mips(&self, location: &Location) -> Option<MIPSRegister> {
     match *location {
       Location::X64Register(reg) => {
-        self.mappings.iter().find(|&map| map.x64_reg() == Some(reg)).map(|mapping| mapping.mips_reg())
+        self.mappings.iter()
+                     .find(|&map| map.x64_reg() == Some(reg))
+                     .map(|mapping| mapping.mips_reg())
       },
       Location::Stack(offset) => {
-        self.mappings.iter().find(|&map| map.stack_location() == Some(offset)).map(|mapping| mapping.mips_reg())
+        self.mappings.iter()
+                     .find(|&map| map.stack_location() == Some(offset))
+                     .map(|mapping| mapping.mips_reg())
       },
     }
   }
@@ -147,6 +146,7 @@ impl RegisterMap {
       },
     }
   }
+  //TODO: add some check to make sure that loc1 or loc2 is loaded
   pub fn swap_mappings(&mut self, loc1: Location, loc2: Location) {
     let mips_reg1 = self.location_to_mips(&loc1);
     let mips_reg2 = self.location_to_mips(&loc2);
@@ -164,18 +164,54 @@ impl MacroAssembler {
     let mips_reg_addr = console.r3000.reg_ptr() as u64;
     self.emit_movq_ir(mips_reg_addr, X64_R15);
     self.emit_push_r64(15);
-    for mapping in register_map.loaded_mappings() {
-      let mips_reg_idx = 4 * (mapping.mips_reg() as u64 - 1);
-      let x64_reg = mapping.x64_reg().expect("MIPS register should be mapped");
-      self.emit_movl_mr_offset(X64_R15, x64_reg, mips_reg_idx as i32);
+    self.emit_addq_ir(-(register_map.count_overflow_registers() as i32) * 8, X64_RSP);
+    for mapping in register_map.overflow_mappings() {
+      let stack_offset = mapping.stack_location().expect("MIPS register should be mapped to the stack");
+      let mips_reg_idx = 4 * (mapping.mips_reg() - 1) as i32;
+      self.emit_movl_mr_offset(X64_R15, X64_R14, mips_reg_idx);
+      self.emit_movl_rm_offset(X64_R14, X64_RSP, stack_offset);
     }
+    for mapping in register_map.loaded_mappings() {
+      let x64_reg = mapping.x64_reg().expect("MIPS register should be mapped to an x64 register");
+      let mips_reg_idx = 4 * (mapping.mips_reg() - 1) as i32;
+      self.emit_movl_mr_offset(X64_R15, x64_reg, mips_reg_idx);
+    }
+    //modify registers to test
+    //for i in MacroAssembler::free_regs() {
+    //  self.emit_addl_ir(1, i);
+    //}
   }
   pub fn save_registers(&mut self, register_map: &RegisterMap, console: &Console) {
-    self.emit_pop_r64(15);
-    for mapping in register_map.loaded_mappings() {
-      let mips_reg_idx = 4 * (mapping.mips_reg() as u64 - 1);
-      let x64_reg = mapping.x64_reg().expect("MIPS register should be mapped");
-      self.emit_movl_rm_offset(x64_reg, X64_R15, mips_reg_idx as i32);
+    let mut stack_offset = register_map.count_overflow_registers() as i32 * 8;
+    let r15_in_use = register_map.loaded_mappings().iter().any(|&map| map.x64_reg() == Some(X64_R15));
+    if r15_in_use {
+      self.emit_push_r64(15);
+      stack_offset += 8;
     }
+    //self.emit_movl_mr_offset(X64_RSP, X64_R15, stack_offset);
+    for &mapping in register_map.loaded_mappings().iter().filter(|&map| map.x64_reg() != Some(X64_R15)) {
+    //  let x64_reg = mapping.x64_reg().expect("MIPS register should be mapped to an x64 register");
+    //  let mips_reg_idx = 4 * (mapping.mips_reg() - 1) as i32;
+    //  self.emit_movl_rm_offset(x64_reg, X64_R15, mips_reg_idx);
+    }
+    for mapping in register_map.overflow_mappings() {
+    //  let mut stack_offset = mapping.stack_location().expect("MIPS register should be mapped to the stack");
+    //  if r15_in_use {
+    //    stack_offset += 8;
+    //  }
+    //  let mips_reg_idx = 4 * (mapping.mips_reg() - 1) as i32;
+    //  self.emit_movl_mr_offset(X64_RSP, X64_R14, stack_offset);
+    //  self.emit_movl_rm_offset(X64_R14, X64_R15, mips_reg_idx);
+    }
+    match register_map.loaded_mappings().iter().find(|&map| map.x64_reg() == Some(X64_R15)) {
+      Some(mapping) => {
+        let mips_reg_idx = 4 * (mapping.mips_reg() - 1) as i32;
+        self.emit_pop_r64(X64_R14);
+        //self.emit_movl_rm_offset(X64_R14, X64_R15, mips_reg_idx);
+      },
+      _ => (),
+    }
+    let stack_undo = (register_map.count_overflow_registers() + 1) as i32 * 8;
+    self.emit_addq_ir(stack_undo, X64_RSP);
   }
 }

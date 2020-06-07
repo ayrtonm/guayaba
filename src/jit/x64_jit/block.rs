@@ -1,5 +1,6 @@
 use std::io;
 use crate::jit::insn::Insn;
+use crate::jit::insn::InsnRegisterFrequency;
 use crate::jit::jit_fn::JIT_Fn;
 use crate::jit::x64_jit::macro_assembler::MacroAssembler;
 use crate::jit::x64_jit::register_allocator::RegisterMap;
@@ -40,6 +41,7 @@ impl Block {
   }
   fn create_function(tagged_opcodes: &Vec<Insn>, console: &Console,
                      logging: bool) -> io::Result<JIT_Fn> {
+    println!("with {} MIPS registers", tagged_opcodes.registers_by_frequency().len());
     let mut masm = MacroAssembler::new();
     let mut register_map = RegisterMap::new(&tagged_opcodes);
     let cop0_reg_addr = console.cop0.reg_ptr() as u64;
@@ -59,8 +61,11 @@ impl Block {
     masm.emit_push_imm64(cop0_reg_addr);
     masm.load_registers(&register_map, &console);
     for insn in tagged_opcodes {
+      if insn.op() == 0x825 {
+        break
+      }
       //TODO: make sure all inputs are to this insn are in registers here
-      masm.emit_insn(&insn, &mut register_map, logging);
+      //masm.emit_insn(&insn, &mut register_map, logging);
     };
     masm.save_registers(&register_map, &console);
     masm.emit_addq_ir(80, X64_RSP);

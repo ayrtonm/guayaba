@@ -42,7 +42,12 @@ impl X64JIT {
           //hopefully rustc is smart enough to inline the function this calls
           //but it might be interesting to profile and compare with an inline
           //assembly callq
+          println!("running block starting at {:#x}", address);
           block.function.execute();
+          for i in 1..=31 {
+            println!("{:#x}", self.console.r3000.nth_reg(i));
+          }
+          panic!("");
           //assert_eq!(self.console.r3000.nth_reg(1), 0x1f80_0000);
           //assert_eq!(self.console.r3000.nth_reg(8), 0xb88);
           //assert_eq!(self.console.read_word(0x1f80_1010), 0x13243f);

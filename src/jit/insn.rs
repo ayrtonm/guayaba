@@ -200,11 +200,11 @@ impl Insn {
 
 pub type MIPSRegister = u32;
 
-pub trait InsnRegisters {
+pub trait InsnRegisterFrequency {
   fn registers_by_frequency(&self) -> Vec<MIPSRegister>;
 }
 
-impl InsnRegisters for Vec<Insn> {
+impl InsnRegisterFrequency for Vec<Insn> {
   fn registers_by_frequency(&self) -> Vec<MIPSRegister> {
     let outputs = self.iter()
                       .filter(|insn| insn.output.is_some())
