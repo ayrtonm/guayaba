@@ -156,23 +156,7 @@ impl MacroAssembler {
           stack_pointer += 8;
           self.emit_addl_ir(imm16 as i32, X64_RSI);
           self.emit_swap_mips_registers(register_map, t, X64_RDX);
-          for i in MacroAssembler::caller_saved_regs() {
-            stack_pointer += self.emit_conditional_push_r64(register_map, i);
-          }
-          let stack_unaligned_at_call = stack_pointer % 16 == 8;
-          if stack_unaligned_at_call {
-            self.emit_addq_ir(-8, X64_RSP);
-            stack_pointer += 8;
-          }
-          let write_word_stack_position = 24 + stack_pointer;
-          self.emit_callq_m64_offset(X64_RSP, write_word_stack_position);
-          if stack_unaligned_at_call {
-            self.emit_addq_ir(8, X64_RSP);
-            stack_pointer -= 8;
-          }
-          for &i in MacroAssembler::caller_saved_regs().iter().rev() {
-            stack_pointer += self.emit_conditional_pop_r64(register_map, i);
-          }
+          self.emit_function_call(24, register_map, stack_pointer);
           self.emit_pop_r64(X64_RSI);
           stack_pointer -= 8;
           stack_pointer += self.emit_conditional_pop_r64(register_map, X64_RDI);

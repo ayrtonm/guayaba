@@ -10,6 +10,7 @@ mod optimized_x64_macros;
 mod x64_macros;
 mod register_allocator;
 mod macro_assembler;
+mod assembler;
 
 pub struct X64JIT {
   console: Console,

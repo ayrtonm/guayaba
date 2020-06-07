@@ -178,22 +178,6 @@ impl MacroAssembler {
       },
     }
   }
-  pub fn emit_conditional_pop_r64(&mut self, register_map: &RegisterMap, reg: u32) -> i32 {
-    if register_map.contains_x64(reg) {
-      self.emit_pop_r64(reg);
-      -8
-    } else {
-      0
-    }
-  }
-  pub fn emit_conditional_push_r64(&mut self, register_map: &RegisterMap, reg: u32) -> i32 {
-    if register_map.contains_x64(reg) {
-      self.emit_push_r64(reg);
-      8
-    } else {
-      0
-    }
-  }
   pub fn load_registers(&mut self, register_map: &RegisterMap, console: &Console) {
     let mips_reg_addr = console.r3000.reg_ptr() as u64;
     self.emit_movq_ir(mips_reg_addr, X64_R15);
