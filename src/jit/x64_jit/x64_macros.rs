@@ -141,7 +141,8 @@ impl MacroAssembler {
           let t = get_rt(op);
           let imm16 = get_imm16(op).half_sign_extended();
           //this is the opcode's stack pointer which is initially set to its frame pointer
-          let mut stack_offset = 4 * register_map.count_overflow_registers() as i32;
+          let frame_pointer = 4 * register_map.count_overflow_registers() as i32;
+          let mut stack_offset = frame_pointer;
           if register_map.contains_x64(X64_R15) {
             self.emit_push_r64(X64_R15);
             stack_offset += 8;
@@ -205,7 +206,7 @@ impl MacroAssembler {
             self.emit_pop_r64(X64_R15);
             stack_offset -= 8;
           }
-          assert_eq!(stack_offset, 4 * register_map.count_overflow_registers() as i32);
+          assert_eq!(stack_offset, frame_pointer);
         }
       };
     //  (lo = rs) => {
