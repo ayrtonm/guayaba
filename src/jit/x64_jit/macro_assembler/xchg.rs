@@ -131,7 +131,6 @@ mod tests {
         masm.emit_addq_ir(16, X64_RSP);
         let jit_fn = masm.compile_buffer().unwrap();
         let out: u32;
-        println!("running {} {}", reg, ptr);
         unsafe {
           asm!("callq *%rbp"
               :"={rax}"(out)

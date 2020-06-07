@@ -45,10 +45,6 @@ impl Block {
     let mut masm = MacroAssembler::new();
     let mut register_map = RegisterMap::new(&tagged_opcodes);
     let cop0_reg_addr = console.cop0.reg_ptr() as u64;
-    //TODO: these should be conditionally pushed and popped onto/from the stack
-    //based on the tagged opcodes. I might need to tag them more thoroughly make
-    //good use of the stack space. This also means noting the position of each
-    //thing on the stack and passing the positions to emit_insn()
     masm.emit_push_imm64(Console::read_byte_sign_extended as u64);
     masm.emit_push_imm64(Console::read_half_sign_extended as u64);
     masm.emit_push_imm64(Console::read_byte as u64);
@@ -61,6 +57,7 @@ impl Block {
     masm.emit_push_imm64(cop0_reg_addr);
     masm.load_registers(&register_map, &console);
     for insn in tagged_opcodes {
+      //this is for debugging
       if insn.op() == 0x825 {
         break
       }

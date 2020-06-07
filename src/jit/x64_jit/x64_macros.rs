@@ -140,7 +140,7 @@ impl MacroAssembler {
           let s = get_rs(op);
           let t = get_rt(op);
           let imm16 = get_imm16(op).half_sign_extended();
-          //this is the opcode's frame pointer relative to the stack pointer
+          //this is the opcode's stack pointer which is initially set to its frame pointer
           let mut stack_offset = 4 * register_map.count_overflow_registers() as i32;
           if register_map.contains_x64(X64_R15) {
             self.emit_push_r64(X64_R15);
