@@ -65,7 +65,7 @@ impl Block {
         break
       }
       //TODO: make sure all inputs are to this insn are in registers here
-      //masm.emit_insn(&insn, &mut register_map, logging);
+      masm.emit_insn(&insn, &mut register_map, logging);
     };
     masm.save_registers(&register_map, &console);
     masm.emit_addq_ir(80, X64_RSP);

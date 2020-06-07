@@ -76,11 +76,7 @@ impl R3000 {
   const LO_IDX: usize = 33;
   pub fn new() -> Self {
     let mut registers = [0; 34];
-    for i in 1..=31 {
-      registers[i - 1] = i as u32;
-    }
-    registers[R3000::PC_IDX] = 0xbfc0_0150;
-    //registers[R3000::PC_IDX] = 0xbfc0_0000;
+    registers[R3000::PC_IDX] = 0xbfc0_0000;
     R3000 {
       registers,
     }
