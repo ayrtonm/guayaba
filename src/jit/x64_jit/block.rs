@@ -55,8 +55,9 @@ impl Block {
     masm.emit_push_imm64(Console::write_word as u64);
     masm.emit_push_imm64(console as *const Console as u64);
     masm.emit_push_imm64(cop0_reg_addr);
+    masm.emit_push_imm64(console.r3000.reg_ptr() as u64);
     masm.load_registers(&register_map, &console);
-    for insn in tagged_opcodes {
+    for insn in &tagged_opcodes[0..4] {
       //this is for debugging
       if insn.op() == 0x825 {
         break
@@ -65,7 +66,8 @@ impl Block {
       masm.emit_insn(&insn, &mut register_map, logging);
     };
     masm.save_registers(&register_map, &console);
-    masm.emit_addq_ir(80, X64_RSP);
+    masm.emit_addq_ir(88, X64_RSP);
+    println!("compiled {} bytes", masm.len());
     let jit_fn = masm.compile_buffer()?;
     Ok(jit_fn)
   }

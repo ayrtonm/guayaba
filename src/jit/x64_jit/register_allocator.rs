@@ -76,9 +76,9 @@ impl RegisterMap {
   pub fn new(tagged_opcodes: &Vec<Insn>) -> Self {
     let stack_locations = (0..=15).map(|offset| Location::Stack(offset))
                                  .collect::<Vec<_>>();
-    //let mips_registers = tagged_opcodes.registers_by_frequency();
+    let mips_registers = tagged_opcodes.registers_by_frequency();
     //debugging with all MIPS registers mapped
-    let mips_registers = (1..=31).collect::<Vec<_>>();
+    //let mips_registers = (1..=31).collect::<Vec<_>>();
     let mappings: Vec<_> = MacroAssembler::free_regs().iter()
                                         .map(|&x| Location::X64Register(x))
                                         .chain(stack_locations)
@@ -152,12 +152,26 @@ impl RegisterMap {
   pub fn swap_mappings(&mut self, loc1: Location, loc2: Location) {
     let mips_reg1 = self.location_to_mips(&loc1);
     let mips_reg2 = self.location_to_mips(&loc2);
-    mips_reg1.map(|value_reg1| {
-      self.remap_location(&loc2, value_reg1);
-    });
-    mips_reg2.map(|value_reg2| {
-      self.remap_location(&loc1, value_reg2);
-    });
+    println!("{:?} <-> {:?}", loc1, mips_reg1);
+    println!("{:?} <-> {:?}", loc2, mips_reg2);
+    match mips_reg1 {
+      Some(mips_reg1) => {
+        self.remap_location(&loc2, mips_reg1);
+      },
+      None => {
+      },
+    }
+    match mips_reg2 {
+      Some(mips_reg2) => {
+        self.remap_location(&loc1, mips_reg2);
+      },
+      None => {
+      },
+    }
+    println!("------------");
+    println!("{:?} <-> {:?}", loc1, mips_reg1);
+    println!("{:?} <-> {:?}", loc2, mips_reg2);
+    println!("============");
   }
 }
 
@@ -179,9 +193,7 @@ impl MacroAssembler {
     }
   }
   pub fn load_registers(&mut self, register_map: &RegisterMap, console: &Console) {
-    let mips_reg_addr = console.r3000.reg_ptr() as u64;
-    self.emit_movq_ir(mips_reg_addr, X64_R15);
-    self.emit_push_r64(X64_R15);
+    self.emit_movq_mr(X64_RSP, X64_R15);
     self.emit_addq_ir(-(register_map.count_overflow_registers() as i32) * 4, X64_RSP);
     for mapping in register_map.overflow_mappings() {
       let stack_offset = mapping.stack_location()
@@ -234,6 +246,6 @@ impl MacroAssembler {
       },
       _ => (),
     }
-    self.emit_addq_ir(stack_offset + 8, X64_RSP);
+    self.emit_addq_ir(stack_offset, X64_RSP);
   }
 }

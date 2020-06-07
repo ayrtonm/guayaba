@@ -10,6 +10,17 @@ use crate::jit::x64_jit::register_allocator::RegisterMap;
 use crate::jit::x64_jit::register_allocator::*;
 
 impl MacroAssembler {
+  const MIPS_REG_POSITION: i32     = 0;
+  const COP0_POSITION: i32         = 8;
+  const CONSOLE_POSITION: i32      = 16;
+  const WRITE_WORD_POSITION: i32   = 24;
+  const WRITE_HALF_POSITION: i32   = 32;
+  const WRITE_BYTE_POSITION: i32   = 40;
+  const READ_WORD_POSITION: i32    = 48;
+  const READ_HALF_POSITION: i32    = 56;
+  const READ_BYTE_POSITION: i32    = 64;
+  const READ_HALF_SE_POSITION: i32 = 72;
+  const READ_BYTE_SE_POSITION: i32 = 80;
   pub fn emit_insn(&mut self, insn: &Insn, register_map: &mut RegisterMap, logging: bool) {
     let op = insn.op();
     let offset = insn.offset();
@@ -143,20 +154,20 @@ impl MacroAssembler {
           let t = get_rt(op);
           let imm16 = get_imm16(op).half_sign_extended();
           stack_pointer += self.emit_conditional_push_r64(register_map, X64_RDI);
-          let cop0_stack_position = 8 + stack_pointer;
-          self.emit_movq_mr_offset(X64_RSP, X64_RDI, cop0_stack_position);
+          let cop0_ptr = MacroAssembler::COP0_POSITION + stack_pointer;
+          self.emit_movq_mr_offset(X64_RSP, X64_RDI, cop0_ptr);
           self.emit_movl_mr(X64_RDI, X64_RDI);
           self.emit_btl_ir(16, X64_RDI);
           let skip_write = self.create_undefined_label();
           self.emit_jb_label(skip_write);
-          let console_stack_position = 16 + stack_pointer;
-          self.emit_movq_mr_offset(X64_RSP, X64_RDI, console_stack_position);
+          let console_ptr = MacroAssembler::CONSOLE_POSITION + stack_pointer;
+          self.emit_movq_mr_offset(X64_RSP, X64_RDI, console_ptr);
           self.emit_swap_mips_registers(register_map, s, X64_RSI);
           self.emit_push_r64(X64_RSI);
           stack_pointer += 8;
           self.emit_addl_ir(imm16 as i32, X64_RSI);
           self.emit_swap_mips_registers(register_map, t, X64_RDX);
-          self.emit_function_call(24, register_map, stack_pointer);
+          self.emit_function_call(MacroAssembler::WRITE_WORD_POSITION, register_map, stack_pointer);
           self.emit_pop_r64(X64_RSI);
           stack_pointer -= 8;
           stack_pointer += self.emit_conditional_pop_r64(register_map, X64_RDI);

@@ -41,11 +41,13 @@ impl X64JIT {
         Some(block) => {
           let t0 = Instant::now();
           block.function.execute();
+          for i in 0..=31 {
+            println!("{:#x}", self.console.r3000.nth_reg(i));
+          }
           assert_eq!(self.console.r3000.nth_reg(1), 0x1f80_0000);
           assert_eq!(self.console.r3000.nth_reg(8), 0xb88);
           assert_eq!(self.console.read_word(0x1f80_1010), 0x13243f);
           assert_eq!(self.console.read_word(0x1f80_1060), 0xb88);
-          panic!("");
           //let stubs = block.stubs();
           //for stub in stubs {
           //  self.console.r3000.flush_write_cache(&mut self.console.delayed_writes,
