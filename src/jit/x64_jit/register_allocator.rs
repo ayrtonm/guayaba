@@ -190,7 +190,7 @@ impl MacroAssembler {
   //emit an instruction to load a MIPS register into the specified x64 register
   //also loads the value in the specified x64 register into the x64 register which contained the MIPS register
   //then updates the register map accordingly so we avoid having to swap them back
-  pub fn emit_swap_mips_registers(&mut self, register_map: &mut RegisterMap, mips_reg: u32, x64_reg: u32) {
+  pub fn emit_swap_mips_registers(&mut self, mips_reg: u32, x64_reg: u32, register_map: &mut RegisterMap, stack_pointer: i32) {
     let other_x64_reg = register_map.mips_to_x64(mips_reg).expect("");
     if register_map.gpr_is_bound(x64_reg) {
       match other_x64_reg.x64_reg() {
@@ -206,7 +206,7 @@ impl MacroAssembler {
           let other_mips_reg = register_map.gpr_to_mips(x64_reg).expect("");
           register_map.bind_mips_to_gpr(mips_reg, x64_reg);
           register_map.spill_mips_to_offset(other_mips_reg, offset);
-          self.emit_xchgl_rm_offset(x64_reg, X64_RSP, offset);
+          self.emit_xchgl_rm_offset(x64_reg, X64_RSP, offset + stack_pointer);
         },
       }
     } else {
@@ -217,7 +217,7 @@ impl MacroAssembler {
         },
         X64Register::Stack(offset) => {
           register_map.bind_mips_to_gpr(mips_reg, x64_reg);
-          self.emit_movl_mr_offset(X64_RSP, x64_reg, offset);
+          self.emit_movl_mr_offset(X64_RSP, x64_reg, offset + stack_pointer);
         },
       }
     }

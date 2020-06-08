@@ -142,24 +142,38 @@ impl MacroAssembler {
           let s = get_rs(op);
           let t = get_rt(op);
           let imm16 = get_imm16(op).half_sign_extended();
+
+          //stack_pointer serves as a compile-time check to make sure that the stack stays aligned
           stack_pointer += self.emit_conditional_push_r64(register_map, X64_RDI);
+          //test bit 16 of cop0r12 to see if we're doing the write or not
           let cop0_ptr = MacroAssembler::COP0_POSITION + stack_pointer;
           self.emit_movq_mr_offset(X64_RSP, X64_RDI, cop0_ptr);
           self.emit_movl_mr(X64_RDI, X64_RDI);
           self.emit_btl_ir(16, X64_RDI);
+
           let skip_write = self.create_undefined_label();
           self.emit_jb_label(skip_write);
-          let console_ptr = MacroAssembler::CONSOLE_POSITION + stack_pointer;
-          self.emit_movq_mr_offset(X64_RSP, X64_RDI, console_ptr);
-          self.emit_swap_mips_registers(register_map, s, X64_RSI);
+
+          //emit_swap_mips_registers can only be called if all bound MIPS registers
+          //are in their respective x64 registers, which is why we do this pop
+          stack_pointer += self.emit_conditional_pop_r64(register_map, X64_RDI);
+          self.emit_swap_mips_registers(s, X64_RSI, register_map, stack_pointer);
+          self.emit_swap_mips_registers(t, X64_RDX, register_map, stack_pointer);
+          //we add imm16 to calculate the address but the MIPS register is not modified
+          //so let's save it on the stack
           self.emit_push_r64(X64_RSI);
           stack_pointer += 8;
           self.emit_addl_ir(imm16 as i32, X64_RSI);
-          self.emit_swap_mips_registers(register_map, t, X64_RDX);
+
+          stack_pointer += self.emit_conditional_push_r64(register_map, X64_RDI);
+          let console_ptr = MacroAssembler::CONSOLE_POSITION + stack_pointer;
+          self.emit_movq_mr_offset(X64_RSP, X64_RDI, console_ptr);
+
           self.emit_function_call(MacroAssembler::WRITE_WORD_POSITION, register_map, stack_pointer);
+
+          stack_pointer += self.emit_conditional_pop_r64(register_map, X64_RDI);
           self.emit_pop_r64(X64_RSI);
           stack_pointer -= 8;
-          stack_pointer += self.emit_conditional_pop_r64(register_map, X64_RDI);
           self.define_label(skip_write);
         }
       };

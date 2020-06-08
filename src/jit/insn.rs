@@ -168,6 +168,12 @@ impl Insn {
   pub fn output(&self) -> Option<u32> {
     self.output
   }
+  pub fn dependencies(&self) -> Vec<u32> {
+    let mut deps: Vec<_> = self.inputs.iter().copied().collect();
+    self.output.map(|output| deps.push(output));
+    self.index.map(|index| deps.push(index));
+    deps
+  }
   pub fn has_branch_delay_slot(op: u32) -> bool {
     match get_primary_field(op) {
       0x00 => {
@@ -208,6 +214,9 @@ pub trait InsnRegisterFrequency {
 
 impl InsnRegisterFrequency for Vec<Insn> {
   fn registers_by_frequency(&self) -> Vec<MIPSRegister> {
+    let indices = self.iter()
+                      .filter(|insn| insn.index.is_some())
+                      .map(|insn| insn.index().unwrap() as i32);
     let outputs = self.iter()
                       .filter(|insn| insn.output.is_some())
                       .map(|insn| insn.output().unwrap() as i32);
@@ -215,7 +224,7 @@ impl InsnRegisterFrequency for Vec<Insn> {
                      .map(|insn| insn.inputs())
                      .flatten()
                      .map(|&x| x as i32);
-    let registers_used: Vec<MIPSRegister> = inputs.chain(outputs).filter(|&r| r != 0).collect();
+    let registers_used: Vec<MIPSRegister> = inputs.chain(outputs).chain(indices).filter(|&r| r != 0).collect();
     let mut sorted_registers: Vec<MIPSRegister> = registers_used.iter().copied().collect();
     sorted_registers.sort_by(|x,y| {
       let comparison = registers_used.iter()

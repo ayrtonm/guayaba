@@ -65,28 +65,14 @@ impl Block {
       let mut i = 0;
       //FIXME: there are some cases where this method won't be able to bind all MIPS register
       //the assert below should catch those cases
-      for &input in insn.inputs() {
-        if input != 0 {
-          if !register_map.mips_is_bound(input) {
-            masm.emit_swap_mips_registers(&mut register_map, input, init_x64 - i);
+      for dep in insn.dependencies() {
+        if dep != 0 {
+          if !register_map.mips_is_bound(dep) {
+            masm.emit_swap_mips_registers(dep, init_x64 - i, &mut register_map, 0);
             i += 1;
           }
         }
       }
-      insn.index().map(|index| {
-        if index != 0 {
-          if !register_map.mips_is_bound(index) {
-            masm.emit_swap_mips_registers(&mut register_map, index, init_x64 - i);
-          }
-        }
-      });
-      insn.output().map(|output| {
-        if output != 0 {
-          if !register_map.mips_is_bound(output) {
-            masm.emit_swap_mips_registers(&mut register_map, output, init_x64 - i);
-          }
-        }
-      });
       masm.emit_insn(&insn, &mut register_map, logging);
     };
     masm.save_registers(&register_map);
