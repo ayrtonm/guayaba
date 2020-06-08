@@ -144,7 +144,7 @@ impl MacroAssembler {
           let imm16 = get_imm16(op).half_sign_extended();
 
           //stack_pointer serves as a compile-time check to make sure that the stack stays aligned
-          stack_pointer += self.emit_conditional_push_r64(register_map, X64_RDI);
+          stack_pointer += self.emit_conditional_push_reg(register_map, X64_RDI);
           //test bit 16 of cop0r12 to see if we're doing the write or not
           let cop0_ptr = MacroAssembler::COP0_POSITION + stack_pointer;
           self.emit_movq_mr_offset(X64_RSP, X64_RDI, cop0_ptr);
@@ -156,24 +156,22 @@ impl MacroAssembler {
 
           //emit_swap_mips_registers can only be called if all bound MIPS registers
           //are in their respective x64 registers, which is why we do this pop
-          stack_pointer += self.emit_conditional_pop_r64(register_map, X64_RDI);
+          stack_pointer += self.emit_conditional_pop_reg(register_map, X64_RDI);
           self.emit_swap_mips_registers(s, X64_RSI, register_map, stack_pointer);
           self.emit_swap_mips_registers(t, X64_RDX, register_map, stack_pointer);
           //we add imm16 to calculate the address but the MIPS register is not modified
           //so let's save it on the stack
-          self.emit_push_r64(X64_RSI);
-          stack_pointer += 8;
+          stack_pointer += self.emit_push_reg(X64_RSI);
           self.emit_addl_ir(imm16 as i32, X64_RSI);
 
-          stack_pointer += self.emit_conditional_push_r64(register_map, X64_RDI);
+          stack_pointer += self.emit_conditional_push_reg(register_map, X64_RDI);
           let console_ptr = MacroAssembler::CONSOLE_POSITION + stack_pointer;
           self.emit_movq_mr_offset(X64_RSP, X64_RDI, console_ptr);
 
           self.emit_function_call(MacroAssembler::WRITE_WORD_POSITION, register_map, stack_pointer);
 
-          stack_pointer += self.emit_conditional_pop_r64(register_map, X64_RDI);
-          self.emit_pop_r64(X64_RSI);
-          stack_pointer -= 8;
+          stack_pointer += self.emit_conditional_pop_reg(register_map, X64_RDI);
+          stack_pointer += self.emit_pop_reg(X64_RSI);
           self.define_label(skip_write);
         }
       };
@@ -629,8 +627,8 @@ impl MacroAssembler {
         {
           let imm26 = get_imm26(op);
           let shifted_imm26 = imm26 * 4;
-          stack_pointer += self.emit_conditional_push_r64(register_map, X64_R14);
-          stack_pointer += self.emit_conditional_push_r64(register_map, X64_R15);
+          stack_pointer += self.emit_conditional_push_reg(register_map, X64_R14);
+          stack_pointer += self.emit_conditional_push_reg(register_map, X64_R15);
           self.emit_movq_mr_offset(X64_RSP, X64_R14, stack_pointer);
           let pc_idx = 31;
           self.emit_movl_mr_offset(X64_R14, X64_R15, 4 * pc_idx);
@@ -638,8 +636,8 @@ impl MacroAssembler {
           self.emit_andl_ir(0xf000_0000, X64_R15);
           self.emit_addl_ir(shifted_imm26 as i32, X64_R15);
           self.emit_movl_rm_offset(X64_R15, X64_R14, 4 * pc_idx);
-          stack_pointer += self.emit_conditional_pop_r64(register_map, X64_R15);
-          stack_pointer += self.emit_conditional_pop_r64(register_map, X64_R14);
+          stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R15);
+          stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R14);
     //      Box::new(move |vm| {
     //        let pc = vm.r3000.pc().wrapping_add(offset);
     //        let pc_hi_bits = pc & 0xf000_0000;

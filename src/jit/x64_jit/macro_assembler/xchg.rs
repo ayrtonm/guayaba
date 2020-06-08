@@ -83,7 +83,7 @@ mod tests {
         let jit_fn = masm.compile_buffer().unwrap();
         let out: u64;
         unsafe {
-          asm!("callq *%rbp"
+          llvm_asm!("callq *%rbp"
               :"={rax}"(out)
               :"{rbp}"(jit_fn.name));
         }
@@ -107,7 +107,7 @@ mod tests {
         let jit_fn = masm.compile_buffer().unwrap();
         let out: u32;
         unsafe {
-          asm!("callq *%rbp"
+          llvm_asm!("callq *%rbp"
               :"={rax}"(out)
               :"{rbp}"(jit_fn.name));
         }
@@ -132,7 +132,7 @@ mod tests {
         let jit_fn = masm.compile_buffer().unwrap();
         let out: u32;
         unsafe {
-          asm!("callq *%rbp"
+          llvm_asm!("callq *%rbp"
               :"={rax}"(out)
               :"{rbp}"(jit_fn.name));
         }
@@ -157,7 +157,7 @@ mod tests {
   //      let jit_fn = masm.compile_buffer().unwrap();
   //      let out: u64;
   //      unsafe {
-  //        asm!("callq *%rbp"
+  //        llvm_asm!("callq *%rbp"
   //            :"={rax}"(out)
   //            :"{rbp}"(jit_fn.name));
   //      }

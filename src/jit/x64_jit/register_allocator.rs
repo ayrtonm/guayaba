@@ -216,8 +216,9 @@ impl MacroAssembler {
           self.emit_movl_rr(other_x64_reg, x64_reg);
         },
         X64Register::Stack(offset) => {
-          register_map.bind_mips_to_gpr(mips_reg, x64_reg);
-          self.emit_movl_mr_offset(X64_RSP, x64_reg, offset + stack_pointer);
+          unreachable!("There shouldn't be a MIPS register on the stack if there's an x64 register unbound");
+          //register_map.bind_mips_to_gpr(mips_reg, x64_reg);
+          //self.emit_movl_mr_offset(X64_RSP, x64_reg, offset + stack_pointer);
         },
       }
     }
