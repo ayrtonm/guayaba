@@ -143,31 +143,41 @@ impl MacroAssembler {
           let s = get_rs(op);
           let t = get_rt(op);
           let imm16 = get_imm16(op).half_sign_extended();
+          if t != 0 {
+            //stack_pointer serves as a compile-time check to make sure that the stack stays aligned
+            stack_pointer += self.emit_conditional_push_reg(register_map, X64_R15);
+            //test bit 16 of cop0r12 to see if we're doing the write or not
+            let cop0_ptr = MacroAssembler::COP0_POSITION + stack_pointer;
+            self.emit_movq_mr_offset(X64_RSP, X64_R15, cop0_ptr);
+            self.emit_movl_mr(X64_R15, X64_R15);
+            self.emit_btl_ir(16, X64_R15);
+            //emit_swap_mips_registers can only be called if all bound MIPS registers
+            //are in their respective x64 registers, which is why we do this pop
+            stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R15);
 
-          //stack_pointer serves as a compile-time check to make sure that the stack stays aligned
-          stack_pointer += self.emit_conditional_push_reg(register_map, X64_R15);
-          //test bit 16 of cop0r12 to see if we're doing the write or not
-          let cop0_ptr = MacroAssembler::COP0_POSITION + stack_pointer;
-          self.emit_movq_mr_offset(X64_RSP, X64_R15, cop0_ptr);
-          self.emit_movl_mr(X64_R15, X64_R15);
-          self.emit_btl_ir(16, X64_R15);
-          //emit_swap_mips_registers can only be called if all bound MIPS registers
-          //are in their respective x64 registers, which is why we do this pop
-          stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R15);
+            if s != 0 {
+              stack_pointer += self.emit_load_arg_from_mips_mut(X64_ARG2, s, register_map, stack_pointer);
+              self.emit_addl_ir(imm16 as i32, X64_ARG2);
+            } else {
+              stack_pointer += self.emit_conditional_push_reg(register_map, X64_ARG2);
+              self.emit_movl_ir(0, X64_ARG2);
+            }
+            self.emit_load_arg_from_mips(X64_ARG3, t, register_map, stack_pointer);
+            let console_ptr = MacroAssembler::CONSOLE_POSITION + stack_pointer;
+            stack_pointer += self.emit_load_arg_from_memory(X64_ARG1, console_ptr, register_map);
 
-          stack_pointer += self.emit_load_arg_from_mips_mut(X64_ARG2, s, register_map, stack_pointer);
-          self.emit_addl_ir(imm16 as i32, X64_ARG2);
-          self.emit_load_arg_from_mips(X64_ARG3, t, register_map, stack_pointer);
-          let console_ptr = MacroAssembler::CONSOLE_POSITION + stack_pointer;
-          stack_pointer += self.emit_load_arg_from_memory(X64_ARG1, console_ptr, register_map);
+            let skip_write = self.create_undefined_label();
+            self.emit_jb_label(skip_write);
+            self.emit_function_call(MacroAssembler::WRITE_WORD_POSITION, register_map, stack_pointer);
+            self.define_label(skip_write);
 
-          let skip_write = self.create_undefined_label();
-          self.emit_jb_label(skip_write);
-          self.emit_function_call(MacroAssembler::WRITE_WORD_POSITION, register_map, stack_pointer);
-          self.define_label(skip_write);
-
-          stack_pointer += self.emit_conditional_pop_reg(register_map, X64_ARG1);
-          stack_pointer += self.emit_pop_reg(X64_ARG2);
+            stack_pointer += self.emit_conditional_pop_reg(register_map, X64_ARG1);
+            stack_pointer += if s != 0 {
+              self.emit_pop_reg(X64_ARG2)
+            } else {
+              self.emit_conditional_pop_reg(register_map, X64_ARG2)
+            }
+          }
         }
       };
     //  (lo = rs) => {
@@ -568,10 +578,10 @@ impl MacroAssembler {
     //    }
     //  };
     }
-    //macro_rules! cop {
-    //  ($copn:ident) => {
-    //    {
-    //      match get_rs(op) {
+    macro_rules! cop {
+      ($copn:ident) => {
+        {
+          match get_rs(op) {
     //        0x00 => {
     //          //MFCn
     //          let t = get_rt(op);
@@ -594,20 +604,28 @@ impl MacroAssembler {
     //            None
     //          })
     //        },
-    //        0x04 => {
-    //          //MTCn
-    //          let t = get_rt(op);
-    //          let d = get_rd(op);
-    //          Box::new(move |vm| {
-    //            let rt = vm.r3000.nth_reg(t);
-    //            let rd = vm.$copn.nth_data_reg_mut(d);
-    //            vm.modified_register = rd.maybe_set(rt);
-    //            log!("{}R{} = R{}\n  = {:#x}",
-    //                      stringify!($copn), d, t,
-    //                      vm.$copn.nth_data_reg(d));
-    //            None
-    //          })
-    //        },
+            0x04 => {
+              //MTCn
+              //copnRd = Rt
+              let t = get_rt(op);
+              let d = get_rd(op) as i32;
+              match d {
+                12 | 13 | 14 => {
+                  let cop0_ptr = MacroAssembler::COP0_POSITION + stack_pointer;
+                  stack_pointer += self.emit_conditional_push_reg(register_map, X64_R15);
+                  self.emit_movq_mr_offset(X64_RSP, X64_R15, cop0_ptr);
+                  self.emit_movl_mr_offset(X64_R15, X64_R15, (d - 12) * 4);
+                  if t != 0 {
+                    let src = register_map.mips_to_x64(t).unwrap().bound_gpr();
+                    self.emit_movl_rr(src, X64_R15);
+                  } else {
+                    self.emit_movl_ir(0, X64_R15);
+                  }
+                  stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R15);
+                },
+                _ => (),
+              }
+            },
     //        0x06 => {
     //          //CTCn
     //          let t = get_rt(op);
@@ -651,13 +669,13 @@ impl MacroAssembler {
     //            None
     //          })
     //        },
-    //        _ => {
-    //          unreachable!("ran into invalid opcode")
-    //        },
-    //      }
-    //    }
-    //  }
-    //}
+            _ => {
+              unreachable!("ran into invalid copn opcode {:#x}", get_rs(op))
+            },
+          }
+        }
+      }
+    }
     macro_rules! jump {
       (imm26) => {
         {
@@ -1078,11 +1096,11 @@ impl MacroAssembler {
         log!("> LUI");
         compute!(rt = imm16 shl 16)
       },
-    //  0x10 => {
-    //    //COP0
-    //    log!("> COP0");
-    //    cop!(cop0)
-    //  },
+      0x10 => {
+        //COP0
+        log!("> COP0");
+        cop!(cop0)
+      },
     //  0x11 => {
     //    //COP1
     //    unreachable!("COP1 is not implemented on the PSX")
