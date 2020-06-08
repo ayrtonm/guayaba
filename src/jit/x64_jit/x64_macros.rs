@@ -155,17 +155,17 @@ impl MacroAssembler {
           //are in their respective x64 registers, which is why we do this pop
           stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R15);
 
-          let skip_write = self.create_undefined_label();
           stack_pointer += self.emit_load_arg_from_mips_mut(X64_ARG2, s, register_map, stack_pointer);
           self.emit_addl_ir(imm16 as i32, X64_ARG2);
           self.emit_load_arg_from_mips(X64_ARG3, t, register_map, stack_pointer);
           let console_ptr = MacroAssembler::CONSOLE_POSITION + stack_pointer;
           stack_pointer += self.emit_load_arg_from_memory(X64_ARG1, console_ptr, register_map);
+
+          let skip_write = self.create_undefined_label();
           self.emit_jb_label(skip_write);
-
           self.emit_function_call(MacroAssembler::WRITE_WORD_POSITION, register_map, stack_pointer);
-
           self.define_label(skip_write);
+
           stack_pointer += self.emit_conditional_pop_reg(register_map, X64_ARG1);
           stack_pointer += self.emit_pop_reg(X64_ARG2);
         }
