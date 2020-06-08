@@ -98,3 +98,7 @@ if r15 was in use {
 ;the immediate operand does not match the one in the addq in load_registers since
 ;this includes the `push r15` at the start of load_registers as well
 addq (4 * count_overflow) + 8 rsp
+
+opcode prologue
+---------------
+before calling each opcode, we have to ensure that the MIPS registers we're about to use are bound to x64 registers

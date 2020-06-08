@@ -9,6 +9,7 @@ use crate::jit::x64_jit::macro_assembler::MacroAssembler;
 use crate::jit::x64_jit::register_allocator::RegisterMap;
 use crate::jit::x64_jit::register_allocator::*;
 
+#[deny(unused_must_use)]
 impl MacroAssembler {
   pub fn emit_insn(&mut self, insn: &Insn, register_map: &mut RegisterMap, logging: bool) {
     let op = insn.op();
@@ -144,35 +145,29 @@ impl MacroAssembler {
           let imm16 = get_imm16(op).half_sign_extended();
 
           //stack_pointer serves as a compile-time check to make sure that the stack stays aligned
-          stack_pointer += self.emit_conditional_push_reg(register_map, X64_RDI);
+          stack_pointer += self.emit_conditional_push_reg(register_map, X64_R15);
           //test bit 16 of cop0r12 to see if we're doing the write or not
           let cop0_ptr = MacroAssembler::COP0_POSITION + stack_pointer;
-          self.emit_movq_mr_offset(X64_RSP, X64_RDI, cop0_ptr);
-          self.emit_movl_mr(X64_RDI, X64_RDI);
-          self.emit_btl_ir(16, X64_RDI);
-
-          let skip_write = self.create_undefined_label();
-          self.emit_jb_label(skip_write);
-
+          self.emit_movq_mr_offset(X64_RSP, X64_R15, cop0_ptr);
+          self.emit_movl_mr(X64_R15, X64_R15);
+          self.emit_btl_ir(16, X64_R15);
           //emit_swap_mips_registers can only be called if all bound MIPS registers
           //are in their respective x64 registers, which is why we do this pop
-          stack_pointer += self.emit_conditional_pop_reg(register_map, X64_RDI);
-          self.emit_swap_mips_registers(s, X64_RSI, register_map, stack_pointer);
-          self.emit_swap_mips_registers(t, X64_RDX, register_map, stack_pointer);
-          //we add imm16 to calculate the address but the MIPS register is not modified
-          //so let's save it on the stack
-          stack_pointer += self.emit_push_reg(X64_RSI);
-          self.emit_addl_ir(imm16 as i32, X64_RSI);
+          stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R15);
 
-          stack_pointer += self.emit_conditional_push_reg(register_map, X64_RDI);
+          let skip_write = self.create_undefined_label();
+          stack_pointer += self.emit_load_arg_from_mips_mut(X64_ARG2, s, register_map, stack_pointer);
+          self.emit_addl_ir(imm16 as i32, X64_ARG2);
+          self.emit_load_arg_from_mips(X64_ARG3, t, register_map, stack_pointer);
           let console_ptr = MacroAssembler::CONSOLE_POSITION + stack_pointer;
-          self.emit_movq_mr_offset(X64_RSP, X64_RDI, console_ptr);
+          stack_pointer += self.emit_load_arg_from_memory(X64_ARG1, console_ptr, register_map);
+          self.emit_jb_label(skip_write);
 
           self.emit_function_call(MacroAssembler::WRITE_WORD_POSITION, register_map, stack_pointer);
 
-          stack_pointer += self.emit_conditional_pop_reg(register_map, X64_RDI);
-          stack_pointer += self.emit_pop_reg(X64_RSI);
           self.define_label(skip_write);
+          stack_pointer += self.emit_conditional_pop_reg(register_map, X64_ARG1);
+          stack_pointer += self.emit_pop_reg(X64_ARG2);
         }
       };
     //  (lo = rs) => {

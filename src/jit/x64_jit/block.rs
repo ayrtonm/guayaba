@@ -64,7 +64,6 @@ impl Block {
       let init_x64 = X64_R13;
       let mut i = 0;
       //FIXME: there are some cases where this method won't be able to bind all MIPS register
-      //the assert below should catch those cases
       for dep in insn.dependencies() {
         if dep != 0 {
           if !register_map.mips_is_bound(dep) {

@@ -24,6 +24,9 @@ pub const X64_R12: X64GPRNum = 12;
 pub const X64_R13: X64GPRNum = 13;
 pub const X64_R14: X64GPRNum = 14;
 pub const X64_R15: X64GPRNum = 15;
+pub const X64_ARG1: X64GPRNum = X64_RDI;
+pub const X64_ARG2: X64GPRNum = X64_RSI;
+pub const X64_ARG3: X64GPRNum = X64_RDX;
 
 //MIPS registers are either bound to an x64 register or spilled onto the stack
 #[derive(Debug,Copy,Clone)]
@@ -175,6 +178,7 @@ impl RegisterMap {
   }
 }
 
+#[deny(unused_must_use)]
 impl MacroAssembler {
   pub const MIPS_REG_POSITION: i32     = 0;
   pub const COP0_POSITION: i32         = 8;
