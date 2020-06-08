@@ -198,7 +198,7 @@ impl Insn {
   }
 }
 
-pub type MIPSRegister = u32;
+pub type MIPSRegister = i32;
 
 pub trait InsnRegisterFrequency {
   fn registers_by_frequency(&self) -> Vec<MIPSRegister>;
@@ -208,11 +208,11 @@ impl InsnRegisterFrequency for Vec<Insn> {
   fn registers_by_frequency(&self) -> Vec<MIPSRegister> {
     let outputs = self.iter()
                       .filter(|insn| insn.output.is_some())
-                      .map(|insn| insn.output().unwrap());
+                      .map(|insn| insn.output().unwrap() as i32);
     let inputs = self.iter()
                      .map(|insn| insn.inputs())
                      .flatten()
-                     .map(|&x| x);
+                     .map(|&x| x as i32);
     let registers_used: Vec<MIPSRegister> = inputs.chain(outputs).filter(|&r| r != 0).collect();
     let mut sorted_registers: Vec<MIPSRegister> = registers_used.iter().copied().collect();
     sorted_registers.sort_by(|x,y| {

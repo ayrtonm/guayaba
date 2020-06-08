@@ -10,21 +10,10 @@ use crate::jit::x64_jit::register_allocator::RegisterMap;
 use crate::jit::x64_jit::register_allocator::*;
 
 impl MacroAssembler {
-  const MIPS_REG_POSITION: i32     = 0;
-  const COP0_POSITION: i32         = 8;
-  const CONSOLE_POSITION: i32      = 16;
-  const WRITE_WORD_POSITION: i32   = 24;
-  const WRITE_HALF_POSITION: i32   = 32;
-  const WRITE_BYTE_POSITION: i32   = 40;
-  const READ_WORD_POSITION: i32    = 48;
-  const READ_HALF_POSITION: i32    = 56;
-  const READ_BYTE_POSITION: i32    = 64;
-  const READ_HALF_SE_POSITION: i32 = 72;
-  const READ_BYTE_SE_POSITION: i32 = 80;
   pub fn emit_insn(&mut self, insn: &Insn, register_map: &mut RegisterMap, logging: bool) {
     let op = insn.op();
     let offset = insn.offset();
-    let frame_pointer = 4 * register_map.count_overflow_registers() as i32;
+    let frame_pointer = register_map.count_spilled();
     let mut stack_pointer = frame_pointer;
     macro_rules! log {
       () => ($crate::print!("\n"));
@@ -307,9 +296,9 @@ impl MacroAssembler {
           let imm16 = get_imm16(op) as u16;
           let t = get_rt(op);
           if t != 0 {
-            let dest = register_map.mips_to_x64(t).unwrap();
+            let dest = register_map.mips_to_x64(t).unwrap().bound_gpr();
             if s != 0 {
-              let src = register_map.mips_to_x64(s).unwrap();
+              let src = register_map.mips_to_x64(s).unwrap().bound_gpr();
               self.emit_movl_rr(src, dest);
               self.emit_orw_ir(imm16, dest);
             } else {
@@ -325,9 +314,9 @@ impl MacroAssembler {
           let imm16 = get_imm16(op).half_sign_extended();
           let t = get_rt(op);
           if t != 0 {
-            let dest = register_map.mips_to_x64(t).unwrap();
+            let dest = register_map.mips_to_x64(t).unwrap().bound_gpr();
             if s != 0 {
-              let src = register_map.mips_to_x64(s).unwrap();
+              let src = register_map.mips_to_x64(s).unwrap().bound_gpr();
               self.emit_movl_rr(src, dest);
               self.emit_addl_ir(imm16 as i32, dest);
             } else {
@@ -343,9 +332,9 @@ impl MacroAssembler {
     //    let imm16 = get_imm16(op).half_sign_extended();
     //    let t = get_rt(op);
     //    if t != 0 {
-    //      let dest = register_map.mips_to_x64(t).unwrap();
+    //      let dest = register_map.mips_to_x64(t);
     //      if s != 0 {
-    //        let src = register_map.mips_to_x64(s).unwrap();
+    //        let src = register_map.mips_to_x64(s);
     //        self.emit_movl_rr(src, dest);
     //        self.emit_addl_ir(imm16, dest);
     //      } else {
@@ -405,7 +394,7 @@ impl MacroAssembler {
           let imm16 = get_imm16(op);
           let result = imm16 << 16;
           if t != 0 {
-            self.emit_movl_ir(result, register_map.mips_to_x64(t).unwrap());
+            self.emit_movl_ir(result, register_map.mips_to_x64(t).unwrap().bound_gpr());
           };
         }
       };
@@ -626,11 +615,11 @@ impl MacroAssembler {
         {
           let imm26 = get_imm26(op);
           let shifted_imm26 = imm26 * 4;
-          if register_map.contains_x64(X64_R14) {
+          if register_map.is_bound(X64_R14) {
             self.emit_push_r64(X64_R14);
             stack_pointer += 8;
           }
-          if register_map.contains_x64(X64_R15) {
+          if register_map.is_bound(X64_R15) {
             self.emit_push_r64(X64_R15);
             stack_pointer += 8;
           }
@@ -641,11 +630,11 @@ impl MacroAssembler {
           self.emit_andl_ir(0xf000_0000, X64_R15);
           self.emit_addl_ir(shifted_imm26 as i32, X64_R15);
           self.emit_movl_rm_offset(X64_R15, X64_R14, 4 * pc_idx);
-          if register_map.contains_x64(X64_R15) {
+          if register_map.is_bound(X64_R15) {
             self.emit_pop_r64(X64_R15);
             stack_pointer -= 8;
           }
-          if register_map.contains_x64(X64_R14) {
+          if register_map.is_bound(X64_R14) {
             self.emit_pop_r64(X64_R14);
             stack_pointer -= 8;
           }

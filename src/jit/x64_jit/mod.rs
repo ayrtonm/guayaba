@@ -41,7 +41,7 @@ impl X64JIT {
         Some(block) => {
           let t0 = Instant::now();
           block.function.execute();
-          for i in 0..=31 {
+          for i in 1..=31 {
             println!("{:#x}", self.console.r3000.nth_reg(i));
           }
           assert_eq!(self.console.r3000.nth_reg(1), 0x1f80_0000);

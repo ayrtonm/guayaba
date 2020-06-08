@@ -24,7 +24,7 @@ impl MacroAssembler {
     assert_eq!(stack_pointer, frame_pointer);
   }
   pub fn emit_conditional_pop_r64(&mut self, register_map: &RegisterMap, reg: u32) -> i32 {
-    if register_map.contains_x64(reg) {
+    if register_map.is_bound(reg) {
       self.emit_pop_r64(reg);
       -8
     } else {
@@ -32,7 +32,7 @@ impl MacroAssembler {
     }
   }
   pub fn emit_conditional_push_r64(&mut self, register_map: &RegisterMap, reg: u32) -> i32 {
-    if register_map.contains_x64(reg) {
+    if register_map.is_bound(reg) {
       self.emit_push_r64(reg);
       8
     } else {
