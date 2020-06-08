@@ -56,7 +56,9 @@ impl Block {
     masm.emit_push_imm64(cop0_reg_addr);
     masm.emit_push_imm64(console.r3000.reg_ptr() as u64);
     masm.load_registers(&register_map);
+    let mut jmp_label = None;
     for insn in tagged_opcodes {
+      let prev_label = jmp_label;
       //FIXME: there are some cases where this method won't be able to bind all MIPS register
       let init_x64 = X64_R13;
       let mut i = 0;
@@ -68,7 +70,8 @@ impl Block {
           }
         }
       }
-      masm.emit_insn(&insn, &mut register_map, logging);
+      jmp_label = masm.emit_insn(&insn, &mut register_map, logging);
+      prev_label.map(|label| masm.emit_jmp_label(label));
     };
     masm.save_registers(&register_map);
     masm.emit_addq_ir(88, X64_RSP);

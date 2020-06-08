@@ -69,7 +69,7 @@ impl MacroAssembler {
     for (&label, &loc) in self.labels_used.iter() {
       match self.labels_defined.get(&label) {
         Some(&def) => {
-          let rel_distance = (def - loc - 1) as isize;
+          let rel_distance = (def as isize) - (loc as isize) - 1;
           //TODO: extend this to handle longer jumps
           assert!(rel_distance <= 127 && -128 <= rel_distance);
           self.buffer[loc] = rel_distance as u8;

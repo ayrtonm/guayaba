@@ -6,12 +6,13 @@ use crate::common::*;
 use crate::register::BitTwiddle;
 use crate::jit::insn::Insn;
 use crate::jit::x64_jit::macro_assembler::MacroAssembler;
+use crate::jit::x64_jit::macro_assembler::Label;
 use crate::jit::x64_jit::register_allocator::RegisterMap;
 use crate::jit::x64_jit::register_allocator::*;
 
 #[deny(unused_must_use)]
 impl MacroAssembler {
-  pub fn emit_insn(&mut self, insn: &Insn, register_map: &mut RegisterMap, logging: bool) {
+  pub fn emit_insn(&mut self, insn: &Insn, register_map: &mut RegisterMap, logging: bool) -> Option<Label> {
     let op = insn.op();
     let offset = insn.offset();
     let frame_pointer = register_map.count_spilled();
@@ -683,9 +684,10 @@ impl MacroAssembler {
         {
           let imm26 = get_imm26(op);
           let shifted_imm26 = imm26 * 4;
-          evaluate jump condition
-          emit jump to branch delay slot
-          take_jump:
+          let branch_delay_slot = self.create_undefined_label();
+          let took_jump = self.create_undefined_label();
+          self.emit_jmp_label(branch_delay_slot);
+          self.define_label(took_jump);
           stack_pointer += self.emit_conditional_push_reg(register_map, X64_R14);
           stack_pointer += self.emit_conditional_push_reg(register_map, X64_R15);
           self.emit_movq_mr_offset(X64_RSP, X64_R14, stack_pointer);
@@ -697,23 +699,10 @@ impl MacroAssembler {
           self.emit_movl_rm_offset(X64_R15, X64_R14, 4 * pc_idx);
           stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R15);
           stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R14);
-          branch_delay_slot:
-          blah blah blah
-          //this if will be implemented in this function's caller as follows
-          let took_jump = next_pc.is_some()
-          masm.emit_insn
-          if took jump {
-            emit jump to take jump
-          }
-
-    //      Box::new(move |vm| {
-    //        let pc = vm.r3000.pc().wrapping_add(offset);
-    //        let pc_hi_bits = pc & 0xf000_0000;
-    //        let dest = pc_hi_bits.wrapping_add(shifted_imm26);
-    //        log!("jumping to (PC & 0xf0000000) + ({:#x} * 4)\n  = {:#x} + {:#x}\n  = {:#x} after the delay slot",
-    //                  imm26, pc_hi_bits, shifted_imm26, dest);
-    //        Some(dest)
-    //      })
+          self.emit_ret();
+          self.define_label(branch_delay_slot);
+          println!("{:?}", took_jump);
+          return Some(took_jump);
         }
       };
     //  (rs) => {
@@ -1226,5 +1215,6 @@ impl MacroAssembler {
       }
     };
     assert_eq!(stack_pointer, frame_pointer);
+    None
   }
 }
