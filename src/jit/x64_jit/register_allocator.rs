@@ -112,7 +112,6 @@ impl RegisterMap {
                                 .zip(mips_registers)
                                 .map(|(&x,m)| Mapping::new((x,m)))
                                 .collect::<Vec<Mapping>>();
-    println!("{:#?}", mappings);
     RegisterMap { mappings }
   }
   pub fn count_spilled(&self) -> i32 {
@@ -196,13 +195,15 @@ impl MacroAssembler {
     if register_map.gpr_is_bound(x64_reg) {
       match other_x64_reg.x64_reg() {
         X64Register::GPR(other_x64_reg) => {
-          let other_mips_reg = register_map.gpr_to_mips(x64_reg).expect("");
-          register_map.bind_mips_to_gpr(mips_reg, x64_reg);
-          register_map.bind_mips_to_gpr(other_mips_reg, other_x64_reg);
-          self.emit_xchgq_rr(other_x64_reg, x64_reg);
+          if x64_reg != other_x64_reg {
+            let other_mips_reg = register_map.gpr_to_mips(x64_reg).expect("");
+            register_map.bind_mips_to_gpr(mips_reg, x64_reg);
+            register_map.bind_mips_to_gpr(other_mips_reg, other_x64_reg);
+            self.emit_xchgq_rr(other_x64_reg, x64_reg);
+          }
         },
         X64Register::Stack(offset) => {
-          let other_mips_reg = register_map.offset_to_mips(offset).expect("");
+          let other_mips_reg = register_map.gpr_to_mips(x64_reg).expect("");
           register_map.bind_mips_to_gpr(mips_reg, x64_reg);
           register_map.spill_mips_to_offset(other_mips_reg, offset);
           self.emit_xchgl_rm_offset(x64_reg, X64_RSP, offset);
@@ -211,15 +212,11 @@ impl MacroAssembler {
     } else {
       match other_x64_reg.x64_reg() {
         X64Register::GPR(other_x64_reg) => {
-          let other_mips_reg = register_map.gpr_to_mips(x64_reg).expect("");
           register_map.bind_mips_to_gpr(mips_reg, x64_reg);
-          register_map.bind_mips_to_gpr(other_mips_reg, other_x64_reg);
           self.emit_movl_rr(other_x64_reg, x64_reg);
         },
         X64Register::Stack(offset) => {
-          let other_mips_reg = register_map.offset_to_mips(offset).expect("");
           register_map.bind_mips_to_gpr(mips_reg, x64_reg);
-          register_map.spill_mips_to_offset(other_mips_reg, offset);
           self.emit_movl_mr_offset(X64_RSP, x64_reg, offset);
         },
       }

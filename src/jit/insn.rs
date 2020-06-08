@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use crate::common::*;
 
 //this tags each opcode with its input and output registers
@@ -9,14 +8,14 @@ pub struct Insn {
   //registers which are used directly, i.e. not as an index into memory
   inputs: Vec<u32>,
   //sometimes an input register is used as an index into memory
-  indices: Option<u32>,
+  index: Option<u32>,
   //the modified register if any
   output: Option<u32>,
 }
 
 impl Insn {
   pub fn new(op: u32, offset: u32) -> Self {
-    let (inputs, indices, output) =
+    let (inputs, index, output) =
       match get_primary_field(op) {
         0x00 => {
           match get_secondary_field(op) {
@@ -150,7 +149,7 @@ impl Insn {
       opcode: op,
       offset,
       inputs,
-      indices,
+      index,
       output,
     }
   }
@@ -162,6 +161,9 @@ impl Insn {
   }
   pub fn inputs(&self) -> &Vec<u32> {
     &self.inputs
+  }
+  pub fn index(&self) -> Option<u32> {
+    self.index
   }
   pub fn output(&self) -> Option<u32> {
     self.output

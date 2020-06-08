@@ -41,7 +41,6 @@ impl Block {
   }
   fn create_function(tagged_opcodes: &Vec<Insn>, console: &Console,
                      logging: bool) -> io::Result<JIT_Fn> {
-    println!("with {} MIPS registers", tagged_opcodes.registers_by_frequency().len());
     let mut masm = MacroAssembler::new();
     let mut register_map = RegisterMap::new(&tagged_opcodes);
     let cop0_reg_addr = console.cop0.reg_ptr() as u64;
@@ -62,8 +61,10 @@ impl Block {
       if insn.op() == 0x825 {
         break
       }
-      let init_x64 = X64_R15;
+      let init_x64 = X64_R13;
       let mut i = 0;
+      //FIXME: there are some cases where this method won't be able to bind all MIPS register
+      //the assert below should catch those cases
       for &input in insn.inputs() {
         if input != 0 {
           if !register_map.mips_is_bound(input) {
@@ -72,6 +73,13 @@ impl Block {
           }
         }
       }
+      insn.index().map(|index| {
+        if index != 0 {
+          if !register_map.mips_is_bound(index) {
+            masm.emit_swap_mips_registers(&mut register_map, index, init_x64 - i);
+          }
+        }
+      });
       insn.output().map(|output| {
         if output != 0 {
           if !register_map.mips_is_bound(output) {
@@ -79,7 +87,6 @@ impl Block {
           }
         }
       });
-      //TODO: make sure all inputs are to this insn are in registers here
       masm.emit_insn(&insn, &mut register_map, logging);
     };
     masm.save_registers(&register_map);
