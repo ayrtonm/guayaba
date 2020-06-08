@@ -224,23 +224,64 @@ impl MacroAssembler {
     ////to the lhs
     macro_rules! compute {
     //  //ALU instructions with two general purpose registers
-    //  (rd = rs $method:ident rt) => {
-    //    {
-    //      let s = get_rs(op);
-    //      let t = get_rt(op);
-    //      let d = get_rd(op);
-    //      Box::new(move |vm| {
-    //        let rs = vm.r3000.nth_reg(s);
-    //        let rt = vm.r3000.nth_reg(t);
-    //        let rd = vm.r3000.nth_reg_mut(d);
-    //        vm.modified_register = rd.maybe_set(rs.$method(rt));
-    //        log!("R{} = R{} {} R{}\n  = {:#x} {} {:#x}\n  = {:#x}",
-    //                  d, s, stringify!($method), t,
-    //                  rs, stringify!($method), rt, vm.r3000.nth_reg(d));
-    //        None
-    //      })
-    //    }
-    //  };
+      //(rd = rs $method:ident rt) => {
+      //  {
+      //    let s = get_rs(op);
+      //    let t = get_rt(op);
+      //    let d = get_rd(op);
+      //    if d != 0 {
+      //      let dest = register_map.mips_to_x64(d).unwrap().bound_gpr();
+      //      match (s, t) {
+      //        (0, 0) => {
+      //          self.emit_movl_ir(0, dest);
+      //        },
+      //        (_, 0) => {
+      //          let op1 = register_map.mips_to_x64(s).unwrap().bound_gpr();
+      //          self.emit_movl_rr(op1, dest);
+      //        },
+      //        (0, _) => {
+      //          let op2 = register_map.mips_to_x64(t).unwrap().bound_gpr();
+      //          self.emit_movl_rr(op2, dest);
+      //        },
+      //        _ => {
+      //          let op1 = register_map.mips_to_x64(s).unwrap().bound_gpr();
+      //          let op2 = register_map.mips_to_x64(t).unwrap().bound_gpr();
+      //          self.emit_movl_rr(op1, dest);
+      //          self.emit_orl_rr(op2, dest);
+      //        },
+      //      }
+      //    }
+      //  }
+      //};
+      (rd = rs or rt) => {
+        {
+          let s = get_rs(op);
+          let t = get_rt(op);
+          let d = get_rd(op);
+          if d != 0 {
+            let dest = register_map.mips_to_x64(d).unwrap().bound_gpr();
+            match (s, t) {
+              (0, 0) => {
+                self.emit_movl_ir(0, dest);
+              },
+              (_, 0) => {
+                let op1 = register_map.mips_to_x64(s).unwrap().bound_gpr();
+                self.emit_movl_rr(op1, dest);
+              },
+              (0, _) => {
+                let op2 = register_map.mips_to_x64(t).unwrap().bound_gpr();
+                self.emit_movl_rr(op2, dest);
+              },
+              _ => {
+                let op1 = register_map.mips_to_x64(s).unwrap().bound_gpr();
+                let op2 = register_map.mips_to_x64(t).unwrap().bound_gpr();
+                self.emit_movl_rr(op1, dest);
+                self.emit_orl_rr(op2, dest);
+              },
+            }
+          }
+        }
+      };
     //  //ALU instructions with two general purpose registers that trap overflow
     //  (rd = rs $method:ident rt trap) => {
     //    {
@@ -907,11 +948,11 @@ impl MacroAssembler {
     //        log!("> AND");
     //        compute!(rd = rs and rt)
     //      },
-    //      0x25 => {
-    //        //OR
-    //        log!("> OR");
-    //        compute!(rd = rs or rt)
-    //      },
+          0x25 => {
+            //OR
+            log!("> OR");
+            compute!(rd = rs or rt)
+          },
     //      0x26 => {
     //        //XOR
     //        log!("> XOR");

@@ -84,6 +84,16 @@ impl MacroAssembler {
     self.emit_imm16(imm16);
   }
   //TODO: test this
+  fn emit_or_rr(&mut self, src: u32, dest: u32) {
+    self.buffer.push(0x09);
+    self.buffer.push(0xc0 | (src.lowest_bits(3) << 3) as u8 | dest.lowest_bits(3) as u8);
+  }
+  //TODO: test this
+  pub fn emit_orl_rr(&mut self, src: u32, dest: u32) {
+    self.emit_conditional_rexrb(src, dest);
+    self.emit_or_rr(src, dest);
+  }
+  //TODO: test this
   pub fn emit_orw_ir(&mut self, imm16: u16, dest: u32) {
     self.buffer.push(0x66);
     if dest == X64_RAX {

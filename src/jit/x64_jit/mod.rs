@@ -48,7 +48,6 @@ impl X64JIT {
           assert_eq!(self.console.r3000.nth_reg(8), 0xb88);
           assert_eq!(self.console.read_word(0x1f80_1010), 0x13243f);
           assert_eq!(self.console.read_word(0x1f80_1060), 0xb88);
-          panic!("");
           //let stubs = block.stubs();
           //for stub in stubs {
           //  self.console.r3000.flush_write_cache(&mut self.console.delayed_writes,

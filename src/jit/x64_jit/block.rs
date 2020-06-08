@@ -57,13 +57,9 @@ impl Block {
     masm.emit_push_imm64(console.r3000.reg_ptr() as u64);
     masm.load_registers(&register_map);
     for insn in tagged_opcodes {
-      //this is for debugging
-      if insn.op() == 0x825 {
-        break
-      }
+      //FIXME: there are some cases where this method won't be able to bind all MIPS register
       let init_x64 = X64_R13;
       let mut i = 0;
-      //FIXME: there are some cases where this method won't be able to bind all MIPS register
       for dep in insn.dependencies() {
         if dep != 0 {
           if !register_map.mips_is_bound(dep) {
