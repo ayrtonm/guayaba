@@ -615,14 +615,8 @@ impl MacroAssembler {
         {
           let imm26 = get_imm26(op);
           let shifted_imm26 = imm26 * 4;
-          if register_map.is_bound(X64_R14) {
-            self.emit_push_r64(X64_R14);
-            stack_pointer += 8;
-          }
-          if register_map.is_bound(X64_R15) {
-            self.emit_push_r64(X64_R15);
-            stack_pointer += 8;
-          }
+          stack_pointer += self.emit_conditional_push_r64(register_map, X64_R14);
+          stack_pointer += self.emit_conditional_push_r64(register_map, X64_R15);
           self.emit_movq_mr_offset(X64_RSP, X64_R14, stack_pointer);
           let pc_idx = 31;
           self.emit_movl_mr_offset(X64_R14, X64_R15, 4 * pc_idx);
@@ -630,14 +624,8 @@ impl MacroAssembler {
           self.emit_andl_ir(0xf000_0000, X64_R15);
           self.emit_addl_ir(shifted_imm26 as i32, X64_R15);
           self.emit_movl_rm_offset(X64_R15, X64_R14, 4 * pc_idx);
-          if register_map.is_bound(X64_R15) {
-            self.emit_pop_r64(X64_R15);
-            stack_pointer -= 8;
-          }
-          if register_map.is_bound(X64_R14) {
-            self.emit_pop_r64(X64_R14);
-            stack_pointer -= 8;
-          }
+          stack_pointer += self.emit_conditional_pop_r64(register_map, X64_R15);
+          stack_pointer += self.emit_conditional_pop_r64(register_map, X64_R14);
     //      Box::new(move |vm| {
     //        let pc = vm.r3000.pc().wrapping_add(offset);
     //        let pc_hi_bits = pc & 0xf000_0000;

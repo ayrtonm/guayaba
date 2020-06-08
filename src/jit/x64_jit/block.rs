@@ -62,6 +62,23 @@ impl Block {
       if insn.op() == 0x825 {
         break
       }
+      let init_x64 = X64_R15;
+      let mut i = 0;
+      for &input in insn.inputs() {
+        if input != 0 {
+          if !register_map.mips_is_bound(input) {
+            masm.emit_swap_mips_registers(&mut register_map, input, init_x64 - i);
+            i += 1;
+          }
+        }
+      }
+      insn.output().map(|output| {
+        if output != 0 {
+          if !register_map.mips_is_bound(output) {
+            masm.emit_swap_mips_registers(&mut register_map, output, init_x64 - i);
+          }
+        }
+      });
       //TODO: make sure all inputs are to this insn are in registers here
       masm.emit_insn(&insn, &mut register_map, logging);
     };

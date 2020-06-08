@@ -1,3 +1,5 @@
+use rand::thread_rng;
+use rand::seq::SliceRandom;
 use crate::console::Console;
 use crate::jit::insn::Insn;
 use crate::jit::insn::InsnRegisterFrequency;
@@ -97,7 +99,9 @@ impl RegisterMap {
                                                            .chain(stack_offsets)
                                                            .collect();
     //let reg_by_freq = tagged_opcodes.registers_by_frequency();
-    let reg_by_freq: Vec<_> = (1..=31).collect();
+    //for debugging
+    let mut reg_by_freq: Vec<_> = (1..=31).collect();
+    reg_by_freq.shuffle(&mut thread_rng());
     let num_regs_on_stack = x64_registers.len() - reg_by_freq.len();
     let nones = [None].iter().map(|&m| m).cycle().take(num_regs_on_stack);
     let mips_registers: Vec<_> = reg_by_freq.iter()
@@ -108,6 +112,7 @@ impl RegisterMap {
                                 .zip(mips_registers)
                                 .map(|(&x,m)| Mapping::new((x,m)))
                                 .collect::<Vec<Mapping>>();
+    println!("{:#?}", mappings);
     RegisterMap { mappings }
   }
   pub fn count_spilled(&self) -> i32 {
@@ -125,7 +130,12 @@ impl RegisterMap {
                  .filter(|&map| map.is_bound())
                  .collect()
   }
-  pub fn is_bound(&self, x64_reg: X64GPRNum) -> bool {
+  pub fn mips_is_bound(&self, mips_reg: u32) -> bool {
+    self.bound_mappings()
+        .iter()
+        .any(|&map| map.mips_reg() == mips_reg as i32)
+  }
+  pub fn gpr_is_bound(&self, x64_reg: X64GPRNum) -> bool {
     self.bound_mappings()
         .iter()
         .any(|&map| map.bound_gpr() == x64_reg)
@@ -183,7 +193,7 @@ impl MacroAssembler {
   //then updates the register map accordingly so we avoid having to swap them back
   pub fn emit_swap_mips_registers(&mut self, register_map: &mut RegisterMap, mips_reg: u32, x64_reg: u32) {
     let other_x64_reg = register_map.mips_to_x64(mips_reg).expect("");
-    if register_map.is_bound(x64_reg) {
+    if register_map.gpr_is_bound(x64_reg) {
       match other_x64_reg.x64_reg() {
         X64Register::GPR(other_x64_reg) => {
           let other_mips_reg = register_map.gpr_to_mips(x64_reg).expect("");

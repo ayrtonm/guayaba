@@ -98,6 +98,57 @@ impl MacroAssembler {
     }
     self.emit_imm16(imm16);
   }
+  //TODO: test this
+  pub fn emit_orw_im(&mut self, imm16: u16, ptr: u32) {
+    self.buffer.push(0x66);
+    if ptr.nth_bit_bool(3) {
+      self.buffer.push(MacroAssembler::REXB);
+    };
+    self.buffer.push(0x81);
+    let specify_reg = ptr.lowest_bits(3) as u8;
+    if ptr.lowest_bits(3) == 5 {
+      self.buffer.push(0x4d);
+      self.buffer.push(0x00);
+    } else {
+      self.buffer.push(0x08 | specify_reg);
+    }
+    if ptr.lowest_bits(3) == 4 {
+      self.buffer.push(0x24);
+    }
+    self.buffer.push(0x01);
+    self.emit_imm16(imm16);
+  }
+  //TODO: test this
+  pub fn emit_orw_im_offset(&mut self, imm16: u16, ptr: u32, offset: i32) {
+    if offset == 0 {
+      self.emit_orw_im(imm16, ptr);
+    } else {
+      self.buffer.push(0x66);
+      if ptr.nth_bit_bool(3) {
+        self.buffer.push(MacroAssembler::REXB);
+      };
+      self.buffer.push(0x81);
+      let specify_reg = ptr.lowest_bits(3) as u8;
+      match offset {
+        0 => unreachable!(""),
+        -128..=127 => {
+          self.buffer.push(0x48 | specify_reg);
+          if ptr.lowest_bits(3) == 4 {
+            self.buffer.push(0x24);
+          }
+          self.buffer.push(offset as u8);
+        },
+        _ => {
+          self.buffer.push(0x88 | specify_reg);
+          if ptr.lowest_bits(3) == 4 {
+            self.buffer.push(0x24);
+          }
+          self.emit_imm32(offset as u32);
+        },
+      }
+      self.emit_imm16(imm16);
+    }
+  }
 }
 
 #[cfg(test)]
