@@ -418,6 +418,8 @@ impl MacroAssembler {
           let d = get_rd(op);
           if d != 0 {
             todo!("implement SLL in x64 assembly");
+          } else {
+            self.emit_nop();
           }
           //Box::new(move |vm| {
           //  let rt = vm.r3000.nth_reg(t);
@@ -681,6 +683,9 @@ impl MacroAssembler {
         {
           let imm26 = get_imm26(op);
           let shifted_imm26 = imm26 * 4;
+          evaluate jump condition
+          emit jump to branch delay slot
+          take_jump:
           stack_pointer += self.emit_conditional_push_reg(register_map, X64_R14);
           stack_pointer += self.emit_conditional_push_reg(register_map, X64_R15);
           self.emit_movq_mr_offset(X64_RSP, X64_R14, stack_pointer);
@@ -692,6 +697,15 @@ impl MacroAssembler {
           self.emit_movl_rm_offset(X64_R15, X64_R14, 4 * pc_idx);
           stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R15);
           stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R14);
+          branch_delay_slot:
+          blah blah blah
+          //this if will be implemented in this function's caller as follows
+          let took_jump = next_pc.is_some()
+          masm.emit_insn
+          if took jump {
+            emit jump to take jump
+          }
+
     //      Box::new(move |vm| {
     //        let pc = vm.r3000.pc().wrapping_add(offset);
     //        let pc_hi_bits = pc & 0xf000_0000;

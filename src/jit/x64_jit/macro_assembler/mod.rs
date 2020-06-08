@@ -77,6 +77,7 @@ impl MacroAssembler {
         None => panic!("used undefined label {} at {}", label, loc),
       }
     }
+    println!("{:x?}", self.buffer);
     let mut mmap = MmapMut::map_anon(self.buffer.len())?;
     mmap.copy_from_slice(&self.buffer);
     let mmap = mmap.make_exec()?;
@@ -117,7 +118,7 @@ impl MacroAssembler {
   fn emit_16bit_prefix(&mut self) {
     self.buffer.push(0x66);
   }
-  fn emit_nop(&mut self) {
+  pub fn emit_nop(&mut self) {
     self.buffer.push(0x90);
   }
   fn emit_imm16(&mut self, imm16: u16) {
