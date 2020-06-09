@@ -12,7 +12,7 @@ use crate::jit::x64_jit::register_allocator::*;
 
 #[deny(unused_must_use)]
 impl MacroAssembler {
-  pub fn emit_insn(&mut self, insn: &Insn, register_map: &mut RegisterMap, logging: bool) -> Option<Label> {
+  pub fn emit_insn(&mut self, insn: &Insn, register_map: &mut RegisterMap, end: Label, logging: bool) -> Option<Label> {
     let op = insn.op();
     let offset = insn.offset();
     let frame_pointer = register_map.count_spilled();
@@ -699,9 +699,8 @@ impl MacroAssembler {
           self.emit_movl_rm_offset(X64_R15, X64_R14, 4 * pc_idx);
           stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R15);
           stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R14);
-          self.emit_ret();
+          self.emit_jmp_label(end);
           self.define_label(branch_delay_slot);
-          println!("{:?}", took_jump);
           return Some(took_jump);
         }
       };

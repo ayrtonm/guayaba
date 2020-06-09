@@ -44,6 +44,7 @@ impl Block {
     let mut masm = MacroAssembler::new();
     let mut register_map = RegisterMap::new(&tagged_opcodes);
     let cop0_reg_addr = console.cop0.reg_ptr() as u64;
+    let end = masm.create_undefined_label();
     masm.emit_push_imm64(Console::read_byte_sign_extended as u64);
     masm.emit_push_imm64(Console::read_half_sign_extended as u64);
     masm.emit_push_imm64(Console::read_byte as u64);
@@ -70,9 +71,10 @@ impl Block {
           }
         }
       }
-      jmp_label = masm.emit_insn(&insn, &mut register_map, logging);
+      jmp_label = masm.emit_insn(&insn, &mut register_map, end, logging);
       prev_label.map(|label| masm.emit_jmp_label(label));
     };
+    masm.define_label(end);
     masm.save_registers(&register_map);
     masm.emit_addq_ir(88, X64_RSP);
     println!("compiled {} bytes", masm.len());
