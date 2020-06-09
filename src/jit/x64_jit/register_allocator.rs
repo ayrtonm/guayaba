@@ -101,10 +101,10 @@ impl RegisterMap {
                                                            .map(|&x| X64Register::GPR(x))
                                                            .chain(stack_offsets)
                                                            .collect();
-    //let reg_by_freq = tagged_opcodes.registers_by_frequency();
+    let reg_by_freq = tagged_opcodes.registers_by_frequency();
     //for debugging
-    let mut reg_by_freq: Vec<_> = (1..=31).collect();
-    reg_by_freq.shuffle(&mut thread_rng());
+    //let mut reg_by_freq: Vec<_> = (1..=31).collect();
+    //reg_by_freq.shuffle(&mut thread_rng());
     let num_regs_on_stack = x64_registers.len() - reg_by_freq.len();
     let nones = [None].iter().map(|&m| m).cycle().take(num_regs_on_stack);
     let mips_registers: Vec<_> = reg_by_freq.iter()

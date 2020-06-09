@@ -6,6 +6,14 @@ use crate::jit::x64_jit::register_allocator::*;
 //while these types of instructions are encodable, I should avoid having the JIT
 //produce complex x64 code for now
 impl MacroAssembler {
+  //TODO: test this
+  pub fn emit_pushfq(&mut self) {
+    self.buffer.push(0x9c);
+  }
+  //TODO: test this
+  pub fn emit_popfq(&mut self) {
+    self.buffer.push(0x9d);
+  }
   pub fn emit_push_r64(&mut self, reg: u32) {
     assert!(reg != X64_RSP);
     self.emit_conditional_rexb(reg);

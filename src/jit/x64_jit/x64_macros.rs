@@ -12,10 +12,10 @@ use crate::jit::x64_jit::register_allocator::*;
 
 #[deny(unused_must_use)]
 impl MacroAssembler {
-  pub fn emit_insn(&mut self, insn: &Insn, register_map: &mut RegisterMap, initial_pc: u32, end: Label, logging: bool) -> Option<Label> {
+  pub fn emit_insn(&mut self, insn: &Insn, register_map: &mut RegisterMap, initial_pc: u32, end: Label, stack_offset: i32, logging: bool) -> Option<Label> {
     let op = insn.op();
     let offset = insn.offset();
-    let frame_pointer = register_map.count_spilled();
+    let frame_pointer = register_map.count_spilled() + stack_offset;
     let mut stack_pointer = frame_pointer;
     macro_rules! log {
       () => ($crate::print!("\n"));
@@ -144,41 +144,48 @@ impl MacroAssembler {
           let s = get_rs(op);
           let t = get_rt(op);
           let imm16 = get_imm16(op).half_sign_extended();
-          if t != 0 {
-            //stack_pointer serves as a compile-time check to make sure that the stack stays aligned
-            stack_pointer += self.emit_conditional_push_reg(register_map, X64_R15);
-            //test bit 16 of cop0r12 to see if we're doing the write or not
-            let cop0_ptr = MacroAssembler::COP0_POSITION + stack_pointer;
-            self.emit_movq_mr_offset(X64_RSP, X64_R15, cop0_ptr);
-            self.emit_movl_mr(X64_R15, X64_R15);
-            self.emit_btl_ir(16, X64_R15);
-            //emit_swap_mips_registers can only be called if all bound MIPS registers
-            //are in their respective x64 registers, which is why we do this pop
-            stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R15);
+          //if t != 0 {
+          //  //stack_pointer serves as a compile-time check to make sure that the stack stays aligned
+          //  stack_pointer += self.emit_conditional_push_reg(register_map, X64_R15);
+          //  //test bit 16 of cop0r12 to see if we're doing the write or not
+          //  let cop0_ptr = MacroAssembler::COP0_POSITION + stack_pointer;
+          //  self.emit_movq_mr_offset(X64_RSP, X64_R15, cop0_ptr);
+          //  self.emit_movl_mr(X64_R15, X64_R15);
+          //  self.emit_btl_ir(16, X64_R15);
+          //  //self.emit_pushfq();
+          //  //stack_pointer += 4;
+          //  //emit_swap_mips_registers can only be called if all bound MIPS registers
+          //  //are in their respective x64 registers, which is why we do this pop
+          //  stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R15);
 
-            if s != 0 {
-              stack_pointer += self.emit_load_arg_from_mips_mut(X64_ARG2, s, register_map, stack_pointer);
-              self.emit_addl_ir(imm16 as i32, X64_ARG2);
-            } else {
-              stack_pointer += self.emit_conditional_push_reg(register_map, X64_ARG2);
-              self.emit_movl_ir(0, X64_ARG2);
-            }
-            self.emit_load_arg_from_mips(X64_ARG3, t, register_map, stack_pointer);
-            let console_ptr = MacroAssembler::CONSOLE_POSITION + stack_pointer;
-            stack_pointer += self.emit_load_arg_from_memory(X64_ARG1, console_ptr, register_map);
+          //  if s != 0 {
+          //    stack_pointer += self.emit_load_arg_from_mips_mut(X64_ARG2, s, register_map, stack_pointer);
+          //    self.emit_addl_ir(imm16 as i32, X64_ARG2);
+          //  } else {
+          //    stack_pointer += self.emit_conditional_push_reg(register_map, X64_ARG2);
+          //    self.emit_movl_ir(0, X64_ARG2);
+          //  }
+          //  self.emit_load_arg_from_mips(X64_ARG3, t, register_map, stack_pointer);
+          //  let console_ptr = MacroAssembler::CONSOLE_POSITION + stack_pointer;
+          //  stack_pointer += self.emit_load_arg_from_memory(X64_ARG1, console_ptr, register_map);
 
-            let skip_write = self.create_undefined_label();
-            self.emit_jb_label(skip_write);
-            self.emit_function_call(MacroAssembler::WRITE_WORD_POSITION, register_map, stack_pointer);
-            self.define_label(skip_write);
+          //  let skip_write = self.create_undefined_label();
+          //  let (new_stack_pointer, misalignment) = self.emit_save_caller_regs(register_map, stack_pointer);
+          //  //FIXME: this won't work as expected
+          //  //self.emit_popfq();
+          //  //stack_pointer -= 4;
+          //  //self.emit_jb_label(skip_write);
+          //  self.emit_callq_m64_offset(X64_RSP, new_stack_pointer + MacroAssembler::WRITE_WORD_POSITION);
+          //  //self.define_label(skip_write);
+          //  stack_pointer = self.emit_load_caller_regs(register_map, new_stack_pointer, misalignment);
 
-            stack_pointer += self.emit_conditional_pop_reg(register_map, X64_ARG1);
-            stack_pointer += if s != 0 {
-              self.emit_pop_reg(X64_ARG2)
-            } else {
-              self.emit_conditional_pop_reg(register_map, X64_ARG2)
-            }
-          }
+          //  stack_pointer += self.emit_conditional_pop_reg(register_map, X64_ARG1);
+          //  stack_pointer += if s != 0 {
+          //    self.emit_pop_reg(X64_ARG2)
+          //  } else {
+          //    self.emit_conditional_pop_reg(register_map, X64_ARG2)
+          //  }
+          //}
         }
       };
     //  (lo = rs) => {
@@ -321,6 +328,34 @@ impl MacroAssembler {
     //      })
     //    }
     //  };
+      //ALU instructions with a register and immediate 16-bit data that trap overflow
+      (rt = rs checked_add signed imm16 trap) => {
+        {
+          let s = get_rs(op);
+          let imm16 = get_imm16(op).half_sign_extended() as i32;
+          let t = get_rt(op);
+          //TODO: implement ADDI
+          //Box::new(move |vm| {
+          //  let rs = vm.r3000.nth_reg(s) as i32;
+          //  let rt = vm.r3000.nth_reg_mut(t);
+          //  let result = rs.$method(imm16);
+          //  let ret = match result {
+          //    Some(result) => {
+          //      vm.modified_register = rt.maybe_set(result as u32);
+          //      None
+          //    },
+          //    None => {
+          //      let pc = vm.r3000.pc();
+          //      Some(vm.cop0.generate_exception(Cop0Exception::Overflow, pc))
+          //    },
+          //  };
+          //  log!("R{} = R{} {} {:#x} trap overflow\n  = {:#x} {} {:#x}\n  = {:#x}",
+          //            t, s, stringify!($method), imm16,
+          //            rs, stringify!($method), imm16, vm.r3000.nth_reg(t));
+          //  ret
+          //})
+        }
+      };
     //  //ALU instructions with a register and immediate 16-bit data that trap overflow
     //  (rt = rs $method:ident signed imm16 trap) => {
     //    {
@@ -686,10 +721,14 @@ impl MacroAssembler {
           let shifted_imm26 = imm26 * 4;
           let branch_delay_slot = self.create_undefined_label();
           let jump = self.create_undefined_label();
-
           self.emit_jmp_label(branch_delay_slot);
 
           self.define_label(jump);
+          //TODO: not sure why the call isn't pushing %rip onto the stack
+          //but this means that I have to do this ghost push before calling ret
+          //it would be great to understand why this is happening
+          self.emit_addq_ir(-8, X64_RSP);
+          stack_pointer += 8;
           stack_pointer += self.emit_conditional_push_reg(register_map, X64_R14);
           stack_pointer += self.emit_conditional_push_reg(register_map, X64_R15);
           self.emit_movq_mr_offset(X64_RSP, X64_R14, stack_pointer);
@@ -700,10 +739,6 @@ impl MacroAssembler {
           self.emit_movl_rm_offset(X64_R15, X64_R14, 4 * pc_idx);
           stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R15);
           stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R14);
-          //TODO: not sure why the call isn't pushing %rip onto the stack
-          //but this means that I have to do this ghost push before calling ret
-          //it would be great to understand why this is happening
-          self.emit_addq_ir(-8, X64_RSP);
           self.emit_ret();
 
           self.define_label(branch_delay_slot);
@@ -738,18 +773,21 @@ impl MacroAssembler {
           //evaluate jump condition
           match (s, t) {
             (0, 0) => {
-              todo!("");
+              //here %eax can be any register
+              self.emit_cmpl_rr(0, 0);
             },
-            (_, 0) => {
-              todo!("");
+            (s, 0) => {
+              let reg = register_map.mips_to_x64(s).unwrap().bound_gpr();
+              self.emit_testl_rr(reg, reg);
             },
-            (0, _) => {
-              todo!("");
+            (0, t) => {
+              let reg = register_map.mips_to_x64(t).unwrap().bound_gpr();
+              self.emit_testl_rr(reg, reg);
             },
             _ => {
               let reg1 = register_map.mips_to_x64(s).unwrap().bound_gpr();
               let reg2 = register_map.mips_to_x64(t).unwrap().bound_gpr();
-              self.emit_cmp_rr(reg1, reg2);
+              self.emit_cmpl_rr(reg1, reg2);
             },
           }
           //save result of jump condition
@@ -757,35 +795,36 @@ impl MacroAssembler {
           self.emit_jmp_label(branch_delay_slot);
 
           self.define_label(jump);
-          //load jump condition
-          self.emit_popfq();
-          self.emit_jcc_label(took_branch);
           //ghost push to match ret
-          self.emit_addq_ir(-8, X64_RSP);
+          //self.emit_addq_ir(-8, X64_RSP);
+          //load jump condition
+          let cond_stack_offset = self.emit_conditional_push_reg(register_map, X64_R15);
+          self.emit_movl_mr_offset(X64_RSP, X64_R15, cond_stack_offset);
+          self.emit_xchgl_rm_offset(X64_R15, X64_RSP, 4 + cond_stack_offset);
+          self.emit_xchgl_rm_offset(X64_R15, X64_RSP, 8 + cond_stack_offset);
+          self.emit_movl_rm_offset(X64_R15, X64_RSP, cond_stack_offset);
+          let _ = self.emit_conditional_pop_reg(register_map, X64_R15);
+          self.emit_popfq();
+          //self.emit_jne_label(took_branch);
           //this returns to the opcode after the branch delay slot
-          self.emit_ret();
+          //self.emit_ret();
           self.define_label(took_branch);
+          //self.emit_addq_ir(8, X64_RSP);
           //update pc and bail
+          let pc = initial_pc.wrapping_add(offset);
+          let dest = pc.wrapping_add(inc);
+          stack_pointer += self.emit_conditional_push_reg(register_map, X64_R14);
+          stack_pointer += self.emit_conditional_push_reg(register_map, X64_R15);
+          self.emit_movq_mr_offset(X64_RSP, X64_R14, stack_pointer);
+          let pc_idx = 31;
+          self.emit_movl_ir(dest, X64_R15);
+          self.emit_movl_rm_offset(X64_R15, X64_R14, 4 * pc_idx);
+          stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R15);
+          stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R14);
           self.emit_jmp_label(end);
 
           self.define_label(branch_delay_slot);
           return Some(jump);
-
-          //Box::new(move |vm| {
-          //  let rt = vm.r3000.nth_reg(t);
-          //  let rs = vm.r3000.nth_reg(s);
-          //  if rs $cmp rt {
-          //    let pc = vm.r3000.pc().wrapping_add(offset);
-          //    let dest = pc.wrapping_add(inc);
-          //    log!("jumping to PC + ({:#x} * 4) = {:#x} + {:#x} = {:#x} after the delay slot\n  since R{} {} R{} -> {:#x} {} {:#x}",
-          //              imm16, pc, inc, dest, s, stringify!($cmp), t, rs, stringify!($cmp), rt);
-          //    Some(dest)
-          //  } else {
-          //    log!("skipping jump since R{} {} R{} -> {:#x} {} {:#x} is false",
-          //              s, stringify!($cmp), t, rs, stringify!($cmp), rt);
-          //    None
-          //  }
-          //})
         }
       };
     //  (rs $cmp:tt rt) => {
@@ -1126,11 +1165,11 @@ impl MacroAssembler {
     //    log!("> BGTZ");
     //    jump!(rs > 0)
     //  },
-    //  0x08 => {
-    //    //ADDI
-    //    log!("> ADDI");
-    //    compute!(rt = rs checked_add signed imm16 trap)
-    //  },
+      0x08 => {
+        //ADDI
+        log!("> ADDI");
+        compute!(rt = rs checked_add signed imm16 trap)
+      },
       0x09 => {
         //ADDIU
         log!("> ADDIU");

@@ -32,6 +32,22 @@ impl MacroAssembler {
     self.buffer.push(0x72);
     self.emit_label_placeholder_i8(label);
   }
+  pub fn emit_jne_rel8(&mut self, offset: i8) {
+    self.buffer.push(0x75);
+    self.buffer.push(offset as u8);
+  }
+  pub fn emit_je_rel8(&mut self, offset: i8) {
+    self.buffer.push(0x74);
+    self.buffer.push(offset as u8);
+  }
+  pub fn emit_jne_label(&mut self, label: Label) {
+    self.buffer.push(0x75);
+    self.emit_label_placeholder_i8(label);
+  }
+  pub fn emit_je_label(&mut self, label: Label) {
+    self.buffer.push(0x74);
+    self.emit_label_placeholder_i8(label);
+  }
 }
 
 #[cfg(test)]

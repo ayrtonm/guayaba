@@ -66,20 +66,40 @@ impl Block {
     for insn in tagged_opcodes {
       let prev_label = jmp_label;
       //FIXME: there are some cases where this method won't be able to bind all MIPS register
+      //this will cause segfaults
       let init_x64 = X64_R13;
       let mut i = 0;
+      let mut bound_gprs = vec![];
       for dep in insn.dependencies() {
         if dep != 0 {
           if !register_map.mips_is_bound(dep) {
+            while bound_gprs.iter().any(|&x| x == init_x64 - i) {
+              i += 1;
+              if i == 9 {
+                i += 1;
+              }
+            }
             masm.emit_swap_mips_registers(dep, init_x64 - i, &mut register_map, 0);
+            bound_gprs.push(init_x64 - i);
             i += 1;
+            if i == 9 {
+              i += 1;
+            }
           }
         }
       }
-      jmp_label = masm.emit_insn(&insn, &mut register_map, initial_pc, end, logging);
-      prev_label.map(|label| {
-        masm.emit_call_label(label);
-      });
+      match prev_label {
+        Some(some_jump) => {
+          jmp_label = masm.emit_insn(&insn, &mut register_map, initial_pc, end, 4, logging);
+          masm.emit_call_label(some_jump);
+        },
+        None => {
+          jmp_label = masm.emit_insn(&insn, &mut register_map, initial_pc, end, 0, logging);
+        },
+      }
+      if insn.op() == 0x214a_0080 {
+        break
+      }
     };
     masm.define_label(end);
     masm.save_registers(&register_map);

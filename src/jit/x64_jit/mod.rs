@@ -41,15 +41,23 @@ impl X64JIT {
         Some(block) => {
           let t0 = Instant::now();
           block.function.execute();
-          //for i in 1..=31 {
-          //  println!("{:#x}", self.console.r3000.nth_reg(i));
-          //}
-          assert_eq!(self.console.r3000.nth_reg(1), 0x1f80_0000);
-          assert_eq!(self.console.r3000.nth_reg(8), 0xb88);
+          for i in 1..=31 {
+            println!("{:#x}", self.console.r3000.nth_reg(i));
+          }
+          println!("{:#x}", self.console.r3000.pc());
+          for i in 1..=31 {
+            if i == 1 {
+              assert_eq!(self.console.r3000.nth_reg(1), 0x1f80_0000);
+            } else if i == 8 {
+              assert_eq!(self.console.r3000.nth_reg(8), 0xb88);
+            } else {
+              assert_eq!(self.console.r3000.nth_reg(i), 0);
+            }
+          }
+          //these assertions should pass the first block and fail on the second
           assert_eq!(self.console.r3000.pc(), 0xbfc0_0150);
-          assert_eq!(self.console.read_word(0x1f80_1010), 0x13243f);
-          assert_eq!(self.console.read_word(0x1f80_1060), 0xb88);
-          panic!("");
+          //assert_eq!(self.console.read_word(0x1f80_1010), 0x13243f);
+          //assert_eq!(self.console.read_word(0x1f80_1060), 0xb88);
           //let stubs = block.stubs();
           //for stub in stubs {
           //  self.console.r3000.flush_write_cache(&mut self.console.delayed_writes,
