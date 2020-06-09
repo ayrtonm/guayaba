@@ -699,8 +699,11 @@ impl MacroAssembler {
           self.emit_movl_rm_offset(X64_R15, X64_R14, 4 * pc_idx);
           stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R15);
           stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R14);
-          self.emit_jmp_label(end);
-          //self.emit_ret();
+          //TODO: not sure why the call isn't pushing %rip onto the stack
+          //but this means that I have to do this ghost push before calling ret
+          //it would be great to understand why this is happening
+          self.emit_addq_ir(-8, X64_RSP);
+          self.emit_ret();
 
           self.define_label(branch_delay_slot);
           return Some(jump);
