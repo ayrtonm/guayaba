@@ -688,6 +688,7 @@ impl MacroAssembler {
           let jump = self.create_undefined_label();
 
           self.emit_jmp_label(branch_delay_slot);
+
           self.define_label(jump);
           stack_pointer += self.emit_conditional_push_reg(register_map, X64_R14);
           stack_pointer += self.emit_conditional_push_reg(register_map, X64_R15);
@@ -733,10 +734,40 @@ impl MacroAssembler {
           let inc = ((imm16.half_sign_extended() as i32) * 4) as u32;
           let branch_delay_slot = self.create_undefined_label();
           let jump = self.create_undefined_label();
+          let took_branch = self.create_undefined_label();
           //evaluate jump condition
+          match (s, t) {
+            (0, 0) => {
+              todo!("");
+            },
+            (_, 0) => {
+              todo!("");
+            },
+            (0, _) => {
+              todo!("");
+            },
+            _ => {
+              let reg1 = register_map.mips_to_x64(s).unwrap().bound_gpr();
+              let reg2 = register_map.mips_to_x64(t).unwrap().bound_gpr();
+              self.emit_cmp_rr(reg1, reg2);
+            },
+          }
           //save result of jump condition
+          self.emit_pushfq();
+          self.emit_jmp_label(branch_delay_slot);
+
           self.define_label(jump);
+          //load jump condition
+          self.emit_popfq();
+          self.emit_jcc_label(took_branch);
+          //ghost push to match ret
+          self.emit_addq_ir(-8, X64_RSP);
+          //this returns to the opcode after the branch delay slot
+          self.emit_ret();
+          self.define_label(took_branch);
+          //update pc and bail
           self.emit_jmp_label(end);
+
           self.define_label(branch_delay_slot);
           return Some(jump);
 
