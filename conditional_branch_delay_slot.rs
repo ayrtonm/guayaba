@@ -3,18 +3,28 @@
 fn main() {
   unsafe {
     llvm_asm!("
-      jmp branch_delay_slot
+      condition:
+        jmp branch_delay_slot
 
       jump:
-        nop
-        addq $$8, %rsp
-        jne end
-        addq $$-8, %rsp
+        jne to_end
         ret
 
+      to_end:
+        addq $$8, %rsp
+        jmp end
+
       branch_delay_slot:
+        pushfq
+        nop
+        popfq
+        nop
+        nop
         nop
         call jump
+        nop
+        nop
+        nop
 
       next_opcode:
         nop

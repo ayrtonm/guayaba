@@ -724,21 +724,19 @@ impl MacroAssembler {
           self.emit_jmp_label(branch_delay_slot);
 
           self.define_label(jump);
-          //TODO: not sure why the call isn't pushing %rip onto the stack
-          //but this means that I have to do this ghost push before calling ret
-          //it would be great to understand why this is happening
-          self.emit_addq_ir(-8, X64_RSP);
-          stack_pointer += 8;
-          stack_pointer += self.emit_conditional_push_reg(register_map, X64_R14);
-          stack_pointer += self.emit_conditional_push_reg(register_map, X64_R15);
-          self.emit_movq_mr_offset(X64_RSP, X64_R14, stack_pointer);
-          let pc_idx = 31;
-          let pc_hi_bits = initial_pc.wrapping_add(offset) & 0xf000_0000;
-          let dest = pc_hi_bits.wrapping_add(shifted_imm26);
-          self.emit_movl_ir(dest, X64_R15);
-          self.emit_movl_rm_offset(X64_R15, X64_R14, 4 * pc_idx);
-          stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R15);
-          stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R14);
+          //self.emit_addq_ir(-8, X64_RSP);
+          self.emit_nop();
+          self.emit_nop();
+          //stack_pointer += self.emit_conditional_push_reg(register_map, X64_R14);
+          //stack_pointer += self.emit_conditional_push_reg(register_map, X64_R15);
+          //self.emit_movq_mr_offset(X64_RSP, X64_R14, stack_pointer);
+          //let pc_idx = 31;
+          //let pc_hi_bits = initial_pc.wrapping_add(offset) & 0xf000_0000;
+          //let dest = pc_hi_bits.wrapping_add(shifted_imm26);
+          //self.emit_movl_ir(dest, X64_R15);
+          //self.emit_movl_rm_offset(X64_R15, X64_R14, 4 * pc_idx);
+          //stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R15);
+          //stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R14);
           self.emit_clc();
           self.emit_ret();
 
