@@ -93,7 +93,7 @@ impl X64JIT {
                                       .overwritten
                                       .iter()
                                       .any(|&x| {
-                                        address <= x && x <= block.final_pc()
+                                        address <= x && x <= block.final_phys_pc()
                                       });
           //if this block was invalidated by a write
           if block_invalidated {
@@ -117,7 +117,8 @@ impl X64JIT {
     let t0 = Instant::now();
     //first define the opcodes in this block and tag them along the way
     let mut address = self.console.r3000.pc();
-    let start = Console::physical(address);
+    let initial_pc = address;
+    let initial_phys_pc = Console::physical(initial_pc);
     let mut op = self.console.read_word(address);
     //start with an offset of 4 since pc is incremented before the next instruction is executed
     //this makes sure that pc has the correct value when a jump is taken in a branch delay slot
@@ -144,22 +145,22 @@ impl X64JIT {
     //get the length before doing optimizations
     let nominal_len = tagged_opcodes.len() as u32;
     //get the address of the last instruction in the block
-    let final_pc = Console::physical(address);
+    let final_phys_pc = Console::physical(address);
     //compile the tagged opcodes into a block
     let block =
       if optimize {
-        Block::new_optimized(&tagged_opcodes, &self.console, final_pc, nominal_len, logging)
+        Block::new_optimized(&tagged_opcodes, &self.console, initial_pc, final_phys_pc, nominal_len, logging)
       } else {
-        Block::new(&tagged_opcodes, &self.console, final_pc, nominal_len, logging)
+        Block::new(&tagged_opcodes, &self.console, initial_pc, final_phys_pc, nominal_len, logging)
     }?;
-    self.blocks.insert(start, block);
+    self.blocks.insert(initial_phys_pc, block);
     //store the address range of the new block to simplify cache invalidation
-    match self.ranges_compiled.get_mut(&final_pc) {
+    match self.ranges_compiled.get_mut(&final_phys_pc) {
       Some(v) => {
-        v.push(start);
+        v.push(initial_phys_pc);
       },
       None => {
-        self.ranges_compiled.insert(final_pc, vec![start]);
+        self.ranges_compiled.insert(final_phys_pc, vec![initial_phys_pc]);
       },
     }
     let t1 = Instant::now();
@@ -170,7 +171,7 @@ impl X64JIT {
     let deleted_block = self.blocks.remove(&address).unwrap();
     //get all blocks containing the deleted block as a subset
     let overlapping_blocks = self.ranges_compiled
-                                 .get(&deleted_block.final_pc())
+                                 .get(&deleted_block.final_phys_pc())
                                  .unwrap()
                                  .iter()
                                  .copied()
@@ -183,7 +184,7 @@ impl X64JIT {
                       });
     //clean up the auxilary map of ranges compiled
     self.ranges_compiled
-        .entry(deleted_block.final_pc())
+        .entry(deleted_block.final_phys_pc())
         .and_modify(|v| {
           v.retain(|&start| address < start);
         });

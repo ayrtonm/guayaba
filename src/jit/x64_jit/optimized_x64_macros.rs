@@ -8,7 +8,7 @@ use crate::common::*;
 
 impl Block {
   pub(super) fn create_optimized_function(tagged_opcodes: &Vec<Insn>, console: &Console,
-                                       logging: bool) -> io::Result<JIT_Fn> {
+                                          initial_pc: u32, logging: bool) -> io::Result<JIT_Fn> {
     let mut masm = MacroAssembler::new();
     Ok(masm.compile_buffer()?)
   }

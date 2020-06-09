@@ -77,7 +77,6 @@ impl MacroAssembler {
         None => panic!("used undefined label {} at {}", label, loc),
       }
     }
-    println!("{:x?}", self.buffer);
     let mut mmap = MmapMut::map_anon(self.buffer.len())?;
     mmap.copy_from_slice(&self.buffer);
     let mmap = mmap.make_exec()?;

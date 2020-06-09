@@ -12,7 +12,7 @@ use crate::jit::x64_jit::register_allocator::*;
 
 #[deny(unused_must_use)]
 impl MacroAssembler {
-  pub fn emit_insn(&mut self, insn: &Insn, register_map: &mut RegisterMap, end: Label, logging: bool) -> Option<Label> {
+  pub fn emit_insn(&mut self, insn: &Insn, register_map: &mut RegisterMap, initial_pc: u32, end: Label, logging: bool) -> Option<Label> {
     let op = insn.op();
     let offset = insn.offset();
     let frame_pointer = register_map.count_spilled();
@@ -692,10 +692,9 @@ impl MacroAssembler {
           stack_pointer += self.emit_conditional_push_reg(register_map, X64_R15);
           self.emit_movq_mr_offset(X64_RSP, X64_R14, stack_pointer);
           let pc_idx = 31;
-          self.emit_movl_mr_offset(X64_R14, X64_R15, 4 * pc_idx);
-          self.emit_addl_ir(offset as i32, X64_R15);
-          self.emit_andl_ir(0xf000_0000, X64_R15);
-          self.emit_addl_ir(shifted_imm26 as i32, X64_R15);
+          let pc_hi_bits = initial_pc.wrapping_add(offset) & 0xf000_0000;
+          let dest = pc_hi_bits.wrapping_add(shifted_imm26);
+          self.emit_movl_ir(dest, X64_R15);
           self.emit_movl_rm_offset(X64_R15, X64_R14, 4 * pc_idx);
           stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R15);
           stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R14);
