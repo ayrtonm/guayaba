@@ -739,6 +739,7 @@ impl MacroAssembler {
           self.emit_movl_rm_offset(X64_R15, X64_R14, 4 * pc_idx);
           stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R15);
           stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R14);
+          self.emit_clc();
           self.emit_ret();
 
           self.define_label(branch_delay_slot);
@@ -772,10 +773,8 @@ impl MacroAssembler {
           let took_branch = self.create_undefined_label();
           //evaluate jump condition
           match (s, t) {
-            (0, 0) => {
-              //here %eax can be any register
-              self.emit_cmpl_rr(0, 0);
-            },
+            //here %eax can be any register
+            (0, 0) => self.emit_cmpl_rr(0, 0),
             (s, 0) => {
               let reg = register_map.mips_to_x64(s).unwrap().bound_gpr();
               self.emit_testl_rr(reg, reg);
@@ -790,26 +789,15 @@ impl MacroAssembler {
               self.emit_cmpl_rr(reg1, reg2);
             },
           }
-          //save result of jump condition
-          self.emit_pushfq();
           self.emit_jmp_label(branch_delay_slot);
 
           self.define_label(jump);
-          //ghost push to match ret
-          //self.emit_addq_ir(-8, X64_RSP);
-          //load jump condition
-          let cond_stack_offset = self.emit_conditional_push_reg(register_map, X64_R15);
-          self.emit_movl_mr_offset(X64_RSP, X64_R15, cond_stack_offset);
-          self.emit_xchgl_rm_offset(X64_R15, X64_RSP, 4 + cond_stack_offset);
-          self.emit_xchgl_rm_offset(X64_R15, X64_RSP, 8 + cond_stack_offset);
-          self.emit_movl_rm_offset(X64_R15, X64_RSP, cond_stack_offset);
-          let _ = self.emit_conditional_pop_reg(register_map, X64_R15);
-          self.emit_popfq();
-          //self.emit_jne_label(took_branch);
+          self.emit_jmp_label(took_branch);
           //this returns to the opcode after the branch delay slot
-          //self.emit_ret();
+          self.emit_clc();
+          self.emit_ret();
+
           self.define_label(took_branch);
-          //self.emit_addq_ir(8, X64_RSP);
           //update pc and bail
           let pc = initial_pc.wrapping_add(offset);
           let dest = pc.wrapping_add(inc);
@@ -821,7 +809,8 @@ impl MacroAssembler {
           self.emit_movl_rm_offset(X64_R15, X64_R14, 4 * pc_idx);
           stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R15);
           stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R14);
-          self.emit_jmp_label(end);
+          self.emit_stc();
+          self.emit_ret();
 
           self.define_label(branch_delay_slot);
           return Some(jump);

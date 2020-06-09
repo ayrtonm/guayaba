@@ -4,6 +4,14 @@ use crate::jit::x64_jit::register_allocator::X64_RAX;
 
 impl MacroAssembler {
   //TODO: test this
+  pub fn emit_stc(&mut self) {
+    self.buffer.push(0xf9);
+  }
+  //TODO: test this
+  pub fn emit_clc(&mut self) {
+    self.buffer.push(0xf8);
+  }
+  //TODO: test this
   pub fn emit_cmpl_rr(&mut self, reg1: u32, reg2: u32) {
     self.emit_conditional_rexrb(reg1, reg2);
     self.buffer.push(0x39);

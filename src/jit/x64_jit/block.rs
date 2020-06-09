@@ -90,8 +90,13 @@ impl Block {
       }
       match prev_label {
         Some(some_jump) => {
+          //save result of jump condition
+          masm.emit_pushfq();
           jmp_label = masm.emit_insn(&insn, &mut register_map, initial_pc, end, 4, logging);
+          //reload result of jump condition
+          masm.emit_popfq();
           masm.emit_call_label(some_jump);
+          masm.emit_jb_label(end);
         },
         None => {
           jmp_label = masm.emit_insn(&insn, &mut register_map, initial_pc, end, 0, logging);
