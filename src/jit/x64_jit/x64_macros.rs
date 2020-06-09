@@ -685,9 +685,10 @@ impl MacroAssembler {
           let imm26 = get_imm26(op);
           let shifted_imm26 = imm26 * 4;
           let branch_delay_slot = self.create_undefined_label();
-          let took_jump = self.create_undefined_label();
+          let jump = self.create_undefined_label();
+
           self.emit_jmp_label(branch_delay_slot);
-          self.define_label(took_jump);
+          self.define_label(jump);
           stack_pointer += self.emit_conditional_push_reg(register_map, X64_R14);
           stack_pointer += self.emit_conditional_push_reg(register_map, X64_R15);
           self.emit_movq_mr_offset(X64_RSP, X64_R14, stack_pointer);
@@ -699,8 +700,9 @@ impl MacroAssembler {
           stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R15);
           stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R14);
           self.emit_jmp_label(end);
+
           self.define_label(branch_delay_slot);
-          return Some(took_jump);
+          return Some(jump);
         }
       };
     //  (rs) => {
@@ -719,6 +721,38 @@ impl MacroAssembler {
     //      })
     //    }
     //  };
+      (rs != rt) => {
+        {
+          let t = get_rt(op);
+          let s = get_rs(op);
+          let imm16 = get_imm16(op);
+          let inc = ((imm16.half_sign_extended() as i32) * 4) as u32;
+          let branch_delay_slot = self.create_undefined_label();
+          let jump = self.create_undefined_label();
+          //evaluate jump condition
+          //save result of jump condition
+          self.define_label(jump);
+          self.emit_jmp_label(end);
+          self.define_label(branch_delay_slot);
+          return Some(jump);
+
+          //Box::new(move |vm| {
+          //  let rt = vm.r3000.nth_reg(t);
+          //  let rs = vm.r3000.nth_reg(s);
+          //  if rs $cmp rt {
+          //    let pc = vm.r3000.pc().wrapping_add(offset);
+          //    let dest = pc.wrapping_add(inc);
+          //    log!("jumping to PC + ({:#x} * 4) = {:#x} + {:#x} = {:#x} after the delay slot\n  since R{} {} R{} -> {:#x} {} {:#x}",
+          //              imm16, pc, inc, dest, s, stringify!($cmp), t, rs, stringify!($cmp), rt);
+          //    Some(dest)
+          //  } else {
+          //    log!("skipping jump since R{} {} R{} -> {:#x} {} {:#x} is false",
+          //              s, stringify!($cmp), t, rs, stringify!($cmp), rt);
+          //    None
+          //  }
+          //})
+        }
+      };
     //  (rs $cmp:tt rt) => {
     //    {
     //      let t = get_rt(op);
@@ -1042,11 +1076,11 @@ impl MacroAssembler {
     //    log!("> BEQ");
     //    jump!(rs == rt)
     //  },
-    //  0x05 => {
-    //    //BNE
-    //    log!("> BNE");
-    //    jump!(rs != rt)
-    //  },
+      0x05 => {
+        //BNE
+        log!("> BNE");
+        jump!(rs != rt)
+      },
     //  0x06 => {
     //    //BLEZ
     //    log!("> BLEZ");

@@ -4,6 +4,7 @@ use memmap::MmapMut;
 use crate::register::BitTwiddle;
 use crate::jit::jit_fn::JIT_Fn;
 use crate::jit::x64_jit::register_allocator::*;
+use crate::common::WriteArray;
 
 mod stack;
 mod mov;
@@ -31,6 +32,7 @@ impl MacroAssembler {
   const REXRB: u8 = 0x45;
   const REXW: u8 = 0x48;
   const REXWB: u8 = 0x49;
+  const LABEL_PLACEHOLDER: u8 = 0xff;
   pub fn new() -> Self {
     let mut masm = MacroAssembler {
       buffer: Vec::new(),
@@ -70,9 +72,17 @@ impl MacroAssembler {
       match self.labels_defined.get(&label) {
         Some(&def) => {
           let rel_distance = (def as isize) - (loc as isize) - 1;
-          //TODO: extend this to handle longer jumps
-          assert!(rel_distance <= 127 && -128 <= rel_distance);
-          self.buffer[loc] = rel_distance as u8;
+          match rel_distance {
+            -0x80..=0x7f => {
+              (&mut self.buffer[..]).write_byte(loc as u32, rel_distance as u32);
+            },
+            -0x8000..=0x7fff => {
+              (&mut self.buffer[..]).write_half(loc as u32, rel_distance as u32);
+            },
+            _ => {
+              (&mut self.buffer[..]).write_word(loc as u32, rel_distance as u32);
+            },
+          }
         },
         None => panic!("used undefined label {} at {}", label, loc),
       }

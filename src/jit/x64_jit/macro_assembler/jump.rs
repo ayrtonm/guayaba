@@ -3,10 +3,9 @@ use crate::jit::x64_jit::macro_assembler::Label;
 use crate::jit::x64_jit::register_allocator::*;
 
 impl MacroAssembler {
-  const PLACEHOLDER: u8 = 0xff;
-  fn emit_label_placeholder(&mut self, label: Label) {
+  fn emit_label_placeholder_i8(&mut self, label: Label) {
     let placeholder_location = self.buffer.len();
-    self.buffer.push(MacroAssembler::PLACEHOLDER);
+    self.buffer.push(MacroAssembler::LABEL_PLACEHOLDER);
     self.labels_used.insert(label, placeholder_location);
   }
   pub fn emit_jmp_rel8(&mut self, offset: i8) {
@@ -15,7 +14,7 @@ impl MacroAssembler {
   }
   pub fn emit_jmp_label(&mut self, label: Label) {
     self.buffer.push(0xeb);
-    self.emit_label_placeholder(label);
+    self.emit_label_placeholder_i8(label);
   }
   pub fn emit_jae_rel8(&mut self, offset: i8) {
     self.buffer.push(0x73);
@@ -27,11 +26,11 @@ impl MacroAssembler {
   }
   pub fn emit_jae_label(&mut self, label: Label) {
     self.buffer.push(0x73);
-    self.emit_label_placeholder(label);
+    self.emit_label_placeholder_i8(label);
   }
   pub fn emit_jb_label(&mut self, label: Label) {
     self.buffer.push(0x72);
-    self.emit_label_placeholder(label);
+    self.emit_label_placeholder_i8(label);
   }
 }
 

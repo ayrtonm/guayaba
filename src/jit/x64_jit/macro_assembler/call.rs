@@ -1,8 +1,40 @@
 use crate::register::BitTwiddle;
 use crate::jit::x64_jit::macro_assembler::MacroAssembler;
+use crate::jit::x64_jit::macro_assembler::Label;
 use crate::jit::x64_jit::register_allocator::*;
 
 impl MacroAssembler {
+  fn emit_label_placeholder_i32(&mut self, label: Label) {
+    let placeholder_location = self.buffer.len();
+    self.buffer.push(MacroAssembler::LABEL_PLACEHOLDER);
+    self.buffer.push(MacroAssembler::LABEL_PLACEHOLDER);
+    self.buffer.push(MacroAssembler::LABEL_PLACEHOLDER);
+    self.buffer.push(MacroAssembler::LABEL_PLACEHOLDER);
+    self.labels_used.insert(label, placeholder_location);
+  }
+  //TODO: test this
+  pub fn emit_callq_i(&mut self, imm32: i32) {
+    match imm32 {
+      -0x8000..=0x7fff => {
+        self.emit_callw_i(imm32 as i16);
+      },
+      _ => {
+        self.buffer.push(0xe8);
+        self.emit_imm32(imm32 as u32);
+      },
+    }
+  }
+  //TODO: test this
+  pub fn emit_callw_i(&mut self, imm16: i16) {
+    self.buffer.push(0x66);
+    self.buffer.push(0xe8);
+    self.emit_imm16(imm16 as u16);
+  }
+  //TODO: test this
+  pub fn emit_call_label(&mut self, label: Label) {
+    self.buffer.push(0xe8);
+    self.emit_label_placeholder_i32(label);
+  }
   pub fn emit_callq_r64(&mut self, reg: u32) {
     self.emit_conditional_rexb(reg);
     self.buffer.push(0xff);
