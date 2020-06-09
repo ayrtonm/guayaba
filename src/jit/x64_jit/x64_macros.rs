@@ -700,6 +700,7 @@ impl MacroAssembler {
           stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R15);
           stack_pointer += self.emit_conditional_pop_reg(register_map, X64_R14);
           self.emit_jmp_label(end);
+          //self.emit_ret();
 
           self.define_label(branch_delay_slot);
           return Some(jump);

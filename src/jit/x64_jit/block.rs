@@ -77,7 +77,10 @@ impl Block {
         }
       }
       jmp_label = masm.emit_insn(&insn, &mut register_map, initial_pc, end, logging);
-      prev_label.map(|label| masm.emit_jmp_label(label));
+      prev_label.map(|label| {
+        //masm.emit_call_label(label);
+        masm.emit_jmp_label(label);
+      });
     };
     masm.define_label(end);
     masm.save_registers(&register_map);
