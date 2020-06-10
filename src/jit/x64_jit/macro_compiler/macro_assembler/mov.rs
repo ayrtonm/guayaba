@@ -1,6 +1,6 @@
 use crate::register::BitTwiddle;
-use crate::jit::x64_jit::macro_assembler::MacroAssembler;
-use crate::jit::x64_jit::register_allocator::X64_RSP;
+use crate::jit::x64_jit::macro_compiler::macro_assembler::MacroAssembler;
+use crate::jit::x64_jit::macro_compiler::macro_assembler::registers::X64_RSP;
 
 impl MacroAssembler {
   pub fn emit_movl_rr(&mut self, src: u32, dest: u32) {
@@ -150,12 +150,12 @@ mod tests {
     for src in MacroAssembler::free_regs() {
       for dest in MacroAssembler::free_regs() {
         let mut masm = MacroAssembler::new();
-        masm.emit_push_imm32(0xbfc0_0101);
-        masm.emit_pop_r64(src);
+        masm.emit_pushl_i(0xbfc0_0101);
+        masm.emit_popq_r(src);
         masm.emit_movl_rr(src, dest);
-        masm.emit_push_r64(dest);
-        masm.emit_pop_r64(0);
-        let jit_fn = masm.compile_buffer().unwrap();
+        masm.emit_pushq_r(dest);
+        masm.emit_popq_r(0);
+        let jit_fn = masm.assemble().unwrap();
         let out: u32;
         unsafe {
           llvm_asm!("callq *%rbp"
@@ -172,9 +172,9 @@ mod tests {
     for reg in MacroAssembler::free_regs() {
       let mut masm = MacroAssembler::new();
       masm.emit_movl_ir(0xadcb_1324, reg);
-      masm.emit_push_r64(reg);
-      masm.emit_pop_r64(0);
-      let jit_fn = masm.compile_buffer().unwrap();
+      masm.emit_pushq_r(reg);
+      masm.emit_popq_r(0);
+      let jit_fn = masm.assemble().unwrap();
       let out: u32;
       unsafe {
         llvm_asm!("callq *%rbp"
@@ -191,7 +191,7 @@ mod tests {
       let mut masm = MacroAssembler::new();
       masm.emit_movq_ir(0xadcb_1324_ff00_dcda, reg);
       masm.emit_movq_rr(reg, 0);
-      let jit_fn = masm.compile_buffer().unwrap();
+      let jit_fn = masm.assemble().unwrap();
       let out: u64;
       unsafe {
         llvm_asm!("callq *%rbp"
@@ -208,12 +208,12 @@ mod tests {
     for ptr in MacroAssembler::all_regs() {
       for dest in MacroAssembler::free_regs() {
         let mut masm = MacroAssembler::new();
-        masm.emit_push_imm32(0xabcd_1235);
+        masm.emit_pushl_i(0xabcd_1235);
         masm.emit_movq_rr(X64_RSP as u32, ptr);
         masm.emit_movl_mr(ptr, dest);
-        masm.emit_pop_r64(1);
+        masm.emit_popq_r(1);
         masm.emit_movl_rr(dest, 0);
-        let jit_fn = masm.compile_buffer().unwrap();
+        let jit_fn = masm.assemble().unwrap();
         let out: u32;
         unsafe {
           llvm_asm!("callq *%rbp"
@@ -231,11 +231,11 @@ mod tests {
       for src in MacroAssembler::free_regs() {
         let mut masm = MacroAssembler::new();
         masm.emit_movl_ir(0x5324_bcda, src);
-        masm.emit_push_r64(1);
+        masm.emit_pushq_r(1);
         masm.emit_movq_rr(X64_RSP as u32, ptr);
         masm.emit_movl_rm(src, ptr);
-        masm.emit_pop_r64(0);
-        let jit_fn = masm.compile_buffer().unwrap();
+        masm.emit_popq_r(0);
+        let jit_fn = masm.assemble().unwrap();
         let out: u32;
         unsafe {
           llvm_asm!("callq *%rbp"
@@ -257,15 +257,15 @@ mod tests {
       for src in MacroAssembler::free_regs() {
         let mut masm = MacroAssembler::new();
         masm.emit_movl_ir(0xbdef_2398, src);
-        masm.emit_push_r64(1);
-        masm.emit_push_r64(1);
-        masm.emit_push_r64(1);
+        masm.emit_pushq_r(1);
+        masm.emit_pushq_r(1);
+        masm.emit_pushq_r(1);
         masm.emit_movq_rr(X64_RSP as u32, ptr);
         masm.emit_movl_rm_offset(src, ptr, 16);
-        masm.emit_pop_r64(1);
-        masm.emit_pop_r64(1);
-        masm.emit_pop_r64(0);
-        let jit_fn = masm.compile_buffer().unwrap();
+        masm.emit_popq_r(1);
+        masm.emit_popq_r(1);
+        masm.emit_popq_r(0);
+        let jit_fn = masm.assemble().unwrap();
         let out: u32;
         unsafe {
           llvm_asm!("callq *%rbp"
@@ -285,14 +285,14 @@ mod tests {
       for dest in MacroAssembler::free_regs() {
         let mut masm = MacroAssembler::new();
         masm.emit_movl_ir(0xabcd_1235, 0);
-        masm.emit_push_r64(0);
+        masm.emit_pushq_r(0);
         masm.emit_addq_ir(-136, X64_RSP);
         masm.emit_movq_rr(X64_RSP as u32, ptr);
         masm.emit_movl_mr_offset(ptr, dest, 136);
         masm.emit_addq_ir(136, X64_RSP);
-        masm.emit_pop_r64(1);
+        masm.emit_popq_r(1);
         masm.emit_movl_rr(dest, 0);
-        let jit_fn = masm.compile_buffer().unwrap();
+        let jit_fn = masm.assemble().unwrap();
         let out: u32;
         unsafe {
           llvm_asm!("callq *%rbp"
@@ -312,12 +312,12 @@ mod tests {
     for ptr in MacroAssembler::all_regs() {
       for dest in MacroAssembler::free_regs() {
         let mut masm = MacroAssembler::new();
-        masm.emit_push_imm32(0x8bcd_1235);
+        masm.emit_pushl_i(0x8bcd_1235);
         masm.emit_movq_rr(X64_RSP as u32, ptr);
         masm.emit_movq_mr(ptr, dest);
-        masm.emit_pop_r64(1);
+        masm.emit_popq_r(1);
         masm.emit_movq_rr(dest, 0);
-        let jit_fn = masm.compile_buffer().unwrap();
+        let jit_fn = masm.assemble().unwrap();
         let out: u64;
         unsafe {
           llvm_asm!("callq *%rbp"
@@ -334,16 +334,16 @@ mod tests {
     for ptr in MacroAssembler::all_regs() {
       for dest in MacroAssembler::free_regs() {
         let mut masm = MacroAssembler::new();
-        masm.emit_push_imm32(0x8bcd_1235);
-        masm.emit_push_r64(1);
-        masm.emit_push_r64(1);
+        masm.emit_pushl_i(0x8bcd_1235);
+        masm.emit_pushq_r(1);
+        masm.emit_pushq_r(1);
         masm.emit_movq_rr(X64_RSP as u32, ptr);
         masm.emit_movq_mr_offset(ptr, dest, 16);
-        masm.emit_pop_r64(1);
-        masm.emit_pop_r64(1);
-        masm.emit_pop_r64(1);
+        masm.emit_popq_r(1);
+        masm.emit_popq_r(1);
+        masm.emit_popq_r(1);
         masm.emit_movq_rr(dest, 0);
-        let jit_fn = masm.compile_buffer().unwrap();
+        let jit_fn = masm.assemble().unwrap();
         let out: u64;
         unsafe {
           llvm_asm!("callq *%rbp"

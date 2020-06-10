@@ -1,6 +1,6 @@
 use crate::register::BitTwiddle;
-use crate::jit::x64_jit::macro_assembler::MacroAssembler;
-use crate::jit::x64_jit::register_allocator::X64_RAX;
+use crate::jit::x64_jit::macro_compiler::macro_assembler::MacroAssembler;
+use crate::jit::x64_jit::macro_compiler::macro_assembler::registers::X64_RAX;
 
 impl MacroAssembler {
   //TODO: test this
@@ -198,7 +198,7 @@ mod tests {
         }
         masm.emit_addq_rr(src, dest);
         masm.emit_movq_rr(dest, 0);
-        let jit_fn = masm.compile_buffer().unwrap();
+        let jit_fn = masm.assemble().unwrap();
         let out: u64;
         unsafe {
           llvm_asm!("callq *%rbp"
@@ -227,7 +227,7 @@ mod tests {
         }
         masm.emit_addl_rr(src, dest);
         masm.emit_movl_rr(dest, 0);
-        let jit_fn = masm.compile_buffer().unwrap();
+        let jit_fn = masm.assemble().unwrap();
         let out: u32;
         unsafe {
           llvm_asm!("callq *%rbp"
@@ -252,7 +252,7 @@ mod tests {
         masm.emit_movq_ir(x, dest);
         masm.emit_addq_ir(imm8, dest);
         masm.emit_movq_rr(dest, 0);
-        let jit_fn = masm.compile_buffer().unwrap();
+        let jit_fn = masm.assemble().unwrap();
         let out: u64;
         unsafe {
           llvm_asm!("callq *%rbp"
@@ -273,7 +273,7 @@ mod tests {
         masm.emit_movq_ir(x, dest);
         masm.emit_addq_ir(imm32, dest);
         masm.emit_movq_rr(dest, 0);
-        let jit_fn = masm.compile_buffer().unwrap();
+        let jit_fn = masm.assemble().unwrap();
         let out: u64;
         unsafe {
           llvm_asm!("callq *%rbp"
@@ -294,7 +294,7 @@ mod tests {
         masm.emit_movl_ir(x, dest);
         masm.emit_addl_ir(imm8, dest);
         masm.emit_movl_rr(dest, 0);
-        let jit_fn = masm.compile_buffer().unwrap();
+        let jit_fn = masm.assemble().unwrap();
         let out: u32;
         unsafe {
           llvm_asm!("callq *%rbp"
@@ -315,7 +315,7 @@ mod tests {
         masm.emit_movl_ir(x, dest);
         masm.emit_addl_ir(imm32, dest);
         masm.emit_movl_rr(dest, 0);
-        let jit_fn = masm.compile_buffer().unwrap();
+        let jit_fn = masm.assemble().unwrap();
         let out: u32;
         unsafe {
           llvm_asm!("callq *%rbp"

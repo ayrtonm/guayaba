@@ -1,6 +1,6 @@
 use crate::register::BitTwiddle;
-use crate::jit::x64_jit::macro_assembler::MacroAssembler;
-use crate::jit::x64_jit::register_allocator::*;
+use crate::jit::x64_jit::macro_compiler::macro_assembler::MacroAssembler;
+use crate::jit::x64_jit::macro_compiler::macro_assembler::registers::*;
 
 impl MacroAssembler {
   pub fn emit_xchgq_rr(&mut self, reg1: u32, reg2: u32) {
@@ -80,7 +80,7 @@ mod tests {
         masm.emit_movq_ir(x, r1);
         masm.emit_xchgq_rr(r1, r2);
         masm.emit_movq_rr(r2, 0);
-        let jit_fn = masm.compile_buffer().unwrap();
+        let jit_fn = masm.assemble().unwrap();
         let out: u64;
         unsafe {
           llvm_asm!("callq *%rbp"
@@ -99,12 +99,12 @@ mod tests {
         let mut masm = MacroAssembler::new();
         let x = 0x0703_b452;
         masm.emit_movl_ir(x, 0);
-        masm.emit_push_r64(0);
+        masm.emit_pushq_r(0);
         masm.emit_movq_rr(X64_RSP, ptr);
         masm.emit_xchgl_rm(reg, ptr);
         masm.emit_movl_rr(reg, 0);
         masm.emit_addq_ir(8, X64_RSP);
-        let jit_fn = masm.compile_buffer().unwrap();
+        let jit_fn = masm.assemble().unwrap();
         let out: u32;
         unsafe {
           llvm_asm!("callq *%rbp"
@@ -123,13 +123,13 @@ mod tests {
         let mut masm = MacroAssembler::new();
         let x = 0x0703_b452;
         masm.emit_movl_ir(x, 0);
-        masm.emit_push_r64(0);
-        masm.emit_push_r64(1);
+        masm.emit_pushq_r(0);
+        masm.emit_pushq_r(1);
         masm.emit_movq_rr(X64_RSP, ptr);
         masm.emit_xchgl_rm_offset(reg, ptr, 8);
         masm.emit_movl_rr(reg, 0);
         masm.emit_addq_ir(16, X64_RSP);
-        let jit_fn = masm.compile_buffer().unwrap();
+        let jit_fn = masm.assemble().unwrap();
         let out: u32;
         unsafe {
           llvm_asm!("callq *%rbp"
@@ -149,12 +149,12 @@ mod tests {
   //      let mut masm = MacroAssembler::new();
   //      let x = 0x0703_b452_ffde_423b;
   //      masm.emit_movq_ir(x, 0);
-  //      masm.emit_push_r64(0);
+  //      masm.emit_pushq_r(0);
   //      masm.emit_movq_rr(X64_RSP, ptr);
   //      masm.emit_xchgq_rm(reg, ptr);
   //      masm.emit_movq_rr(reg, 0);
   //      masm.emit_addq_ir(8, X64_RSP);
-  //      let jit_fn = masm.compile_buffer().unwrap();
+  //      let jit_fn = masm.assemble().unwrap();
   //      let out: u64;
   //      unsafe {
   //        llvm_asm!("callq *%rbp"

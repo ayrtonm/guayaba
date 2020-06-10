@@ -6,11 +6,7 @@ use crate::jit::insn::Insn;
 use crate::console::Console;
 
 mod block;
-mod optimized_x64_macros;
-mod x64_macros;
-mod register_allocator;
-mod macro_assembler;
-mod assembler;
+mod macro_compiler;
 
 pub struct X64JIT {
   console: Console,

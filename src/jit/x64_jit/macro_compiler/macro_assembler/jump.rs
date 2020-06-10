@@ -1,6 +1,6 @@
-use crate::jit::x64_jit::macro_assembler::MacroAssembler;
-use crate::jit::x64_jit::macro_assembler::Label;
-use crate::jit::x64_jit::register_allocator::*;
+use crate::jit::x64_jit::macro_compiler::macro_assembler::MacroAssembler;
+use crate::jit::x64_jit::macro_compiler::macro_assembler::Label;
+use crate::jit::x64_jit::macro_compiler::macro_assembler::registers::*;
 
 impl MacroAssembler {
   fn emit_label_placeholder_i8(&mut self, label: Label) {
@@ -60,7 +60,7 @@ mod tests {
     masm.emit_movl_ir(0x1235_8732, X64_RAX);
     masm.emit_jmp_rel8(5);
     masm.emit_movl_ir(0, X64_RAX);
-    let jit_fn = masm.compile_buffer().unwrap();
+    let jit_fn = masm.assemble().unwrap();
     let out: u32;
     unsafe {
       llvm_asm!("callq *%rbp"
@@ -84,7 +84,7 @@ mod tests {
         masm.define_label(dest);
         masm.emit_movl_ir(0, X64_RAX);
       }
-      let jit_fn = masm.compile_buffer().unwrap();
+      let jit_fn = masm.assemble().unwrap();
       let out: u32;
       unsafe {
         llvm_asm!("callq *%rbp"
@@ -113,7 +113,7 @@ mod tests {
           masm.emit_jb_rel8(5);
         }
         masm.emit_movl_ir(0, X64_RAX);
-        let jit_fn = masm.compile_buffer().unwrap();
+        let jit_fn = masm.assemble().unwrap();
         let out: u32;
         unsafe {
           llvm_asm!("callq *%rbp"
@@ -145,7 +145,7 @@ mod tests {
         }
         masm.emit_movl_ir(0, X64_RAX);
         masm.define_label(label);
-        let jit_fn = masm.compile_buffer().unwrap();
+        let jit_fn = masm.assemble().unwrap();
         let out: u32;
         unsafe {
           llvm_asm!("callq *%rbp"

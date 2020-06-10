@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use memmap::MmapMut;
 use crate::register::BitTwiddle;
 use crate::jit::jit_fn::JIT_Fn;
-use crate::jit::x64_jit::register_allocator::*;
+use crate::jit::x64_jit::macro_compiler::macro_assembler::registers::*;
 use crate::common::WriteArray;
 
 mod stack;
@@ -13,6 +13,7 @@ mod call;
 mod alu;
 mod bt;
 mod xchg;
+pub mod registers;
 
 pub type Label = usize;
 type JITOffset = usize;
@@ -54,18 +55,18 @@ impl MacroAssembler {
     self.labels_defined.insert(label, self.buffer.len());
   }
   fn save_reserved_registers(&mut self) {
-    self.emit_push_r64(12);
-    self.emit_push_r64(13);
-    self.emit_push_r64(14);
-    self.emit_push_r64(15);
+    self.emit_pushq_r(12);
+    self.emit_pushq_r(13);
+    self.emit_pushq_r(14);
+    self.emit_pushq_r(15);
   }
   fn load_reserved_registers(&mut self) {
-    self.emit_pop_r64(15);
-    self.emit_pop_r64(14);
-    self.emit_pop_r64(13);
-    self.emit_pop_r64(12);
+    self.emit_popq_r(15);
+    self.emit_popq_r(14);
+    self.emit_popq_r(13);
+    self.emit_popq_r(12);
   }
-  pub fn compile_buffer(&mut self) -> io::Result<JIT_Fn> {
+  pub fn assemble(&mut self) -> io::Result<JIT_Fn> {
     self.load_reserved_registers();
     self.emit_ret();
     for (&label, &loc) in self.labels_used.iter() {

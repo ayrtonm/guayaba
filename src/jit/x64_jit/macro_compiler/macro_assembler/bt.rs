@@ -1,5 +1,5 @@
 use crate::register::BitTwiddle;
-use crate::jit::x64_jit::macro_assembler::MacroAssembler;
+use crate::jit::x64_jit::macro_compiler::macro_assembler::MacroAssembler;
 
 impl MacroAssembler {
   //TODO: do more thorough testing than the one in jump.rs
