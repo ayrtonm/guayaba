@@ -32,7 +32,7 @@ impl MacroAssembler {
   const REXRB: u8 = 0x45;
   const REXW: u8 = 0x48;
   const REXWB: u8 = 0x49;
-  const LABEL_PLACEHOLDER: u8 = 0xff;
+  const LABEL_PLACEHOLDER: u8 = 0x00;
   pub fn new() -> Self {
     let mut masm = MacroAssembler {
       buffer: Vec::new(),

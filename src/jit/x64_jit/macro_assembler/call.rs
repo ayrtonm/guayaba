@@ -164,7 +164,6 @@ mod tests {
       masm.emit_addq_ir(8, X64_RSP);
       let jit_fn = masm.compile_buffer().unwrap();
       let out: u64;
-      println!("running {}", reg);
       unsafe {
         llvm_asm!("callq *%rbp"
             :"={rax}"(out)
@@ -172,5 +171,29 @@ mod tests {
       }
       assert_eq!(out, 1);
     }
+  }
+
+  #[test]
+  fn call_label() {
+      let mut masm = MacroAssembler::new();
+      let label = masm.create_undefined_label();
+      let end = masm.create_undefined_label();
+      masm.emit_movq_ir(0,0);
+      masm.emit_call_label(label);
+      masm.emit_jmp_label(end);
+      masm.define_label(label);
+      masm.emit_movq_ir(1,0);
+      masm.emit_ret();
+      masm.define_label(end);
+      let jit_fn = masm.compile_buffer().unwrap();
+      println!("{:x?}", masm.buffer);
+      let out: u64;
+      unsafe {
+        llvm_asm!("callq *%rbp"
+            :"={rax}"(out)
+            :"{rbp}"(jit_fn.name));
+            
+      }
+      assert_eq!(out, 1);
   }
 }
