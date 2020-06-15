@@ -1,13 +1,12 @@
 use std::io;
+use jam::jit_fn::JITFn;
 use crate::jit::insn::Insn;
 use crate::jit::insn::InsnRegisterFrequency;
-use crate::jit::jit_fn::JIT_Fn;
-use crate::jit::x64_jit::macro_compiler::MacroCompiler;
 use crate::console::Console;
 use crate::r3000::R3000;
 
 pub struct Block {
-  pub function: JIT_Fn,
+  pub function: JITFn,
   initial_pc: u32,
   final_phys_pc: u32,
   nominal_len: u32,
@@ -38,9 +37,7 @@ impl Block {
     self.nominal_len
   }
   fn create_function(tagged_opcodes: &Vec<Insn>, console: &Console,
-                     initial_pc: u32, logging: bool) -> io::Result<JIT_Fn> {
-    let mut compiler = MacroCompiler::new(tagged_opcodes);
-    let jit_fn = compiler.compile()?;
-    Ok(jit_fn)
+                     initial_pc: u32, logging: bool) -> io::Result<JITFn> {
+    todo!("")
   }
 }

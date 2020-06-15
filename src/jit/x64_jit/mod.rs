@@ -6,7 +6,6 @@ use crate::jit::insn::Insn;
 use crate::console::Console;
 
 mod block;
-mod macro_compiler;
 
 pub struct X64JIT {
   console: Console,
@@ -36,7 +35,7 @@ impl X64JIT {
       match maybe_block {
         Some(block) => {
           let t0 = Instant::now();
-          block.function.execute();
+          block.function.run();
           for i in 1..=31 {
             println!("{:#x}", self.console.r3000.nth_reg(i));
           }
