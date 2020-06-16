@@ -1,0 +1,84 @@
+running in x64 JIT mode
+(R15, Variable(Variable { position: StackOffset(176), size: StackOffset(4) }))
+(R14, Variable(Variable { position: StackOffset(164), size: StackOffset(4) }))
+(R10, Variable(Variable { position: StackOffset(172), size: StackOffset(8) }))
+(R9, EmuReg(EmuReg { name: EmuRegName(1), position: StackOffset(156), size: StackOffset(4) }))
+(RDI, Variable(Variable { position: StackOffset(188), size: StackOffset(8) }))
+(RDX, EmuReg(EmuReg { name: EmuRegName(8), position: StackOffset(160), size: StackOffset(4) }))
+(RBX, Variable(Variable { position: StackOffset(180), size: StackOffset(4) }))
+(RSI, Variable(Variable { position: StackOffset(192), size: StackOffset(4) }))
+compiled 543 bytes
+0x1f800000
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0xb88
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0xbfc00000
+running in x64 JIT mode
+(R15, Variable(Variable { position: StackOffset(172), size: StackOffset(8) }))
+(R9, Variable(Variable { position: StackOffset(180), size: StackOffset(4) }))
+(R14, Variable(Variable { position: StackOffset(176), size: StackOffset(4) }))
+(RAX, Variable(Variable { position: StackOffset(164), size: StackOffset(4) }))
+(RSI, Variable(Variable { position: StackOffset(192), size: StackOffset(4) }))
+(RDI, Variable(Variable { position: StackOffset(188), size: StackOffset(8) }))
+(RDX, EmuReg(EmuReg { name: EmuRegName(8), position: StackOffset(160), size: StackOffset(4) }))
+(R12, EmuReg(EmuReg { name: EmuRegName(1), position: StackOffset(156), size: StackOffset(4) }))
+compiled 543 bytes
+0xbfc00150
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0xb88
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0xbfc00000

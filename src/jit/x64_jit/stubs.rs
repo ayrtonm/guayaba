@@ -1,5 +1,7 @@
 use jam::recompiler::Recompiler;
 use jam::ArgNumber;
+use jam::Label;
+use crate::register::BitTwiddle;
 use crate::jit::insn::Insn;
 use crate::jit::x64_jit::Block;
 use crate::common::*;
@@ -18,9 +20,69 @@ impl Block {
   pub(super) const READ_HALF_SIGN_EXTENDED_POS: usize = 9;
   pub(super) const READ_BYTE_SIGN_EXTENDED_POS: usize = 10;
 
-  pub(super) fn emit_insn(rc: &mut Recompiler, insn: &Insn) {
+  pub(super) fn emit_insn(rc: &mut Recompiler, insn: &Insn, initial_pc: u32) -> Option<Label> {
     let op = insn.op();
+    let offset = insn.offset();
     match get_primary_field(op) {
+      0x00 => {
+        //SPECIAL
+        match get_secondary_field(op) {
+          0x00 => {
+            //SLL
+            let t = get_rt(op);
+            let d = get_rd(op);
+            let imm5 = get_imm5(op);
+            let rd = rc.reg(d);
+            match rd {
+              Some(rd) => {
+                let rt = rc.reg(t).unwrap();
+                todo!("");
+              },
+              None => (),
+            }
+          },
+          _ => todo!("secondary field {:#x}", get_secondary_field(op)),
+        }
+      },
+      0x02 => {
+        //J
+        let imm26 = get_imm26(op);
+        let shifted_imm26 = imm26 << 2;
+        let pc = initial_pc.wrapping_add(offset);
+        let pc_hi_bits = pc & 0xf000_0000;
+        let dest = pc_hi_bits.wrapping_add(shifted_imm26);
+        let delay_slot = rc.new_label();
+        let this_op = rc.new_long_label();
+        rc.jump(delay_slot);
+
+        rc.define_label(this_op);
+        let r1 = rc.reg(1).unwrap();
+        rc.seti_u32(r1, dest);
+        rc.debug();
+        rc.ret();
+        rc.define_label(delay_slot);
+        return Some(this_op)
+      },
+      0x09 => {
+        //ADDIU
+        let s = get_rs(op);
+        let t = get_rt(op);
+        let imm16 = get_imm16(op).half_sign_extended();
+        match rc.reg(t) {
+          Some(rt) => {
+            match rc.reg(s) {
+              Some(rs) => {
+                rc.setv_u32(rt, rs);
+                rc.addi_u32(rt, imm16 as i32);
+              },
+              None => {
+                rc.seti_u32(rt, imm16);
+              },
+            }
+          },
+          None => (),
+        }
+      },
       0x0D => {
         //ORI
         let s = get_rs(op);
@@ -64,7 +126,8 @@ impl Block {
         rc.call_ptr(Block::WRITE_WORD_POS);
         rc.define_label(label);
       },
-      _ => todo!("{:#x}", get_primary_field(op)),
-    }
+      _ => todo!("primary field {:#x}", get_primary_field(op)),
+    };
+    None
   }
 }

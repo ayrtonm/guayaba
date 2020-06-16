@@ -40,7 +40,7 @@ impl X64JIT {
           for i in 1..=31 {
             println!("{:#x}", self.console.r3000.nth_reg(i));
           }
-          //println!("{:#x}", self.console.r3000.pc());
+          println!("{:#x}", self.console.r3000.pc());
           for i in 1..=31 {
             if i == 1 {
               assert_eq!(self.console.r3000.nth_reg(1), 0x1f80_0000);

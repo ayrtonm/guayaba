@@ -53,9 +53,22 @@ impl Block {
     ptrs[Block::READ_HALF_SIGN_EXTENDED_POS] = Console::read_half_sign_extended as u64;
     ptrs[Block::READ_BYTE_SIGN_EXTENDED_POS] = Console::read_byte_sign_extended as u64;
     let mut rc = Recompiler::new(&inputs, &ptrs);
-    for insn in &tagged_opcodes[0..4] {
-      Block::emit_insn(&mut rc, insn);
+    let end = rc.new_label();
+    let mut this_label = None;
+    for insn in tagged_opcodes {
+      let prev_label = this_label;
+      match prev_label {
+        Some(jump) => {
+          this_label = Block::emit_insn(&mut rc, insn, initial_pc);
+          rc.call_label(jump);
+          rc.jump(end);
+        },
+        None => {
+          this_label = Block::emit_insn(&mut rc, insn, initial_pc);
+        },
+      }
     }
+    rc.define_label(end);
     let jitfn = rc.compile().unwrap();
     println!("compiled {} bytes", jitfn.size());
     Ok(jitfn)
