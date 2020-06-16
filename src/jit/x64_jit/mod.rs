@@ -52,9 +52,9 @@ impl X64JIT {
           }
           //these assertions should pass the first block and fail on the second
           assert_eq!(self.console.r3000.pc(), 0xbfc0_0150);
+          assert_eq!(self.console.read_word(0x1f80_1010), 0x13243f);
+          assert_eq!(self.console.read_word(0x1f80_1060), 0xb88);
           panic!("");
-          //assert_eq!(self.console.read_word(0x1f80_1010), 0x13243f);
-          //assert_eq!(self.console.read_word(0x1f80_1060), 0xb88);
           //let stubs = block.stubs();
           //for stub in stubs {
           //  self.console.r3000.flush_write_cache(&mut self.console.delayed_writes,

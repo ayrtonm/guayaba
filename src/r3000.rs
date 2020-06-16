@@ -71,7 +71,7 @@ pub struct R3000 {
 
 impl R3000 {
   const ZERO: u32 = 0;
-  const PC_IDX: usize = 32;
+  pub const PC_IDX: usize = 32;
   const HI_IDX: usize = 33;
   const LO_IDX: usize = 34;
   pub fn new() -> Self {

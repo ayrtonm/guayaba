@@ -39,7 +39,8 @@ impl Block {
   }
   fn create_function(tagged_opcodes: &Vec<Insn>, console: &Console,
                      initial_pc: u32, logging: bool) -> io::Result<JITFn> {
-    let inputs = tagged_opcodes.registers();
+    let mut inputs = tagged_opcodes.registers();
+    inputs.push(R3000::PC_IDX as u32);
     let mut ptrs = vec![0; 11];
     ptrs[Block::R3000_REG_POS] = console.r3000.reg_ptr() as u64;
     ptrs[Block::COP0_REG_POS] = console.cop0.reg_ptr() as u64;

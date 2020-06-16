@@ -2,6 +2,7 @@ use jam::recompiler::Recompiler;
 use jam::ArgNumber;
 use jam::Label;
 use crate::register::BitTwiddle;
+use crate::r3000::R3000;
 use crate::jit::insn::Insn;
 use crate::jit::x64_jit::Block;
 use crate::common::*;
@@ -56,9 +57,8 @@ impl Block {
         rc.jump(delay_slot);
 
         rc.define_label(this_op);
-        let r1 = rc.reg(1).unwrap();
-        rc.seti_u32(r1, dest);
-        rc.debug();
+        let jit_pc = rc.reg(R3000::PC_IDX as u32).unwrap();
+        rc.seti_u32(jit_pc, dest);
         rc.ret();
         rc.define_label(delay_slot);
         return Some(this_op)
