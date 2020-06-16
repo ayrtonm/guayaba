@@ -42,6 +42,32 @@ impl Block {
               None => (),
             }
           },
+          0x25 => {
+            //OR
+            let s = get_rs(op);
+            let t = get_rt(op);
+            let d = get_rd(op);
+            match rc.reg(d) {
+              Some(rd) => {
+                match (rc.reg(s), rc.reg(t)) {
+                  (None, None) => {
+                    rc.seti_u32(rd, 0);
+                  },
+                  (None, Some(rt)) => {
+                    rc.setv_u32(rd, rt);
+                  },
+                  (Some(rs), None) => {
+                    rc.setv_u32(rd, rs);
+                  },
+                  (Some(rs), Some(rt)) => {
+                    rc.setv_u32(rd, rs);
+                    rc.orv_u32(rd, rt);
+                  },
+                }
+              },
+              None => (),
+            }
+          },
           _ => todo!("secondary field {:#x}", get_secondary_field(op)),
         }
       },
@@ -62,6 +88,10 @@ impl Block {
         rc.ret();
         rc.define_label(delay_slot);
         return Some(this_op)
+      },
+      0x05 => {
+        //BNE
+        todo!("BNE");
       },
       0x09 => {
         //ADDIU
@@ -101,13 +131,26 @@ impl Block {
         let result = imm16 << 16;
         rc.seti_u32(rt, result);
       },
+      0x10 => {
+        //COP0
+        match get_rs(op) {
+          0x04 => {
+            //MTCn
+            let t = get_rt(op);
+            let d = get_rd(op);
+            let rt = rc.reg(t).unwrap();
+            let rd = rc.new_u64();
+            rc.load_ptr(rd, Block::COP0_REG_POS);
+            rc.index_mut_u32(rd, rt, 0);
+          },
+          _ => todo!("COP0 {:#x}", get_rs(op)),
+        }
+      },
       0x2B => {
         //SW
         let s = get_rs(op);
         let t = get_rt(op);
         let imm16 = get_imm16(op);
-        let rs = rc.reg(s).unwrap();
-        let rt = rc.reg(t).unwrap();
         let cop0r12 = rc.new_u32();
         rc.load_ptr(cop0r12, Block::COP0_REG_POS);
         rc.deref_u32(cop0r12);
@@ -116,13 +159,23 @@ impl Block {
         let label = rc.new_label();
         let console = rc.new_u64();
         let address = rc.new_u32();
+        let zero = rc.new_u32();
         rc.jump_if_no_carry(label);
+        let rs = rc.reg(s).unwrap();
         rc.load_ptr(console, Block::CONSOLE_POS);
         rc.setv_u32(address, rs);
         rc.addi_u32(address, imm16 as i32);
         rc.set_argn(console, ArgNumber::Arg1);
         rc.set_argn(address, ArgNumber::Arg2);
-        rc.set_argn(rt, ArgNumber::Arg3);
+        match rc.reg(t) {
+          Some(rt) => {
+            rc.set_argn(rt, ArgNumber::Arg3);
+          },
+          None => {
+            rc.seti_u32(zero, 0);
+            rc.set_argn(zero, ArgNumber::Arg3);
+          },
+        }
         rc.call_ptr(Block::WRITE_WORD_POS);
         rc.define_label(label);
       },
