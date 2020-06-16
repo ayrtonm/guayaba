@@ -53,7 +53,7 @@ impl Block {
     ptrs[Block::READ_HALF_SIGN_EXTENDED_POS] = Console::read_half_sign_extended as u64;
     ptrs[Block::READ_BYTE_SIGN_EXTENDED_POS] = Console::read_byte_sign_extended as u64;
     let mut rc = Recompiler::new(&inputs, &ptrs);
-    for insn in &tagged_opcodes[0..3] {
+    for insn in &tagged_opcodes[0..4] {
       Block::emit_insn(&mut rc, insn);
     }
     let jitfn = rc.compile().unwrap();

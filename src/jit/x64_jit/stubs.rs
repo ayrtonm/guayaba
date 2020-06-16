@@ -4,7 +4,7 @@ use crate::jit::insn::Insn;
 use crate::jit::x64_jit::Block;
 use crate::common::*;
 
-//TODO: remember to handle R0's explicitly
+//TODO: remember to handle R0's explicitly (remove all unwraps in emit_insn)
 impl Block {
   pub(super) const R3000_REG_POS: usize = 0;
   pub(super) const COP0_REG_POS: usize = 1;
@@ -46,16 +46,20 @@ impl Block {
         let imm16 = get_imm16(op);
         let rs = rc.reg(s).unwrap();
         let rt = rc.reg(t).unwrap();
-        let cop0r12 = rc.new_u32();
-        rc.load_ptr(cop0r12, Block::COP0_REG_POS);
-        rc.deref_u32(cop0r12);
-        rc.bti_u32(cop0r12, 16);
+        //let cop0r12 = rc.new_u32();
+        //rc.load_ptr(cop0r12, Block::COP0_REG_POS);
+        //rc.deref_u32(cop0r12);
+        //rc.bti_u32(cop0r12, 16);
 
+        let console = rc.new_u64();
+        rc.load_ptr(console, Block::CONSOLE_POS);
         let address = rc.new_u32();
         rc.setv_u32(address, rs);
         rc.addi_u32(address, imm16 as i32);
-        rc.set_argn(address, ArgNumber::Arg1);
-        rc.set_argn(rt, ArgNumber::Arg2);
+        rc.set_argn(console, ArgNumber::Arg1);
+        rc.set_argn(address, ArgNumber::Arg2);
+        rc.set_argn(rt, ArgNumber::Arg3);
+        rc.call_ptr(Block::WRITE_WORD_POS);
       },
       _ => todo!("{:#x}", get_primary_field(op)),
     }
