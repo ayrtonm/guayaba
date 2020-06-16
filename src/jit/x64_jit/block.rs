@@ -5,7 +5,6 @@ use crate::jit::insn::Insn;
 use crate::jit::insn::InsnRegisters;
 use crate::console::Console;
 use crate::r3000::R3000;
-use crate::jit::x64_jit::stubs::GenerateStubs;
 
 pub struct Block {
   pub function: JITFn,
@@ -41,20 +40,21 @@ impl Block {
   fn create_function(tagged_opcodes: &Vec<Insn>, console: &Console,
                      initial_pc: u32, logging: bool) -> io::Result<JITFn> {
     let inputs = tagged_opcodes.registers();
-    let ptrs = vec![console.r3000.reg_ptr() as u64,
-                    console.cop0.reg_ptr() as u64,
-                    console as *const Console as u64,
-                    Console::write_word as u64,
-                    Console::write_half as u64,
-                    Console::write_byte as u64,
-                    Console::read_word as u64,
-                    Console::read_half as u64,
-                    Console::read_byte as u64,
-                    Console::read_half_sign_extended as u64,
-                    Console::read_byte_sign_extended as u64];
+    let mut ptrs = vec![0; 11];
+    ptrs[Block::R3000_REG_POS] = console.r3000.reg_ptr() as u64;
+    ptrs[Block::COP0_REG_POS] = console.cop0.reg_ptr() as u64;
+    ptrs[Block::CONSOLE_POS] = console as *const Console as u64;
+    ptrs[Block::WRITE_WORD_POS] = Console::write_word as u64;
+    ptrs[Block::WRITE_HALF_POS] = Console::write_half as u64;
+    ptrs[Block::WRITE_BYTE_POS] = Console::write_byte as u64;
+    ptrs[Block::READ_WORD_POS] = Console::read_word as u64;
+    ptrs[Block::READ_HALF_POS] = Console::read_half as u64;
+    ptrs[Block::READ_BYTE_POS] = Console::read_byte as u64;
+    ptrs[Block::READ_HALF_SIGN_EXTENDED_POS] = Console::read_half_sign_extended as u64;
+    ptrs[Block::READ_BYTE_SIGN_EXTENDED_POS] = Console::read_byte_sign_extended as u64;
     let mut rc = Recompiler::new(&inputs, &ptrs);
-    for insn in &tagged_opcodes[0..2] {
-      rc.emit_insn(insn);
+    for insn in &tagged_opcodes[0..3] {
+      Block::emit_insn(&mut rc, insn);
     }
     let jitfn = rc.compile().unwrap();
     println!("compiled {} bytes", jitfn.size());
