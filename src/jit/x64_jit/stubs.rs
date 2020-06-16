@@ -46,20 +46,23 @@ impl Block {
         let imm16 = get_imm16(op);
         let rs = rc.reg(s).unwrap();
         let rt = rc.reg(t).unwrap();
-        //let cop0r12 = rc.new_u32();
-        //rc.load_ptr(cop0r12, Block::COP0_REG_POS);
-        //rc.deref_u32(cop0r12);
-        //rc.bti_u32(cop0r12, 16);
+        let cop0r12 = rc.new_u32();
+        rc.load_ptr(cop0r12, Block::COP0_REG_POS);
+        rc.deref_u32(cop0r12);
+        rc.bti_u32(cop0r12, 16);
 
+        let label = rc.new_label();
         let console = rc.new_u64();
-        rc.load_ptr(console, Block::CONSOLE_POS);
         let address = rc.new_u32();
+        rc.jump_if_no_carry(label);
+        rc.load_ptr(console, Block::CONSOLE_POS);
         rc.setv_u32(address, rs);
         rc.addi_u32(address, imm16 as i32);
         rc.set_argn(console, ArgNumber::Arg1);
         rc.set_argn(address, ArgNumber::Arg2);
         rc.set_argn(rt, ArgNumber::Arg3);
         rc.call_ptr(Block::WRITE_WORD_POS);
+        rc.define_label(label);
       },
       _ => todo!("{:#x}", get_primary_field(op)),
     }
