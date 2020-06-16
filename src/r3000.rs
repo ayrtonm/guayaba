@@ -65,17 +65,17 @@ impl MaybeSet for Option<&mut u32> {
 }
 
 pub struct R3000 {
-  //R1-R31, PC, HI, LO in that order
-  registers: [u32; 34],
+  //R0, R1-R31, PC, HI, LO in that order
+  registers: [u32; 35],
 }
 
 impl R3000 {
   const ZERO: u32 = 0;
-  const PC_IDX: usize = 31;
-  const HI_IDX: usize = 32;
-  const LO_IDX: usize = 33;
+  const PC_IDX: usize = 32;
+  const HI_IDX: usize = 33;
+  const LO_IDX: usize = 34;
   pub fn new() -> Self {
-    let mut registers = [0; 34];
+    let mut registers = [0; 35];
     registers[R3000::PC_IDX] = 0xbfc0_0000;
     R3000 {
       registers,
@@ -91,7 +91,7 @@ impl R3000 {
         R3000::ZERO
       },
       _ => {
-        self.registers[idx - 1]
+        self.registers[idx]
       },
     }
   }
@@ -109,7 +109,7 @@ impl R3000 {
         None
       },
       _ => {
-        Some(Mutu32::new(&mut self.registers[idx - 1], Name::Rn(idx as u32)))
+        Some(Mutu32::new(&mut self.registers[idx], Name::Rn(idx as u32)))
       },
     }
   }

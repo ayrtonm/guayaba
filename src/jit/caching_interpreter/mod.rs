@@ -7,7 +7,7 @@ use crate::console::Console;
 
 mod block;
 mod optimized_stubs;
-mod stub;
+mod stubs;
 
 pub struct CachingInterpreter {
   console: Console,

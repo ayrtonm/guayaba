@@ -1,5 +1,5 @@
 use crate::jit::insn::Insn;
-use crate::jit::caching_interpreter::stub::Stub;
+use crate::jit::caching_interpreter::stubs::Stub;
 
 pub struct Block {
   //a vec of closures to be executed in order
