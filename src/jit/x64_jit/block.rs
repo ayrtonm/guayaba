@@ -5,6 +5,7 @@ use crate::jit::insn::Insn;
 use crate::jit::insn::InsnRegisters;
 use crate::console::Console;
 use crate::console::r3000::R3000;
+use crate::jit::x64_jit::stubs::DynaRec;
 
 pub struct Block {
   pub function: JITFn,
@@ -14,6 +15,17 @@ pub struct Block {
 }
 
 impl Block {
+  pub const R3000_REG_POS: usize = 0;
+  pub const COP0_REG_POS: usize = 1;
+  pub const CONSOLE_POS: usize = 2;
+  pub const WRITE_WORD_POS: usize = 3;
+  pub const WRITE_HALF_POS: usize = 4;
+  pub const WRITE_BYTE_POS: usize = 5;
+  pub const READ_WORD_POS: usize = 6;
+  pub const READ_HALF_POS: usize = 7;
+  pub const READ_BYTE_POS: usize = 8;
+  pub const READ_HALF_SIGN_EXTENDED_POS: usize = 9;
+  pub const READ_BYTE_SIGN_EXTENDED_POS: usize = 10;
   pub fn new(tagged_opcodes: &Vec<Insn>, console: &Console,
              initial_pc: u32, final_phys_pc: u32,
              nominal_len: u32, logging: bool) -> io::Result<Self> {
@@ -61,13 +73,13 @@ impl Block {
       match prev_label {
         Some(jump) => {
           rc.save_flags();
-          this_label = Block::emit_insn(&mut rc, insn, initial_pc);
+          this_label = rc.emit_insn(insn, initial_pc);
           rc.load_flags();
           rc.call_label(jump);
           rc.jump(end);
         },
         None => {
-          this_label = Block::emit_insn(&mut rc, insn, initial_pc);
+          this_label = rc.emit_insn(insn, initial_pc);
         },
       }
     }

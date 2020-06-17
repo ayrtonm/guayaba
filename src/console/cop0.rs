@@ -1,4 +1,6 @@
 use crate::register::BitTwiddle;
+use super::r3000::Name;
+use super::r3000::MaybeSet;
 
 #[derive(Debug)]
 pub enum Cop0Exception {
@@ -13,6 +15,13 @@ pub enum Cop0Exception {
 pub struct Cop0 {
   //this only contains R12, R13 and R14
   registers: [u32; 3],
+}
+
+impl MaybeSet for Option<&mut u32> {
+  fn maybe_set(self, value: u32) -> Option<Name> {
+    self.map(|reg| *reg = value);
+    None
+  }
 }
 
 impl Cop0 {
