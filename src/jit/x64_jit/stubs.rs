@@ -91,7 +91,29 @@ impl Block {
       },
       0x05 => {
         //BNE
-        todo!("BNE");
+        let imm16 = get_imm16(op);
+        let inc = ((imm16.half_sign_extended() as i32) << 2) as u32;
+        let t = get_rt(op);
+        let s = get_rs(op);
+        let rt = rc.reg(t);
+        let rs = rc.reg(s);
+        let delay_slot = rc.new_label();
+        let this_op = rc.new_long_label();
+        match (rs, rt) {
+          (None, None) => {
+          },
+          (Some(rs), None) => {
+          },
+          (None, Some(rt)) => {
+          },
+          (Some(rs), Some(rt)) => {
+          },
+        }
+        rc.jump(delay_slot);
+        rc.define_label(this_op);
+        rc.ret();
+        rc.define_label(delay_slot);
+        return Some(this_op)
       },
       0x09 => {
         //ADDIU

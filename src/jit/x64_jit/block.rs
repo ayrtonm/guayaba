@@ -60,7 +60,9 @@ impl Block {
       let prev_label = this_label;
       match prev_label {
         Some(jump) => {
+          rc.save_flags();
           this_label = Block::emit_insn(&mut rc, insn, initial_pc);
+          rc.load_flags();
           rc.call_label(jump);
           rc.jump(end);
         },
