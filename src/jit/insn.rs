@@ -215,18 +215,8 @@ pub trait InsnRegisters {
 
 impl InsnRegisters for Vec<Insn> {
   fn registers(&self) -> Vec<MIPSRegister> {
-    let indices = self.iter()
-                      .filter(|insn| insn.index.is_some())
-                      .map(|insn| insn.index().unwrap());
-    let outputs = self.iter()
-                      .filter(|insn| insn.output.is_some())
-                      .map(|insn| insn.output().unwrap());
-    let inputs = self.iter()
-                     .map(|insn| insn.inputs())
-                     .flatten()
-                     .map(|&x| x);
-    let mut registers = inputs.chain(outputs)
-                              .chain(indices)
+    let mut registers = self.iter().map(|insn| insn.dependencies())
+                              .flatten()
                               .filter(|&r| r != 0)
                               .collect::<Vec<_>>();
     registers.sort();
@@ -234,20 +224,10 @@ impl InsnRegisters for Vec<Insn> {
     registers
   }
   fn registers_by_frequency(&self) -> Vec<MIPSRegister> {
-    let indices = self.iter()
-                      .filter(|insn| insn.index.is_some())
-                      .map(|insn| insn.index().unwrap());
-    let outputs = self.iter()
-                      .filter(|insn| insn.output.is_some())
-                      .map(|insn| insn.output().unwrap());
-    let inputs = self.iter()
-                     .map(|insn| insn.inputs())
-                     .flatten()
-                     .map(|&x| x);
-    let registers_used: Vec<MIPSRegister> = inputs.chain(outputs)
-                                                  .chain(indices)
-                                                  .filter(|&r| r != 0)
-                                                  .collect();
+    let registers_used = self.iter().map(|insn| insn.dependencies())
+                                    .flatten()
+                                    .filter(|&r| r != 0)
+                                    .collect::<Vec<_>>();
     let mut sorted_registers: Vec<MIPSRegister> = registers_used.iter()
                                                                 .copied()
                                                                 .collect();
