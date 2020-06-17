@@ -10,15 +10,7 @@ mod console;
 mod interpreter;
 mod jit;
 mod common;
-mod r3000;
-mod cop0;
 mod register;
-mod memory;
-mod cd;
-mod dma;
-mod gte;
-mod gpu;
-mod screen;
 
 fn get_arg<'a>(args: &'a Vec<String>, flags: &[&str]) -> Option<&'a String> {
   args.iter()

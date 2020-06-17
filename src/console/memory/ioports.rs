@@ -1,7 +1,7 @@
 use crate::common::{ReadArray, WriteArray};
-use crate::memory::Memory;
+use super::Memory;
 use crate::register::BitTwiddle;
-use crate::dma::{Transfer, Chunks, Blocks, Direction, Step};
+use super::super::dma::{Transfer, Chunks, Blocks, Direction, Step};
 
 macro_rules! identifier_size {
   (read_word) => {

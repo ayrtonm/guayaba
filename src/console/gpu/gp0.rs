@@ -1,8 +1,8 @@
-use crate::gpu::{GPU, Command};
+use super::{GPU, Command};
 use crate::common::{ReadArray, WriteArray};
-use crate::memory::KB;
+use super::super::memory::KB;
 use crate::register::BitTwiddle;
-use crate::screen::Drawable;
+use super::super::screen::Drawable;
 
 impl GPU {
   fn object_within_limits(xpos: &Vec<i16>, ypos: &Vec<i16>) -> bool {

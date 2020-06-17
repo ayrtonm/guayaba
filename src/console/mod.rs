@@ -1,16 +1,24 @@
 use std::io;
 use std::collections::{VecDeque, HashSet};
 use crate::register::BitTwiddle;
-use crate::r3000::{R3000, DelayedWrite, Name};
-use crate::cop0::Cop0;
-use crate::memory::{Memory, MemAction, MemResponse};
-use crate::cd::CD;
-use crate::gpu::GPU;
-use crate::gte::GTE;
-use crate::screen::Screen;
+use r3000::{R3000, DelayedWrite, Name};
+use cop0::Cop0;
+use memory::{Memory, MemAction, MemResponse};
+use cd::CD;
+use gpu::GPU;
+use gte::GTE;
+use screen::Screen;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 
+pub mod r3000;
+pub mod cop0;
+pub mod memory;
+pub mod dma;
+pub mod gte;
+pub mod gpu;
+pub mod screen;
+mod cd;
 mod handle_dma;
 
 macro_rules! handle_action {

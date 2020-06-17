@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
-use crate::memory::MB;
+use super::memory::MB;
 use crate::register::BitTwiddle;
-use crate::dma::DMAChannel;
+use super::dma::DMAChannel;
 
 mod command;
 mod gp0;

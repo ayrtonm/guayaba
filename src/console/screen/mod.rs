@@ -46,7 +46,7 @@ impl Screen {
   pub fn new(wx: u32, wy: u32) -> Self {
     let sdl = sdl2::init().unwrap();
     let video_subsystem = sdl.video().unwrap();
-    let window = video_subsystem.window("RSX", wx, wy)
+    let window = video_subsystem.window("Guayaba", wx, wy)
                                 .opengl()
                                 .resizable()
                                 .build()

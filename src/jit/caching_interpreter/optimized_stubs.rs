@@ -1,5 +1,5 @@
 use crate::register::BitTwiddle;
-use crate::r3000::MaybeSet;
+use crate::console::r3000::MaybeSet;
 use crate::jit::caching_interpreter::block::Block;
 use crate::jit::insn::Insn;
 use crate::jit::caching_interpreter::stubs::Stub;

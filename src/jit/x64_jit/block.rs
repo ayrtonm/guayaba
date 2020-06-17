@@ -4,7 +4,7 @@ use jam::recompiler::Recompiler;
 use crate::jit::insn::Insn;
 use crate::jit::insn::InsnRegisters;
 use crate::console::Console;
-use crate::r3000::R3000;
+use crate::console::r3000::R3000;
 
 pub struct Block {
   pub function: JITFn,

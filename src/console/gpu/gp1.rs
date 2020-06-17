@@ -1,4 +1,4 @@
-use crate::gpu::GPU;
+use super::GPU;
 use crate::register::BitTwiddle;
 
 impl GPU {

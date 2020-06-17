@@ -1,7 +1,7 @@
 use std::io::{Seek, SeekFrom, Read};
 use std::fs::File;
 use std::collections::VecDeque;
-use crate::dma::DMAChannel;
+use super::dma::DMAChannel;
 
 pub struct CD {
   contents: Option<Box<[u8]>>,

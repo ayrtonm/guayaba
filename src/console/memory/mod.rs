@@ -3,7 +3,7 @@ use std::io::{Seek, SeekFrom, Read};
 use std::fs::{metadata, File};
 use crate::common::{ReadArray, WriteArray};
 use crate::register::BitTwiddle;
-use crate::dma::{Transfer, DMAChannel};
+use super::dma::{Transfer, DMAChannel};
 
 #[macro_use]
 mod ioports;

@@ -2,7 +2,7 @@ use jam::recompiler::Recompiler;
 use jam::ArgNumber;
 use jam::Label;
 use crate::register::BitTwiddle;
-use crate::r3000::R3000;
+use crate::console::r3000::R3000;
 use crate::jit::insn::Insn;
 use crate::jit::x64_jit::Block;
 use crate::common::*;

@@ -1,7 +1,7 @@
 use crate::console::Console;
-use crate::memory::Memory;
+use super::memory::Memory;
 use crate::register::BitTwiddle;
-use crate::dma::{Transfer, Direction, Chunks, Step, DMAChannel};
+use super::dma::{Transfer, Direction, Chunks, Step, DMAChannel};
 
 impl Console {
   pub(super) fn handle_dma(&mut self, transfer: Transfer) {
