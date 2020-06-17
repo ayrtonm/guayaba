@@ -9,7 +9,6 @@ use crate::jit::x64_jit::stubs::DynaRec;
 
 pub struct Block {
   pub function: JITFn,
-  initial_pc: u32,
   final_phys_pc: u32,
   nominal_len: u32,
 }
@@ -33,7 +32,6 @@ impl Block {
                                           initial_pc, logging)?;
     Ok(Block {
       function,
-      initial_pc,
       final_phys_pc,
       nominal_len,
     })

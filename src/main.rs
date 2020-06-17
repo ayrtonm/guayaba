@@ -59,7 +59,7 @@ const ALL_FLAGS: [([&str;2],Option<&str>);10] = [(HELP_FLAGS, None),
                                                 (STEPS_FLAGS, Some("n"))];
 
 fn print_help() {
-  println!("rspsx [OPTION...] -b BIOS -i INFILE");
+  println!("guayaba [OPTION...] -b BIOS -i INFILE");
   println!("");
   for flags in &ALL_FLAGS {
     for f in &flags.0 {

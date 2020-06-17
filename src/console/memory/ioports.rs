@@ -130,6 +130,7 @@ macro_rules! get_io_response {
           MemResponse::GPUSTAT
         },
         _ => {
+          //println!("unhandled IO port {} at {:#x}", stringify!($function), $address);
           MemResponse::Value(value)
         },
       }
