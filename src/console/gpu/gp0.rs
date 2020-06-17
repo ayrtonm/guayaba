@@ -12,9 +12,12 @@ impl GPU {
     let ydiff = ypos.iter().max().unwrap() - ypos.iter().min().unwrap();
     xdiff < xmax && ydiff < ymax
   }
-  fn zip_positions(xpos: Vec<i16>, ypos: Vec<i16>) -> Vec<i16> {
+  fn zip_positions(&self, xpos: Vec<i16>, ypos: Vec<i16>) -> Vec<i16> {
+    let xoffset = self.drawing_offset_x as i16;
+    let yoffset = self.drawing_offset_y as i16;
     xpos.into_iter()
-        .zip(ypos.into_iter())
+        .map(|xp| xp - xoffset)
+        .zip(ypos.into_iter().map(|yp| yp - yoffset))
         .map(|(a,b)| vec![a,b])
         .flatten()
         .collect()
@@ -37,7 +40,7 @@ impl GPU {
             let xpos = command.get_xpos_consecutive();
             let ypos = command.get_ypos_consecutive();
             if GPU::object_within_limits(&xpos, &ypos) {
-              let positions = GPU::zip_positions(xpos, ypos);
+              let positions = self.zip_positions(xpos, ypos);
               let monochrome = command.get_monochrome();
               return Some(Drawable::new(positions, monochrome));
             }
@@ -47,7 +50,7 @@ impl GPU {
             let xpos = command.get_xpos_every_other();
             let ypos = command.get_ypos_every_other();
             if GPU::object_within_limits(&xpos, &ypos) {
-              let positions = GPU::zip_positions(xpos, ypos);
+              let positions = self.zip_positions(xpos, ypos);
               let cols = command.get_monochrome();
               return Some(Drawable::new(positions, cols));
             }
@@ -56,7 +59,7 @@ impl GPU {
             let xpos = command.get_xpos_every_other();
             let ypos = command.get_ypos_every_other();
             if GPU::object_within_limits(&xpos, &ypos) {
-              let positions = GPU::zip_positions(xpos, ypos);
+              let positions = self.zip_positions(xpos, ypos);
               let cols = command.get_colors();
               return Some(Drawable::new(positions, cols));
             }
@@ -68,7 +71,7 @@ impl GPU {
             let xpos = command.get_xpos_every_other();
             let ypos = command.get_ypos_every_other();
             if GPU::object_within_limits(&xpos, &ypos) {
-              let positions = GPU::zip_positions(xpos, ypos);
+              let positions = self.zip_positions(xpos, ypos);
               let cols = command.get_colors();
               return Some(Drawable::new(positions, cols));
             }

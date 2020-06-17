@@ -1,6 +1,6 @@
 use std::io;
 use std::collections::HashMap;
-use std::time::{Instant, Duration};
+use std::time::Instant;
 use block::Block;
 use crate::jit::insn::Insn;
 use crate::console::Console;

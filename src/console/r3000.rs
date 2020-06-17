@@ -4,10 +4,9 @@ use std::collections::VecDeque;
 //these are for improved readability when doing delayed register writes
 #[derive(Debug,PartialEq)]
 pub enum Name {
-  Pc,
+  Rn(u32),
   Hi,
   Lo,
-  Rn(u32),
 }
 
 //this represents a delayed write operation
@@ -105,9 +104,6 @@ impl R3000 {
     }
   }
   //general purpose MIPS registers also have names we can use
-  pub fn ra(&self) -> u32 {
-    self.nth_reg(31)
-  }
   pub fn ra_mut(&mut self) -> Option<MutReg> {
     self.nth_reg_mut(31)
   }
@@ -152,9 +148,6 @@ impl R3000 {
   }
   fn do_write(&mut self, operation: &DelayedWrite) {
     match operation.register_name {
-      Name::Pc => {
-        *self.pc_mut() = operation.value;
-      },
       Name::Hi => {
         *self.hi_mut() = operation.value;
       },

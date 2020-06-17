@@ -102,7 +102,6 @@ impl X64JIT {
         },
       }
     }
-    Ok(())
   }
   fn translate(&mut self, optimize: bool, logging: bool) -> io::Result<Duration> {
     let t0 = Instant::now();
