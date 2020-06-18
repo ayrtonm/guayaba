@@ -107,6 +107,7 @@ impl X64JIT {
     let t0 = Instant::now();
     //first define the opcodes in this block and tag them along the way
     let mut address = self.console.r3000.pc();
+    assert!(address != 0xbfc0_0150);
     let initial_pc = address;
     let initial_phys_pc = Console::physical(initial_pc);
     let mut op = self.console.read_word(address);

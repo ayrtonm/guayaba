@@ -25,6 +25,7 @@ impl Block {
   pub const READ_BYTE_POS: usize = 8;
   pub const READ_HALF_SIGN_EXTENDED_POS: usize = 9;
   pub const READ_BYTE_SIGN_EXTENDED_POS: usize = 10;
+  pub const DEBUG_POS: usize = 11;
   pub fn new(tagged_opcodes: &Vec<Insn>, console: &Console,
              initial_pc: u32, final_phys_pc: u32,
              nominal_len: u32, logging: bool) -> io::Result<Self> {
@@ -51,7 +52,7 @@ impl Block {
                      initial_pc: u32, logging: bool) -> io::Result<JITFn> {
     let mut inputs = tagged_opcodes.registers();
     inputs.push(R3000::PC_IDX as u32);
-    let mut ptrs = vec![0; 11];
+    let mut ptrs = vec![0; 12];
     ptrs[Block::R3000_REG_POS] = console.r3000.reg_ptr() as u64;
     ptrs[Block::COP0_REG_POS] = console.cop0.reg_ptr() as u64;
     ptrs[Block::CONSOLE_POS] = console as *const Console as u64;
@@ -63,10 +64,11 @@ impl Block {
     ptrs[Block::READ_BYTE_POS] = Console::read_byte as u64;
     ptrs[Block::READ_HALF_SIGN_EXTENDED_POS] = Console::read_half_sign_extended as u64;
     ptrs[Block::READ_BYTE_SIGN_EXTENDED_POS] = Console::read_byte_sign_extended as u64;
+    ptrs[Block::DEBUG_POS] = Console::print_value as u64;
     let mut rc = Recompiler::new(&inputs, &ptrs);
     let end = rc.new_label();
     let mut this_label = None;
-    for insn in tagged_opcodes {
+    for (n, insn) in tagged_opcodes.iter().enumerate() {
       let prev_label = this_label;
       match prev_label {
         Some(jump) => {
@@ -74,11 +76,14 @@ impl Block {
           this_label = rc.emit_insn(insn, initial_pc);
           rc.load_flags();
           rc.call_label(jump);
-          rc.jump(end);
+          rc.jump_if_carry(end);
         },
         None => {
           this_label = rc.emit_insn(insn, initial_pc);
         },
+      }
+      if initial_pc.wrapping_add(4 * n as u32) == 0xbfc0_0274 {
+        break
       }
     }
     rc.define_label(end);
