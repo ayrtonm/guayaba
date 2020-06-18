@@ -1,6 +1,6 @@
 use crate::register::BitTwiddle;
-use super::r3000::Name;
-use super::r3000::MaybeSet;
+use super::Name;
+use super::MaybeSet;
 
 #[derive(Debug)]
 pub enum Cop0Exception {

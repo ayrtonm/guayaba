@@ -1,35 +1,7 @@
 use std::collections::VecDeque;
-
-//different types of register names
-//these are for improved readability when doing delayed register writes
-#[derive(Debug,PartialEq)]
-pub enum Name {
-  Rn(u32),
-  Hi,
-  Lo,
-}
-
-//this represents a delayed write operation
-#[derive(Debug)]
-pub struct DelayedWrite {
-  register_name: Name,
-  value: u32,
-}
-
-impl DelayedWrite {
-  pub fn new(register_name: Name, value: u32) -> Self {
-    DelayedWrite {
-      register_name,
-      value,
-    }
-  }
-  pub fn name(&self) -> &Name {
-    &self.register_name
-  }
-  pub fn value(&self) -> u32 {
-    self.value
-  }
-}
+use super::Name;
+use super::DelayedWrite;
+use super::MaybeSet;
 
 pub struct MutReg<'a> {
   value: &'a mut u32,
@@ -42,10 +14,6 @@ impl<'a> MutReg<'a> {
       value, name
     }
   }
-}
-
-pub trait MaybeSet {
-  fn maybe_set(self, value: u32) -> Option<Name>;
 }
 
 impl<'a> MaybeSet for Option<MutReg<'a>> {

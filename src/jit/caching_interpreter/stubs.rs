@@ -1,5 +1,5 @@
 use std::ops::{Add, Shl, Shr, Sub};
-use crate::console::r3000::{MaybeSet, DelayedWrite, Name};
+use crate::console::{MaybeSet, DelayedWrite, Name};
 use crate::console::cop0::Cop0Exception;
 use crate::console::Console;
 use crate::common::*;

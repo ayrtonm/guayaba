@@ -1,7 +1,7 @@
 use std::io;
 use std::collections::{VecDeque, HashSet};
 use crate::register::BitTwiddle;
-use r3000::{R3000, DelayedWrite, Name};
+use r3000::R3000;
 use cop0::Cop0;
 use memory::{Memory, MemAction, MemResponse};
 use cd::CD;
@@ -13,13 +13,48 @@ use sdl2::keyboard::Keycode;
 
 pub mod r3000;
 pub mod cop0;
-pub mod memory;
-pub mod dma;
-pub mod gte;
-pub mod gpu;
-pub mod screen;
+mod memory;
+mod dma;
+mod gte;
+mod gpu;
+mod screen;
 mod cd;
 mod handle_dma;
+
+pub trait MaybeSet {
+  fn maybe_set(self, value: u32) -> Option<Name>;
+}
+
+//different types of register names
+//these are for improved readability when doing delayed register writes
+#[derive(Debug,PartialEq)]
+pub enum Name {
+  Rn(u32),
+  Hi,
+  Lo,
+}
+
+//this represents a delayed write operation
+#[derive(Debug)]
+pub struct DelayedWrite {
+  register_name: Name,
+  value: u32,
+}
+
+impl DelayedWrite {
+  pub fn new(register_name: Name, value: u32) -> Self {
+    DelayedWrite {
+      register_name,
+      value,
+    }
+  }
+  pub fn name(&self) -> &Name {
+    &self.register_name
+  }
+  pub fn value(&self) -> u32 {
+    self.value
+  }
+}
 
 macro_rules! handle_action {
   ($write:expr, $self:ident) => {
