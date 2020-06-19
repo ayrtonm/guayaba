@@ -58,6 +58,47 @@ impl DynaRec for Recompiler {
               None => (),
             }
           },
+          0x2B => {
+            //SLTU
+            let s = get_rs(op);
+            let t = get_rt(op);
+            let d = get_rd(op);
+            let zero = self.new_u32();
+            let set_rd = self.new_label();
+            let end = self.new_label();
+            self.seti_u32(zero, 0);
+            match self.reg(d) {
+              Some(rd) => {
+                match (self.reg(s), self.reg(t)) {
+                  (None, None) => {
+                    self.seti_u32(rd, 0);
+                  },
+                  (None, Some(rt)) => {
+                    self.cmpv_u32(zero, rt);
+                    self.jump_if_carry(set_rd);
+                    self.seti_u32(rd, 0);
+                    self.jump(end);
+                    self.define_label(set_rd);
+                    self.seti_u32(rd, 1);
+                    self.define_label(end);
+                  },
+                  (Some(rs), None) => {
+                    self.seti_u32(rd, 0);
+                  },
+                  (Some(rs), Some(rt)) => {
+                    self.cmpv_u32(rs, rt);
+                    self.jump_if_carry(set_rd);
+                    self.seti_u32(rd, 0);
+                    self.jump(end);
+                    self.define_label(set_rd);
+                    self.seti_u32(rd, 1);
+                    self.define_label(end);
+                  },
+                }
+              },
+              None => (),
+            }
+          },
           _ => todo!("secondary field {:#x}", get_secondary_field(op)),
         }
       },
