@@ -37,10 +37,11 @@ impl X64JIT {
         Some(block) => {
           let t0 = Instant::now();
           block.function.run();
-          //for i in 1..=31 {
+          //for &i in &[1,8] {
           //  println!("{:#x}", self.console.r3000.nth_reg(i));
           //}
-          //println!("{:#x}", self.console.r3000.pc());
+          println!("{:#x}", self.console.r3000.pc());
+          assert_eq!(self.console.r3000.pc(), 0xbfc0_0150);
           //let stubs = block.stubs();
           //for stub in stubs {
           //  self.console.r3000.flush_write_cache(&mut self.console.delayed_writes,
@@ -107,7 +108,6 @@ impl X64JIT {
     let t0 = Instant::now();
     //first define the opcodes in this block and tag them along the way
     let mut address = self.console.r3000.pc();
-    assert!(address != 0xbfc0_0150);
     let initial_pc = address;
     let initial_phys_pc = Console::physical(initial_pc);
     let mut op = self.console.read_word(address);

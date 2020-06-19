@@ -170,8 +170,8 @@ impl Insn {
   }
   pub fn dependencies(&self) -> Vec<u32> {
     let mut deps = self.inputs().iter().copied().collect::<Vec<_>>();
-    self.output().map(|output| deps.push(output));
     self.index().map(|index| deps.push(index));
+    self.output().map(|output| deps.push(output));
     deps
   }
   pub fn has_branch_delay_slot(op: u32) -> bool {

@@ -75,17 +75,18 @@ impl Block {
           rc.save_flags();
           this_label = rc.emit_insn(insn, initial_pc);
           rc.load_flags();
-          rc.call_label(jump);
           rc.jump_if_carry(end);
         },
         None => {
           this_label = rc.emit_insn(insn, initial_pc);
         },
       }
-      if initial_pc.wrapping_add(4 * n as u32) == 0xbfc0_0274 {
-        break
-      }
+      //if initial_pc.wrapping_add(4 * n as u32) == 0xbfc0_0274 {
+      //  break
+      //}
     }
+    let jit_pc = rc.reg(R3000::PC_IDX as u32).unwrap();
+    rc.seti_u32(jit_pc, initial_pc.wrapping_add(4 * tagged_opcodes.len() as u32));
     rc.define_label(end);
     let jitfn = rc.compile().unwrap();
     println!("compiled {} bytes", jitfn.size());

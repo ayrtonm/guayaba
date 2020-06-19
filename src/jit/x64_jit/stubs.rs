@@ -1,5 +1,4 @@
 use jam::recompiler::Recompiler;
-use jam::ArgNumber;
 use jam::Label;
 use crate::register::BitTwiddle;
 use crate::console::r3000::R3000;
@@ -71,14 +70,9 @@ impl DynaRec for Recompiler {
         let dest = pc_hi_bits.wrapping_add(shifted_imm26);
         let delay_slot = self.new_label();
         let this_op = self.new_long_label();
-        self.jump(delay_slot);
-
-        self.define_label(this_op);
         let jit_pc = self.reg(R3000::PC_IDX as u32).unwrap();
         self.seti_u32(jit_pc, dest);
         self.set_carry();
-        self.ret();
-        self.define_label(delay_slot);
         return Some(this_op)
       },
       0x05 => {
@@ -111,10 +105,7 @@ impl DynaRec for Recompiler {
             self.cmpv_u32(rs, rt);
           },
         }
-        self.jump(delay_slot);
-
-        self.define_label(this_op);
-        self.jump_if_not_zero(took_jump);
+        self.jump_if_zero(took_jump);
         self.clear_carry();
         self.jump(end_jump);
         self.define_label(took_jump);
@@ -122,9 +113,6 @@ impl DynaRec for Recompiler {
         self.seti_u32(jit_pc, dest);
         self.set_carry();
         self.define_label(end_jump);
-        self.ret();
-
-        self.define_label(delay_slot);
         return Some(this_op)
       },
       0x08 => {
@@ -221,68 +209,46 @@ impl DynaRec for Recompiler {
       },
       0x23 => {
         //LW
-        todo!("{:#x}",op);
+        println!("implement LW {:#x}",op);
       },
       0x2B => {
         //SW
         let s = get_rs(op);
         let t = get_rt(op);
         let imm16 = get_imm16(op);
-        //let cop0r12 = self.new_u32();
+        let cop0r12 = self.new_u32();
 
-        //self.load_ptr(cop0r12, Block::COP0_REG_POS);
-        //self.deref_u32(cop0r12);
-        //self.bti_u32(cop0r12, 16);
-        ////self.save_flags();
+        self.load_ptr(cop0r12, Block::COP0_REG_POS);
+        self.deref_u32(cop0r12);
+        self.bti_u32(cop0r12, 16);
+        self.save_flags();
 
-        //let label = self.new_label();
-        //let console = self.new_u64();
-        //let address = self.new_u32();
-        //let zero = self.new_u32();
-        //let rs = self.reg(s).unwrap();
-        //self.seti_u32(zero, 0);
-        //self.load_ptr(console, Block::CONSOLE_POS);
-        //self.setv_u32(address, rs);
-        //self.addi_u32(address, imm16 as i32);
+        let label = self.new_label();
+        let console = self.new_u64();
+        let address = self.new_u32();
+        let zero = self.new_u32();
+        let rs = self.reg(s).unwrap();
+        self.seti_u32(zero, 0);
+        self.load_ptr(console, Block::CONSOLE_POS);
+        self.setv_u32(address, rs);
+        self.addi_u32(address, imm16 as i32);
 
-        //self.seti_u32(zero, 0);
+        self.seti_u32(zero, 0);
+
+        self.set_arg1(console);
+        self.set_arg2(address);
         match self.reg(t) {
           Some(rt) => {
-            println!("R{}",t);
-            self.set_argn(rt, ArgNumber::Arg1);
+            self.set_arg3(rt);
           },
           None => {
-            //println!("R0");
-            //self.set_argn(zero, ArgNumber::Arg1);
+            self.set_arg3(zero);
           },
         }
-        self.call_ptr(Block::DEBUG_POS);
-        match self.reg(s) {
-          Some(rs) => {
-            println!("R{}",s);
-            self.set_argn(rs, ArgNumber::Arg1);
-          },
-          None => {
-            //println!("R0");
-            //self.set_argn(zero, ArgNumber::Arg1);
-          },
-        }
-        self.call_ptr(Block::DEBUG_POS);
-
-        //self.set_argn(console, ArgNumber::Arg1);
-        //self.set_argn(address, ArgNumber::Arg2);
-        //match self.reg(t) {
-        //  Some(rt) => {
-        //    self.set_argn(rt, ArgNumber::Arg3);
-        //  },
-        //  None => {
-        //    self.set_argn(zero, ArgNumber::Arg3);
-        //  },
-        //}
-        ////self.load_flags();
-        //self.jump_if_no_carry(label);
-        //self.call_ptr(Block::WRITE_WORD_POS);
-        //self.define_label(label);
+        self.load_flags();
+        self.jump_if_not_carry(label);
+        self.call_ptr(Block::WRITE_WORD_POS);
+        self.define_label(label);
       },
       _ => todo!("primary field {:#x}", get_primary_field(op)),
     };
