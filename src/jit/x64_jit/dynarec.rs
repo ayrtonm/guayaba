@@ -32,6 +32,32 @@ impl DynaRec for Recompiler {
               None => (),
             }
           },
+          0x21 => {
+            //ADDU
+            let s = get_rs(op);
+            let t = get_rt(op);
+            let d = get_rd(op);
+            match self.reg(d) {
+              Some(rd) => {
+                match (self.reg(s), self.reg(t)) {
+                  (None, None) => {
+                    self.seti_u32(rd, 0);
+                  },
+                  (None, Some(rt)) => {
+                    self.setv_u32(rd, rt);
+                  },
+                  (Some(rs), None) => {
+                    self.setv_u32(rd, rs);
+                  },
+                  (Some(rs), Some(rt)) => {
+                    self.setv_u32(rd, rs);
+                    self.addv_u32(rd, rt);
+                  },
+                }
+              },
+              None => (),
+            }
+          },
           0x25 => {
             //OR
             let s = get_rs(op);
@@ -268,10 +294,16 @@ impl DynaRec for Recompiler {
         let console = self.new_u64();
         let address = self.new_u32();
         let zero = self.new_u32();
-        let rs = self.reg(s).unwrap();
         self.seti_u32(zero, 0);
         self.load_ptr(console, Block::CONSOLE_POS);
-        self.setv_u32(address, rs);
+        match self.reg(s) {
+          Some(rs) => {
+            self.setv_u32(address, rs);
+          },
+          None => {
+            self.setv_u32(address, zero);
+          },
+        }
         self.addi_u32(address, imm16 as i32);
 
         self.seti_u32(zero, 0);

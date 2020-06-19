@@ -5,7 +5,7 @@ use crate::jit::insn::Insn;
 use crate::jit::insn::InsnRegisters;
 use crate::console::Console;
 use crate::console::r3000::R3000;
-use crate::jit::x64_jit::stubs::DynaRec;
+use crate::jit::x64_jit::dynarec::DynaRec;
 
 pub struct Block {
   pub function: JITFn,

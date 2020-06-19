@@ -6,7 +6,7 @@ use crate::jit::insn::Insn;
 use crate::console::Console;
 
 mod block;
-mod stubs;
+mod dynarec;
 
 pub struct X64JIT {
   console: Console,
