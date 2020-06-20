@@ -69,8 +69,7 @@ impl Block {
     let end = rc.new_label();
     let mut this_label = None;
     for (n, insn) in tagged_opcodes.iter().enumerate() {
-      let prev_label = this_label;
-      match prev_label {
+      match this_label.take() {
         Some(jump) => {
           rc.save_flags();
           this_label = rc.emit_insn(insn, initial_pc);
@@ -81,9 +80,9 @@ impl Block {
           this_label = rc.emit_insn(insn, initial_pc);
         },
       }
-      //if initial_pc.wrapping_add(4 * n as u32) == 0xbfc0_0274 {
-      //  break
-      //}
+      if initial_pc.wrapping_add(4 * n as u32) == 0xbfc0_027c {
+        break
+      }
     }
     let jit_pc = rc.reg(R3000::PC_IDX as u32).unwrap();
     rc.seti_u32(jit_pc, initial_pc.wrapping_add(4 * tagged_opcodes.len() as u32));
