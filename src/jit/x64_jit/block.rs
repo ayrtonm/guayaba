@@ -67,28 +67,23 @@ impl Block {
     ptrs[Block::READ_BYTE_SIGN_EXTENDED_POS] = Console::read_byte_sign_extended as u64;
     ptrs[Block::DEBUG_POS] = Console::print_value as u64;
     let mut rc = Recompiler::new(&inputs, &ptrs);
-    let mut delay_slot = false;
+    let mut delay_slot_next = false;
     let end = rc.new_long_label();
-    for (n, insn) in tagged_opcodes.iter().enumerate() {
-      match delay_slot {
-        true => {
-          delay_slot = rc.emit_insn(insn, initial_pc);
-          rc.prepare_for_exit();
-          //rc.debug_bind(rc.reg(R3000::PC_IDX as u32).unwrap());
-          rc.load_flags();
-          rc.jump_if_carry(end);
-        },
-        false => {
-          delay_slot = rc.emit_insn(insn, initial_pc);
-        },
-      }
-      if initial_pc.wrapping_add(4 * n as u32) == 0xbfc0_02a8 {
-        break
-      }
+    for insn in tagged_opcodes {
+      let delay_slot = delay_slot_next;
+      delay_slot_next = rc.emit_insn(insn, initial_pc);
+      if delay_slot_next {
+        rc.save_flags();
+      };
+      if delay_slot {
+        rc.prepare_for_exit();
+        rc.load_flags();
+        rc.jump_if_carry(end);
+      };
     }
-    rc.prepare_for_exit();
     let jit_pc = rc.reg(R3000::PC_IDX as u32).unwrap();
     rc.seti_u32(jit_pc, initial_pc.wrapping_add(4 * tagged_opcodes.len() as u32));
+    rc.prepare_for_exit();
     rc.define_label(end);
     let jitfn = rc.compile().unwrap();
     println!("compiled {} bytes", jitfn.size());

@@ -139,7 +139,6 @@ impl DynaRec for Recompiler {
         let jit_pc = self.reg(R3000::PC_IDX as u32).unwrap();
         self.seti_u32(jit_pc, dest);
         self.set_carry();
-        self.save_flags();
         return true
       },
       0x05 => {
@@ -176,6 +175,7 @@ impl DynaRec for Recompiler {
         self.set_carry();
 
         self.define_label(next_op);
+        self.save_flags();
         return true
       },
       0x08 => {
@@ -203,11 +203,11 @@ impl DynaRec for Recompiler {
         //self.jump(delay_slot);
 
         //self.define_label(this_op);
-        //self.clear_carry();
+        self.clear_carry();
         //self.ret();
 
         //self.define_label(delay_slot);
-        //return true
+        return true
       },
       0x09 => {
         //ADDIU
