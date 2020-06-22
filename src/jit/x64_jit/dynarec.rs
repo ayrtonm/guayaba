@@ -7,12 +7,12 @@ use crate::jit::x64_jit::Block;
 use crate::common::*;
 
 pub trait DynaRec {
-  fn emit_insn(&mut self, insn: &Insn, initial_pc: u32) -> Option<Label>;
+  fn emit_insn(&mut self, insn: &Insn, initial_pc: u32) -> bool;
   fn emit_store(&mut self, op: u32, function_ptr: usize);
 }
 //TODO: remember to handle R0's explicitly (remove all unwraps in emit_insn)
 impl DynaRec for Recompiler {
-  fn emit_insn(&mut self, insn: &Insn, initial_pc: u32) -> Option<Label> {
+  fn emit_insn(&mut self, insn: &Insn, initial_pc: u32) -> bool {
     let op = insn.op();
     let offset = insn.offset();
     match get_primary_field(op) {
@@ -136,12 +136,11 @@ impl DynaRec for Recompiler {
         let pc = initial_pc.wrapping_add(offset);
         let pc_hi_bits = pc & 0xf000_0000;
         let dest = pc_hi_bits.wrapping_add(shifted_imm26);
-        let delay_slot = self.new_label();
-        let this_op = self.new_long_label();
         let jit_pc = self.reg(R3000::PC_IDX as u32).unwrap();
         self.seti_u32(jit_pc, dest);
         self.set_carry();
-        return Some(this_op)
+        self.save_flags();
+        return true
       },
       0x05 => {
         //BNE
@@ -151,7 +150,6 @@ impl DynaRec for Recompiler {
         let dest = pc.wrapping_add(inc);
         let t = get_rt(op);
         let s = get_rs(op);
-        let this_op = self.new_label();
         let took_jump = self.new_label();
         let next_op = self.new_label();
         match (self.reg(s), self.reg(t)) {
@@ -178,7 +176,7 @@ impl DynaRec for Recompiler {
         self.set_carry();
 
         self.define_label(next_op);
-        return Some(this_op)
+        return true
       },
       0x08 => {
         //ADDI
@@ -209,7 +207,7 @@ impl DynaRec for Recompiler {
         //self.ret();
 
         //self.define_label(delay_slot);
-        //return Some(this_op)
+        //return true
       },
       0x09 => {
         //ADDIU
@@ -286,7 +284,7 @@ impl DynaRec for Recompiler {
       },
       _ => todo!("primary field {:#x}", get_primary_field(op)),
     };
-    None
+    false
   }
   fn emit_store(&mut self, op: u32, function_ptr: usize) {
     let s = get_rs(op);
