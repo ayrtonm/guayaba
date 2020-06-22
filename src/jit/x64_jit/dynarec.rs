@@ -175,7 +175,6 @@ impl DynaRec for Recompiler {
         self.set_carry();
 
         self.define_label(next_op);
-        self.save_flags();
         return true
       },
       0x08 => {
@@ -183,30 +182,21 @@ impl DynaRec for Recompiler {
         let s = get_rs(op);
         let t = get_rt(op);
         let imm16 = get_imm16(op).half_sign_extended();
-        //let delay_slot = self.new_label();
-        //let this_op = self.new_long_label();
-        //self.clear_carry();
-        //match self.reg(t) {
-        //  Some(rt) => {
-        //    match self.reg(s) {
-        //      Some(rs) => {
-        //        self.setv_u32(rt, rs);
-        //        self.addi_u32(rt, imm16 as i32);
-        //      },
-        //      None => {
-        //        self.seti_u32(rt, imm16);
-        //      },
-        //    }
-        //  },
-        //  None => (),
-        //}
-        //self.jump(delay_slot);
-
-        //self.define_label(this_op);
         self.clear_carry();
-        //self.ret();
-
-        //self.define_label(delay_slot);
+        match self.reg(t) {
+          Some(rt) => {
+            match self.reg(s) {
+              Some(rs) => {
+                self.setv_u32(rt, rs);
+                self.addi_u32(rt, imm16 as i32);
+              },
+              None => {
+                self.seti_u32(rt, imm16);
+              },
+            }
+          },
+          None => (),
+        }
         return true
       },
       0x09 => {
@@ -272,7 +262,8 @@ impl DynaRec for Recompiler {
       },
       0x23 => {
         //LW
-        println!("implement LW {:#x}",op);
+        //TODO: implement this
+        //todo!("implement LW {:#x}",op);
       },
       0x29 => {
         //SH

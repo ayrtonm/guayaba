@@ -35,36 +35,22 @@ impl X64JIT {
       let maybe_block = self.blocks.get(&address);
       match maybe_block {
         Some(block) => {
+          if logging {
+            println!("{:#x}", address);
+          };
           let t0 = Instant::now();
           block.function.run();
           //for &i in &[1,8] {
           //  println!("{:#x}", self.console.r3000.nth_reg(i));
           //}
-          println!("{:#x}", self.console.r3000.pc());
-          assert_eq!(self.console.r3000.pc(), 0xbfc0_0150);
+          //println!("{:#x}", self.console.r3000.pc());
+          //assert_eq!(self.console.r3000.pc(), 0xbfc0_0150);
           //let stubs = block.stubs();
-          //for stub in stubs {
-          //  self.console.r3000.flush_write_cache(&mut self.console.delayed_writes,
-          //                                       &mut self.console.modified_register);
-          //  let temp_pc = stub.execute(&mut self.console, logging);
-          //  //check result of previous opcode
-          //  match self.console.next_pc {
-          //    Some(next_pc) => {
-          //      //block ended early so let's move pc since we just executed the
-          //      //branch delay slot
-          //      *self.console.r3000.pc_mut() = next_pc;
-          //      break;
-          //    },
-          //    None => {
-          //    },
-          //  }
-          //  self.console.next_pc = temp_pc;
             match self.console.gpu.exec_next_gp0_command() {
               Some(object) => self.console.screen.draw(object),
               None => (),
             }
             self.console.cd.exec_command();
-          //}
           refresh_timer -= block.nominal_len() as i64;
           if refresh_timer < 0 {
             self.console.screen.refresh_window();
@@ -76,11 +62,6 @@ impl X64JIT {
               panic!("Executed {} steps with {:?} of compile time and {:?} of run time", self.console.i, compile_time, run_time);
             };
           });
-          match self.console.next_pc.take() {
-            //if we ended on a syscall
-            Some(next_pc) => *self.console.r3000.pc_mut() = next_pc,
-            None => (),
-          }
           let block_invalidated = self.console
                                       .overwritten
                                       .iter()
