@@ -70,13 +70,15 @@ impl Block {
     let mut this_label = None;
     let end = rc.new_long_label();
     for (n, insn) in tagged_opcodes.iter().enumerate() {
-      let prev_label = this_label;
-      match prev_label {
+      match this_label.take() {
         Some(jump) => {
           rc.save_flags();
           this_label = rc.emit_insn(insn, initial_pc);
           rc.load_flags();
           rc.prepare_for_exit();
+          rc.debug_bind(rc.reg(R3000::PC_IDX as u32).unwrap());
+          //FIXME: remove this unconditional set carry and rely on the save/load_flags above
+          //when calling load_flags, make sure that the stack is where it was when we called save_flags
           rc.set_carry();
           rc.jump_if_carry(end);
         },
@@ -84,10 +86,11 @@ impl Block {
           this_label = rc.emit_insn(insn, initial_pc);
         },
       }
-      if initial_pc.wrapping_add(4 * n as u32) == 0xbfc0_0278 {
+      if initial_pc.wrapping_add(4 * n as u32) == 0xbfc0_02a0 {
         break
       }
     }
+    rc.prepare_for_exit();
     let jit_pc = rc.reg(R3000::PC_IDX as u32).unwrap();
     rc.seti_u32(jit_pc, initial_pc.wrapping_add(4 * tagged_opcodes.len() as u32));
     rc.define_label(end);

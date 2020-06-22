@@ -151,8 +151,7 @@ impl DynaRec for Recompiler {
         let dest = pc.wrapping_add(inc);
         let t = get_rt(op);
         let s = get_rs(op);
-        let delay_slot = self.new_label();
-        let this_op = self.new_long_label();
+        let this_op = self.new_label();
         let took_jump = self.new_label();
         let next_op = self.new_label();
         match (self.reg(s), self.reg(t)) {
