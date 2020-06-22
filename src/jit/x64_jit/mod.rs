@@ -41,7 +41,7 @@ impl X64JIT {
           //  println!("{:#x}", self.console.r3000.nth_reg(i));
           //}
           println!("{:#x}", self.console.r3000.pc());
-          //assert_eq!(self.console.r3000.pc(), 0xbfc0_0150);
+          assert_eq!(self.console.r3000.pc(), 0xbfc0_0150);
           //let stubs = block.stubs();
           //for stub in stubs {
           //  self.console.r3000.flush_write_cache(&mut self.console.delayed_writes,

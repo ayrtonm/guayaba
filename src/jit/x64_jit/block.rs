@@ -6,6 +6,7 @@ use crate::jit::insn::InsnRegisters;
 use crate::console::Console;
 use crate::console::r3000::R3000;
 use crate::jit::x64_jit::dynarec::DynaRec;
+use crate::common::*;
 
 pub struct Block {
   pub function: JITFn,
@@ -66,21 +67,24 @@ impl Block {
     ptrs[Block::READ_BYTE_SIGN_EXTENDED_POS] = Console::read_byte_sign_extended as u64;
     ptrs[Block::DEBUG_POS] = Console::print_value as u64;
     let mut rc = Recompiler::new(&inputs, &ptrs);
-    let end = rc.new_label();
     let mut this_label = None;
+    let end = rc.new_long_label();
     for (n, insn) in tagged_opcodes.iter().enumerate() {
-      match this_label.take() {
+      let prev_label = this_label;
+      match prev_label {
         Some(jump) => {
           rc.save_flags();
           this_label = rc.emit_insn(insn, initial_pc);
           rc.load_flags();
+          rc.prepare_for_exit();
+          rc.set_carry();
           rc.jump_if_carry(end);
         },
         None => {
           this_label = rc.emit_insn(insn, initial_pc);
         },
       }
-      if initial_pc.wrapping_add(4 * n as u32) == 0xbfc0_027c {
+      if initial_pc.wrapping_add(4 * n as u32) == 0xbfc0_0278 {
         break
       }
     }

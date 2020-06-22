@@ -174,8 +174,8 @@ impl DynaRec for Recompiler {
         self.jump(next_op);
 
         self.define_label(took_jump);
-        //let jit_pc = self.reg(R3000::PC_IDX as u32).unwrap();
-        //self.seti_u32(jit_pc, dest);
+        let jit_pc = self.reg(R3000::PC_IDX as u32).unwrap();
+        self.seti_u32(jit_pc, dest);
         self.set_carry();
 
         self.define_label(next_op);
@@ -186,8 +186,8 @@ impl DynaRec for Recompiler {
         let s = get_rs(op);
         let t = get_rt(op);
         let imm16 = get_imm16(op).half_sign_extended();
-        let delay_slot = self.new_label();
-        let this_op = self.new_long_label();
+        //let delay_slot = self.new_label();
+        //let this_op = self.new_long_label();
         //self.clear_carry();
         //match self.reg(t) {
         //  Some(rt) => {
@@ -295,28 +295,25 @@ impl DynaRec for Recompiler {
     let imm16 = get_imm16(op);
     let cop0r12 = self.new_u32();
 
+    let label = self.new_label();
+    let console = self.new_u64();
+    let address = self.new_u32();
+
     self.load_ptr(cop0r12, Block::COP0_REG_POS);
     self.deref_u32(cop0r12);
     self.bti_u32(cop0r12, 16);
     self.save_flags();
 
-    let label = self.new_label();
-    let console = self.new_u64();
-    let address = self.new_u32();
-    let zero = self.new_u32();
-    self.seti_u32(zero, 0);
     self.load_ptr(console, Block::CONSOLE_POS);
     match self.reg(s) {
       Some(rs) => {
         self.setv_u32(address, rs);
       },
       None => {
-        self.setv_u32(address, zero);
+        self.seti_u32(address, 0);
       },
     }
     self.addi_u32(address, imm16 as i32);
-
-    self.seti_u32(zero, 0);
 
     self.set_arg1(console);
     self.set_arg2(address);
@@ -325,7 +322,7 @@ impl DynaRec for Recompiler {
         self.set_arg3(rt);
       },
       None => {
-        self.set_arg3(zero);
+        self.zero_arg3();
       },
     }
     self.load_flags();
