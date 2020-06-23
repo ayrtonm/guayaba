@@ -72,6 +72,7 @@ impl Block {
     for insn in tagged_opcodes {
       let delay_slot = delay_slot_next;
       delay_slot_next = rc.emit_insn(insn, initial_pc);
+      rc.process_delayed_write();
       if delay_slot_next {
         rc.save_flags();
       };

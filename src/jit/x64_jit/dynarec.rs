@@ -8,7 +8,9 @@ use crate::common::*;
 
 pub trait DynaRec {
   fn emit_insn(&mut self, insn: &Insn, initial_pc: u32) -> bool;
+  fn emit_load(&mut self, op: u32, function_ptr: usize);
   fn emit_store(&mut self, op: u32, function_ptr: usize);
+  fn emit_addi(&mut self, op: u32);
 }
 //TODO: remember to handle R0's explicitly (remove all unwraps in emit_insn)
 impl DynaRec for Recompiler {
@@ -179,45 +181,12 @@ impl DynaRec for Recompiler {
       },
       0x08 => {
         //ADDI
-        let s = get_rs(op);
-        let t = get_rt(op);
-        let imm16 = get_imm16(op).half_sign_extended();
-        self.clear_carry();
-        match self.reg(t) {
-          Some(rt) => {
-            match self.reg(s) {
-              Some(rs) => {
-                self.setv_u32(rt, rs);
-                self.addi_u32(rt, imm16 as i32);
-              },
-              None => {
-                self.seti_u32(rt, imm16);
-              },
-            }
-          },
-          None => (),
-        }
+        self.emit_addi(op);
         return true
       },
       0x09 => {
         //ADDIU
-        let s = get_rs(op);
-        let t = get_rt(op);
-        let imm16 = get_imm16(op).half_sign_extended();
-        match self.reg(t) {
-          Some(rt) => {
-            match self.reg(s) {
-              Some(rs) => {
-                self.setv_u32(rt, rs);
-                self.addi_u32(rt, imm16 as i32);
-              },
-              None => {
-                self.seti_u32(rt, imm16);
-              },
-            }
-          },
-          None => (),
-        }
+        self.emit_addi(op);
       },
       0x0D => {
         //ORI
@@ -262,8 +231,7 @@ impl DynaRec for Recompiler {
       },
       0x23 => {
         //LW
-        //TODO: implement this
-        //todo!("implement LW {:#x}",op);
+        self.emit_load(op, Block::READ_WORD_POS);
       },
       0x29 => {
         //SH
@@ -277,6 +245,43 @@ impl DynaRec for Recompiler {
     };
     false
   }
+  fn emit_load(&mut self, op: u32, function_ptr: usize) {
+    let t = get_rt(op);
+    match self.reg(t) {
+      Some(rt) => {
+        let s = get_rs(op);
+        let imm16 = get_imm16(op);
+        let cop0r12 = self.new_u32();
+
+        let label = self.new_label();
+        let console = self.new_u64();
+        let address = self.new_u32();
+
+        self.load_ptr(console, Block::CONSOLE_POS);
+        match self.reg(s) {
+          Some(rs) => {
+            self.setv_u32(address, rs);
+          },
+          None => {
+            self.seti_u32(address, 0);
+          },
+        }
+        self.addi_u32(address, imm16 as i32);
+
+        self.set_arg1(console);
+        self.set_arg2(address);
+        let delayed_write = self.new_delayed_write(rt);
+        self.set_ret(delayed_write);
+        self.load_ptr(cop0r12, Block::COP0_REG_POS);
+        self.deref_u32(cop0r12);
+        self.bti_u32(cop0r12, 16);
+        self.jump_if_not_carry(label);
+        self.call_ptr(function_ptr);
+        self.define_label(label);
+      },
+      None => (),
+    }
+  }
   fn emit_store(&mut self, op: u32, function_ptr: usize) {
     let s = get_rs(op);
     let t = get_rt(op);
@@ -286,11 +291,6 @@ impl DynaRec for Recompiler {
     let label = self.new_label();
     let console = self.new_u64();
     let address = self.new_u32();
-
-    self.load_ptr(cop0r12, Block::COP0_REG_POS);
-    self.deref_u32(cop0r12);
-    self.bti_u32(cop0r12, 16);
-    self.save_flags();
 
     self.load_ptr(console, Block::CONSOLE_POS);
     match self.reg(s) {
@@ -313,9 +313,26 @@ impl DynaRec for Recompiler {
         self.zero_arg3();
       },
     }
-    self.load_flags();
+    self.load_ptr(cop0r12, Block::COP0_REG_POS);
+    self.deref_u32(cop0r12);
+    self.bti_u32(cop0r12, 16);
     self.jump_if_not_carry(label);
     self.call_ptr(function_ptr);
     self.define_label(label);
+  }
+  fn emit_addi(&mut self, op: u32) {
+    let s = get_rs(op);
+    let t = get_rt(op);
+    let imm16 = get_imm16(op).half_sign_extended();
+    self.clear_carry();
+    self.reg(t).map(|rt| {
+      match self.reg(s) {
+        Some(rs) => {
+          self.setv_u32(rt, rs);
+          self.addi_u32(rt, imm16 as i32);
+        },
+        None => self.seti_u32(rt, imm16),
+      }
+    });
   }
 }

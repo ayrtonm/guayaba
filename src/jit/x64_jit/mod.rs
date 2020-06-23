@@ -43,7 +43,7 @@ impl X64JIT {
           //for &i in &[1,8] {
           //  println!("{:#x}", self.console.r3000.nth_reg(i));
           //}
-          //println!("{:#x}", self.console.r3000.pc());
+          println!("{:#x}", self.console.r3000.pc());
           //assert_eq!(self.console.r3000.pc(), 0xbfc0_0150);
           //let stubs = block.stubs();
             match self.console.gpu.exec_next_gp0_command() {
