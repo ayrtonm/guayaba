@@ -11,6 +11,7 @@ pub trait DynaRec {
   fn emit_load(&mut self, op: u32, function_ptr: usize);
   fn emit_store(&mut self, op: u32, function_ptr: usize);
   fn emit_addi(&mut self, op: u32);
+  fn jump_imm26(&mut self, insn: &Insn, initial_pc: u32) -> bool;
 }
 
 impl DynaRec for Recompiler {
@@ -31,6 +32,21 @@ impl DynaRec for Recompiler {
                 Some(rt) => {
                   self.setv_u32(rd, rt);
                   self.slli_u32(rd, imm5);
+                },
+                None => self.seti_u32(rd, 0),
+              }
+            });
+          },
+          0x03 => {
+            //SRA
+            let t = get_rt(op);
+            let d = get_rd(op);
+            let imm5 = get_imm5(op);
+            self.reg(d).map(|rd| {
+              match self.reg(t) {
+                Some(rt) => {
+                  self.setv_u32(rd, rt);
+                  self.srai_u32(rd, imm5);
                 },
                 None => self.seti_u32(rd, 0),
               }
@@ -125,15 +141,14 @@ impl DynaRec for Recompiler {
       },
       0x02 => {
         //J
-        let imm26 = get_imm26(op);
-        let shifted_imm26 = imm26 << 2;
-        let pc = initial_pc.wrapping_add(offset);
-        let pc_hi_bits = pc & 0xf000_0000;
-        let dest = pc_hi_bits.wrapping_add(shifted_imm26);
-        let jit_pc = self.reg(R3000::PC_IDX as u32).expect("");
-        self.seti_u32(jit_pc, dest);
-        self.set_carry();
-        return true
+        return self.jump_imm26(insn, initial_pc);
+      },
+      0x03 => {
+        //JAL
+        let ret = initial_pc.wrapping_add(offset).wrapping_add(4);
+        let ra = self.reg(R3000::RA_IDX as u32).expect("");
+        self.seti_u32(ra, ret);
+        return self.jump_imm26(insn, initial_pc);
       },
       0x05 => {
         //BNE
@@ -322,5 +337,18 @@ impl DynaRec for Recompiler {
         });
       }
     });
+  }
+  fn jump_imm26(&mut self, insn: &Insn, initial_pc: u32) -> bool {
+    let op = insn.op();
+    let offset = insn.offset();
+    let imm26 = get_imm26(op);
+    let shifted_imm26 = imm26 << 2;
+    let pc = initial_pc.wrapping_add(offset);
+    let pc_hi_bits = pc & 0xf000_0000;
+    let dest = pc_hi_bits.wrapping_add(shifted_imm26);
+    let jit_pc = self.reg(R3000::PC_IDX as u32).expect("");
+    self.seti_u32(jit_pc, dest);
+    self.set_carry();
+    true
   }
 }

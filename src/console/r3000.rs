@@ -29,6 +29,7 @@ pub struct R3000 {
 
 impl R3000 {
   const ZERO: u32 = 0;
+  pub const RA_IDX: u32 = 31;
   pub const PC_IDX: usize = 32;
   const HI_IDX: usize = 33;
   const LO_IDX: usize = 34;
@@ -73,7 +74,7 @@ impl R3000 {
   }
   //general purpose MIPS registers also have names we can use
   pub fn ra_mut(&mut self) -> Option<MutReg> {
-    self.nth_reg_mut(31)
+    self.nth_reg_mut(R3000::RA_IDX)
   }
   //these are the special purpose MIPS registers
   pub fn pc(&self) -> u32 {

@@ -53,6 +53,9 @@ impl Block {
                      initial_pc: u32, logging: bool) -> io::Result<JITFn> {
     let mut inputs = tagged_opcodes.registers();
     inputs.push(R3000::PC_IDX as u32);
+    if !inputs.iter().any(|&i| i == R3000::RA_IDX) {
+      inputs.push(R3000::RA_IDX);
+    }
     let mut ptrs = vec![0; 12];
     ptrs[Block::R3000_REG_POS] = console.r3000.reg_ptr() as u64;
     ptrs[Block::COP0_REG_POS] = console.cop0.reg_ptr() as u64;
