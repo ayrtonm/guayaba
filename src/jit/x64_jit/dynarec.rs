@@ -187,6 +187,21 @@ impl DynaRec for Recompiler {
         //ADDIU
         self.emit_addi(op);
       },
+      0x0C => {
+        //ANDI
+        let s = get_rs(op);
+        let t = get_rt(op);
+        let imm16 = get_imm16(op);
+        self.reg(t).map(|rt| {
+          match self.reg(s) {
+            Some(rs) => {
+              self.setv_u32(rt, rs);
+              self.andi_u32(rt, imm16);
+            },
+            None => self.seti_u32(rt, 0),
+          }
+        });
+      },
       0x0D => {
         //ORI
         let s = get_rs(op);
@@ -234,6 +249,10 @@ impl DynaRec for Recompiler {
       0x23 => {
         //LW
         self.emit_load(op, Block::READ_WORD_POS);
+      },
+      0x28 => {
+        //SB
+        self.emit_store(op, Block::WRITE_BYTE_POS);
       },
       0x29 => {
         //SH
