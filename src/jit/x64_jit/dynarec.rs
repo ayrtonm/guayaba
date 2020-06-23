@@ -12,7 +12,7 @@ pub trait DynaRec {
   fn emit_store(&mut self, op: u32, function_ptr: usize);
   fn emit_addi(&mut self, op: u32);
 }
-//TODO: remember to handle R0's explicitly (remove all unwraps in emit_insn)
+
 impl DynaRec for Recompiler {
   fn emit_insn(&mut self, insn: &Insn, initial_pc: u32) -> bool {
     let op = insn.op();
@@ -26,66 +26,61 @@ impl DynaRec for Recompiler {
             let t = get_rt(op);
             let d = get_rd(op);
             let imm5 = get_imm5(op);
-            let rd = self.reg(d);
-            match rd {
-              Some(rd) => {
-                let rt = self.reg(t).unwrap();
-                todo!("");
-              },
-              None => (),
-            }
+            self.reg(d).map(|rd| {
+              match self.reg(t) {
+                Some(rt) => {
+                  self.setv_u32(rd, rt);
+                  self.slli_u32(rd, imm5);
+                },
+                None => self.seti_u32(rd, 0),
+              }
+            });
           },
           0x21 => {
             //ADDU
             let s = get_rs(op);
             let t = get_rt(op);
             let d = get_rd(op);
-            match self.reg(d) {
-              Some(rd) => {
-                match (self.reg(s), self.reg(t)) {
-                  (None, None) => {
-                    self.seti_u32(rd, 0);
-                  },
-                  (None, Some(rt)) => {
-                    self.setv_u32(rd, rt);
-                  },
-                  (Some(rs), None) => {
-                    self.setv_u32(rd, rs);
-                  },
-                  (Some(rs), Some(rt)) => {
-                    self.setv_u32(rd, rs);
-                    self.addv_u32(rd, rt);
-                  },
-                }
-              },
-              None => (),
-            }
+            self.reg(d).map(|rd| {
+              match (self.reg(s), self.reg(t)) {
+                (None, None) => {
+                  self.seti_u32(rd, 0);
+                },
+                (None, Some(rt)) => {
+                  self.setv_u32(rd, rt);
+                },
+                (Some(rs), None) => {
+                  self.setv_u32(rd, rs);
+                },
+                (Some(rs), Some(rt)) => {
+                  self.setv_u32(rd, rs);
+                  self.addv_u32(rd, rt);
+                },
+              }
+            });
           },
           0x25 => {
             //OR
             let s = get_rs(op);
             let t = get_rt(op);
             let d = get_rd(op);
-            match self.reg(d) {
-              Some(rd) => {
-                match (self.reg(s), self.reg(t)) {
-                  (None, None) => {
-                    self.seti_u32(rd, 0);
-                  },
-                  (None, Some(rt)) => {
-                    self.setv_u32(rd, rt);
-                  },
-                  (Some(rs), None) => {
-                    self.setv_u32(rd, rs);
-                  },
-                  (Some(rs), Some(rt)) => {
-                    self.setv_u32(rd, rs);
-                    self.orv_u32(rd, rt);
-                  },
-                }
-              },
-              None => (),
-            }
+            self.reg(d).map(|rd| {
+              match (self.reg(s), self.reg(t)) {
+                (None, None) => {
+                  self.seti_u32(rd, 0);
+                },
+                (None, Some(rt)) => {
+                  self.setv_u32(rd, rt);
+                },
+                (Some(rs), None) => {
+                  self.setv_u32(rd, rs);
+                },
+                (Some(rs), Some(rt)) => {
+                  self.setv_u32(rd, rs);
+                  self.orv_u32(rd, rt);
+                },
+              }
+            });
           },
           0x2B => {
             //SLTU
@@ -96,37 +91,34 @@ impl DynaRec for Recompiler {
             let set_rd = self.new_label();
             let end = self.new_label();
             self.seti_u32(zero, 0);
-            match self.reg(d) {
-              Some(rd) => {
-                match (self.reg(s), self.reg(t)) {
-                  (None, None) => {
-                    self.seti_u32(rd, 0);
-                  },
-                  (None, Some(rt)) => {
-                    self.cmpv_u32(zero, rt);
-                    self.jump_if_carry(set_rd);
-                    self.seti_u32(rd, 0);
-                    self.jump(end);
-                    self.define_label(set_rd);
-                    self.seti_u32(rd, 1);
-                    self.define_label(end);
-                  },
-                  (Some(rs), None) => {
-                    self.seti_u32(rd, 0);
-                  },
-                  (Some(rs), Some(rt)) => {
-                    self.cmpv_u32(rs, rt);
-                    self.jump_if_carry(set_rd);
-                    self.seti_u32(rd, 0);
-                    self.jump(end);
-                    self.define_label(set_rd);
-                    self.seti_u32(rd, 1);
-                    self.define_label(end);
-                  },
-                }
-              },
-              None => (),
-            }
+            self.reg(d).map(|rd| {
+              match (self.reg(s), self.reg(t)) {
+                (None, None) => {
+                  self.seti_u32(rd, 0);
+                },
+                (None, Some(rt)) => {
+                  self.cmpv_u32(zero, rt);
+                  self.jump_if_carry(set_rd);
+                  self.seti_u32(rd, 0);
+                  self.jump(end);
+                  self.define_label(set_rd);
+                  self.seti_u32(rd, 1);
+                  self.define_label(end);
+                },
+                (Some(rs), None) => {
+                  self.seti_u32(rd, 0);
+                },
+                (Some(rs), Some(rt)) => {
+                  self.cmpv_u32(rt, rs);
+                  self.jump_if_carry(set_rd);
+                  self.seti_u32(rd, 0);
+                  self.jump(end);
+                  self.define_label(set_rd);
+                  self.seti_u32(rd, 1);
+                  self.define_label(end);
+                },
+              }
+            });
           },
           _ => todo!("secondary field {:#x}", get_secondary_field(op)),
         }
@@ -138,7 +130,7 @@ impl DynaRec for Recompiler {
         let pc = initial_pc.wrapping_add(offset);
         let pc_hi_bits = pc & 0xf000_0000;
         let dest = pc_hi_bits.wrapping_add(shifted_imm26);
-        let jit_pc = self.reg(R3000::PC_IDX as u32).unwrap();
+        let jit_pc = self.reg(R3000::PC_IDX as u32).expect("");
         self.seti_u32(jit_pc, dest);
         self.set_carry();
         return true
@@ -154,25 +146,17 @@ impl DynaRec for Recompiler {
         let took_jump = self.new_label();
         let next_op = self.new_label();
         match (self.reg(s), self.reg(t)) {
-          (None, None) => {
-            self.set_zero();
-          },
-          (Some(rs), None) => {
-            self.testv_u32(rs, rs);
-          },
-          (None, Some(rt)) => {
-            self.testv_u32(rt, rt);
-          },
-          (Some(rs), Some(rt)) => {
-            self.cmpv_u32(rs, rt);
-          },
+          (None, None) => self.set_zero(),
+          (Some(rs), None) => self.testv_u32(rs, rs),
+          (None, Some(rt)) => self.testv_u32(rt, rt),
+          (Some(rs), Some(rt)) => self.cmpv_u32(rs, rt),
         }
         self.jump_if_not_zero(took_jump);
         self.clear_carry();
         self.jump(next_op);
 
         self.define_label(took_jump);
-        let jit_pc = self.reg(R3000::PC_IDX as u32).unwrap();
+        let jit_pc = self.reg(R3000::PC_IDX as u32).expect("");
         self.seti_u32(jit_pc, dest);
         self.set_carry();
 
@@ -193,18 +177,21 @@ impl DynaRec for Recompiler {
         let s = get_rs(op);
         let t = get_rt(op);
         let imm16 = get_imm16(op);
-        let rs = self.reg(s).unwrap();
-        let rt = self.reg(t).unwrap();
-        self.setv_u32(rt, rs);
-        self.ori_u32(rt, imm16);
+        self.reg(t).map(|rt| {
+          self.seti_u32(rt, imm16);
+          self.reg(s).map(|rs| {
+            self.orv_u32(rt, rs);
+          });
+        });
       },
       0x0F => {
         //LUI
         let t = get_rt(op);
-        let rt = self.reg(t).unwrap();
-        let imm16 = get_imm16(op);
-        let result = imm16 << 16;
-        self.seti_u32(rt, result);
+        self.reg(t).map(|rt| {
+          let imm16 = get_imm16(op);
+          let result = imm16 << 16;
+          self.seti_u32(rt, result);
+        });
       },
       0x10 => {
         //COP0
@@ -215,14 +202,14 @@ impl DynaRec for Recompiler {
             let d = get_rd(op);
             let zero = self.new_u32();
             self.seti_u32(zero, 0);
-            let rd = self.new_u64();
-            self.load_ptr(rd, Block::COP0_REG_POS);
+            let cop0_rd = self.new_u64();
+            self.load_ptr(cop0_rd, Block::COP0_REG_POS);
             match self.reg(t) {
               Some(rt) => {
-                self.index_mut_u32(rd, rt, 0);
+                self.index_mut_u32(cop0_rd, rt, 0);
               },
               None => {
-                self.index_mut_u32(rd, zero, 0);
+                self.index_mut_u32(cop0_rd, zero, 0);
               },
             }
           },
@@ -326,12 +313,13 @@ impl DynaRec for Recompiler {
     let imm16 = get_imm16(op).half_sign_extended();
     self.clear_carry();
     self.reg(t).map(|rt| {
-      match self.reg(s) {
-        Some(rs) => {
-          self.setv_u32(rt, rs);
-          self.addi_u32(rt, imm16 as i32);
-        },
-        None => self.seti_u32(rt, imm16),
+      if t == s {
+        self.addi_u32(rt, imm16 as i32);
+      } else {
+        self.seti_u32(rt, imm16);
+        self.reg(s).map(|rs| {
+          self.addv_u32(rt, rs);
+        });
       }
     });
   }

@@ -35,22 +35,13 @@ impl X64JIT {
       let maybe_block = self.blocks.get(&address);
       match maybe_block {
         Some(block) => {
-          if logging {
-            println!("{:#x}", address);
-          };
           let t0 = Instant::now();
           block.function.run();
-          //for &i in &[1,8] {
-          //  println!("{:#x}", self.console.r3000.nth_reg(i));
-          //}
-          println!("{:#x}", self.console.r3000.pc());
-          //assert_eq!(self.console.r3000.pc(), 0xbfc0_0150);
-          //let stubs = block.stubs();
-            match self.console.gpu.exec_next_gp0_command() {
-              Some(object) => self.console.screen.draw(object),
-              None => (),
-            }
-            self.console.cd.exec_command();
+          match self.console.gpu.exec_next_gp0_command() {
+            Some(object) => self.console.screen.draw(object),
+            None => (),
+          }
+          self.console.cd.exec_command();
           refresh_timer -= block.nominal_len() as i64;
           if refresh_timer < 0 {
             self.console.screen.refresh_window();
