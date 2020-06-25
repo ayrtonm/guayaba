@@ -6,7 +6,6 @@ use crate::jit::insn::InsnRegisters;
 use crate::console::Console;
 use crate::console::r3000::R3000;
 use crate::jit::x64_jit::dynarec::DynaRec;
-use crate::common::*;
 
 pub struct Block {
   pub function: JITFn,
@@ -90,7 +89,7 @@ impl Block {
     rc.prepare_for_exit();
     rc.define_label(end);
     let jitfn = rc.compile().unwrap();
-    println!("compiled {} bytes", jitfn.size());
+    println!("recompiled {} instructions into {} bytes", tagged_opcodes.len(), jitfn.size());
     Ok(jitfn)
   }
 }

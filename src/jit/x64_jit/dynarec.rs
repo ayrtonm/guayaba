@@ -1,5 +1,4 @@
 use jam::recompiler::Recompiler;
-use jam::Label;
 use crate::register::BitTwiddle;
 use crate::console::r3000::R3000;
 use crate::jit::insn::Insn;
@@ -51,6 +50,22 @@ impl DynaRec for Recompiler {
                 None => self.seti_u32(rd, 0),
               }
             });
+          },
+          0x08 => {
+            //JR
+            let jit_pc = self.reg(R3000::PC_IDX as u32).expect("");
+            let s = get_rs(op);
+            //FIXME: handle case where rs is misaligned
+            match self.reg(s) {
+              Some(rs) => {
+                self.setv_u32(jit_pc, rs);
+              },
+              None => {
+                self.seti_u32(jit_pc, 0);
+              },
+            }
+            self.set_carry();
+            return true
           },
           0x21 => {
             //ADDU
@@ -230,17 +245,19 @@ impl DynaRec for Recompiler {
             //MTCn
             let t = get_rt(op);
             let d = get_rd(op);
-            let zero = self.new_u32();
-            self.seti_u32(zero, 0);
-            let cop0_rd = self.new_u64();
-            self.load_ptr(cop0_rd, Block::COP0_REG_POS);
-            match self.reg(t) {
-              Some(rt) => {
-                self.index_mut_u32(cop0_rd, rt, 0);
-              },
-              None => {
-                self.index_mut_u32(cop0_rd, zero, 0);
-              },
+            if d == 12 || d == 13 || d == 14 {
+              let zero = self.new_u32();
+              self.seti_u32(zero, 0);
+              let cop0_rd = self.new_u64();
+              self.load_ptr(cop0_rd, Block::COP0_REG_POS);
+              match self.reg(t) {
+                Some(rt) => {
+                  self.index_mut_u32(cop0_rd, rt, (d - 12) as i32);
+                },
+                None => {
+                  self.index_mut_u32(cop0_rd, zero, (d - 12) as i32);
+                },
+              }
             }
           },
           _ => todo!("COP0 {:#x}", get_rs(op)),
