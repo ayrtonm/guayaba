@@ -10,7 +10,8 @@ pub trait DynaRec {
   fn emit_load(&mut self, op: u32, function_ptr: usize);
   fn emit_store(&mut self, op: u32, function_ptr: usize);
   fn emit_addi(&mut self, op: u32);
-  fn jump_imm26(&mut self, insn: &Insn, initial_pc: u32) -> bool;
+  fn emit_jump_imm26(&mut self, insn: &Insn, initial_pc: u32) -> bool;
+  fn emit_branch_equal(&mut self, insn: &Insn, initial_pc: u32, invert: bool) -> bool;
 }
 
 impl DynaRec for Recompiler {
@@ -156,42 +157,22 @@ impl DynaRec for Recompiler {
       },
       0x02 => {
         //J
-        return self.jump_imm26(insn, initial_pc);
+        return self.emit_jump_imm26(insn, initial_pc);
       },
       0x03 => {
         //JAL
         let ret = initial_pc.wrapping_add(offset).wrapping_add(4);
         let ra = self.reg(R3000::RA_IDX as u32).expect("");
         self.seti_u32(ra, ret);
-        return self.jump_imm26(insn, initial_pc);
+        return self.emit_jump_imm26(insn, initial_pc);
+      },
+      0x04 => {
+        //BEQ
+        return self.emit_branch_equal(&insn, initial_pc, false);
       },
       0x05 => {
         //BNE
-        let imm16 = get_imm16(op);
-        let inc = ((imm16.half_sign_extended() as i32) << 2) as u32;
-        let pc = initial_pc.wrapping_add(offset);
-        let dest = pc.wrapping_add(inc);
-        let t = get_rt(op);
-        let s = get_rs(op);
-        let took_jump = self.new_label();
-        let next_op = self.new_label();
-        match (self.reg(s), self.reg(t)) {
-          (None, None) => self.set_zero(),
-          (Some(rs), None) => self.testv_u32(rs, rs),
-          (None, Some(rt)) => self.testv_u32(rt, rt),
-          (Some(rs), Some(rt)) => self.cmpv_u32(rs, rt),
-        }
-        self.jump_if_not_zero(took_jump);
-        self.clear_carry();
-        self.jump(next_op);
-
-        self.define_label(took_jump);
-        let jit_pc = self.reg(R3000::PC_IDX as u32).expect("");
-        self.seti_u32(jit_pc, dest);
-        self.set_carry();
-
-        self.define_label(next_op);
-        return true
+        return self.emit_branch_equal(&insn, initial_pc, true);
       },
       0x08 => {
         //ADDI
@@ -223,10 +204,14 @@ impl DynaRec for Recompiler {
         let t = get_rt(op);
         let imm16 = get_imm16(op);
         self.reg(t).map(|rt| {
-          self.seti_u32(rt, imm16);
-          self.reg(s).map(|rs| {
-            self.orv_u32(rt, rs);
-          });
+          if s == t {
+            self.ori_u32(rt, imm16);
+          } else {
+            self.seti_u32(rt, imm16);
+            self.reg(s).map(|rs| {
+              self.orv_u32(rt, rs);
+            });
+          }
         });
       },
       0x0F => {
@@ -263,6 +248,14 @@ impl DynaRec for Recompiler {
           _ => todo!("COP0 {:#x}", get_rs(op)),
         }
       },
+      0x20 => {
+        //LB
+        self.emit_load(op, Block::READ_BYTE_POS);
+      },
+      0x21 => {
+        //LH
+        self.emit_load(op, Block::READ_HALF_POS);
+      },
       0x23 => {
         //LW
         self.emit_load(op, Block::READ_WORD_POS);
@@ -285,40 +278,33 @@ impl DynaRec for Recompiler {
   }
   fn emit_load(&mut self, op: u32, function_ptr: usize) {
     let t = get_rt(op);
-    match self.reg(t) {
-      Some(rt) => {
-        let s = get_rs(op);
-        let imm16 = get_imm16(op);
-        let cop0r12 = self.new_u32();
+    self.reg(t).map(|rt| {
+      let s = get_rs(op);
+      let imm16 = get_imm16(op);
 
-        let label = self.new_label();
-        let console = self.new_u64();
-        let address = self.new_u32();
+      let end = self.new_label();
+      let console = self.new_u64();
+      let address = self.new_u32();
 
-        self.load_ptr(console, Block::CONSOLE_POS);
-        match self.reg(s) {
-          Some(rs) => {
-            self.setv_u32(address, rs);
-          },
-          None => {
-            self.seti_u32(address, 0);
-          },
-        }
-        self.addi_u32(address, imm16 as i32);
+      self.load_ptr(console, Block::CONSOLE_POS);
+      match self.reg(s) {
+        Some(rs) => {
+          self.setv_u32(address, rs);
+        },
+        None => {
+          self.seti_u32(address, 0);
+        },
+      }
+      self.addi_u32(address, imm16 as i32);
 
-        self.set_arg1(console);
-        self.set_arg2(address);
-        let delayed_write = self.new_delayed_write(rt);
-        self.set_ret(delayed_write);
-        self.load_ptr(cop0r12, Block::COP0_REG_POS);
-        self.deref_u32(cop0r12);
-        self.bti_u32(cop0r12, 16);
-        self.jump_if_not_carry(label);
-        self.call_ptr(function_ptr);
-        self.define_label(label);
-      },
-      None => (),
-    }
+      self.set_arg1(console);
+      self.set_arg2(address);
+      let delayed_write = self.new_delayed_write(rt);
+      self.set_ret(delayed_write);
+
+      self.call_ptr_with_ret(function_ptr);
+      self.define_label(end);
+    });
   }
   fn emit_store(&mut self, op: u32, function_ptr: usize) {
     let s = get_rs(op);
@@ -354,7 +340,7 @@ impl DynaRec for Recompiler {
     self.load_ptr(cop0r12, Block::COP0_REG_POS);
     self.deref_u32(cop0r12);
     self.bti_u32(cop0r12, 16);
-    self.jump_if_not_carry(label);
+    self.jump_if_carry(label);
     self.call_ptr(function_ptr);
     self.define_label(label);
   }
@@ -374,7 +360,7 @@ impl DynaRec for Recompiler {
       }
     });
   }
-  fn jump_imm26(&mut self, insn: &Insn, initial_pc: u32) -> bool {
+  fn emit_jump_imm26(&mut self, insn: &Insn, initial_pc: u32) -> bool {
     let op = insn.op();
     let offset = insn.offset();
     let imm26 = get_imm26(op);
@@ -385,6 +371,39 @@ impl DynaRec for Recompiler {
     let jit_pc = self.reg(R3000::PC_IDX as u32).expect("");
     self.seti_u32(jit_pc, dest);
     self.set_carry();
+    true
+  }
+  fn emit_branch_equal(&mut self, insn: &Insn, initial_pc: u32, invert: bool) -> bool {
+    let op = insn.op();
+    let offset = insn.offset();
+    let imm16 = get_imm16(op);
+    let inc = ((imm16.half_sign_extended() as i32) << 2) as u32;
+    let pc = initial_pc.wrapping_add(offset);
+    let dest = pc.wrapping_add(inc);
+    let t = get_rt(op);
+    let s = get_rs(op);
+    let took_jump = self.new_label();
+    let next_op = self.new_label();
+    match (self.reg(s), self.reg(t)) {
+      (None, None) => self.set_zero(),
+      (Some(rs), None) => self.testv_u32(rs, rs),
+      (None, Some(rt)) => self.testv_u32(rt, rt),
+      (Some(rs), Some(rt)) => self.cmpv_u32(rs, rt),
+    }
+    if invert {
+      self.jump_if_not_zero(took_jump);
+    } else {
+      self.jump_if_zero(took_jump);
+    }
+    self.clear_carry();
+    self.jump(next_op);
+
+    self.define_label(took_jump);
+    let jit_pc = self.reg(R3000::PC_IDX as u32).expect("");
+    self.seti_u32(jit_pc, dest);
+    self.set_carry();
+
+    self.define_label(next_op);
     true
   }
 }

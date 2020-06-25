@@ -89,7 +89,7 @@ impl Block {
     rc.prepare_for_exit();
     rc.define_label(end);
     let jitfn = rc.compile().unwrap();
-    println!("recompiled {} instructions into {} bytes", tagged_opcodes.len(), jitfn.size());
+    println!("recompiled {} instructions starting at {:#x} into {} bytes", tagged_opcodes.len(), initial_pc, jitfn.size());
     Ok(jitfn)
   }
 }
