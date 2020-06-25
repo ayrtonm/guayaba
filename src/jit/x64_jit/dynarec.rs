@@ -91,6 +91,29 @@ impl DynaRec for Recompiler {
               }
             });
           },
+          0x24 => {
+            //AND
+            let s = get_rs(op);
+            let t = get_rt(op);
+            let d = get_rd(op);
+            self.reg(d).map(|rd| {
+              match (self.reg(s), self.reg(t)) {
+                (None, None) => {
+                  self.seti_u32(rd, 0);
+                },
+                (None, Some(rt)) => {
+                  self.seti_u32(rd, 0);
+                },
+                (Some(rs), None) => {
+                  self.seti_u32(rd, 0);
+                },
+                (Some(rs), Some(rt)) => {
+                  self.setv_u32(rd, rs);
+                  self.andv_u32(rd, rt);
+                },
+              }
+            });
+          },
           0x25 => {
             //OR
             let s = get_rs(op);
@@ -228,7 +251,17 @@ impl DynaRec for Recompiler {
         match get_rs(op) {
           0x00 => {
             //MFC0
-            todo!("MFC0");
+            let t = get_rt(op);
+            let d = get_rd(op);
+            if d == 12 || d == 13 || d == 14 {
+              self.reg(t).map(|rt| {
+                let delayed_write = self.new_delayed_write(rt);
+                let cop0_rd = self.new_u64();
+                self.load_ptr(cop0_rd, Block::COP0_REG_POS);
+                self.index_u32(cop0_rd, (d - 12) as i32);
+                self.setv_u32(delayed_write, cop0_rd);
+              });
+            }
           },
           0x04 => {
             //MTC0
@@ -388,6 +421,9 @@ impl DynaRec for Recompiler {
     let s = get_rs(op);
     let took_jump = self.new_label();
     let next_op = self.new_label();
+    //let debug_value = self.new_u32();
+    //self.seti_u32(debug_value, initial_pc.wrapping_add(offset));
+    //self.call_ptr(Block::DEBUG_POS);
     match (self.reg(s), self.reg(t)) {
       (None, None) => self.set_zero(),
       (Some(rs), None) => self.testv_u32(rs, rs),
