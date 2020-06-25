@@ -226,8 +226,12 @@ impl DynaRec for Recompiler {
       0x10 => {
         //COP0
         match get_rs(op) {
+          0x00 => {
+            //MFC0
+            todo!("MFC0");
+          },
           0x04 => {
-            //MTCn
+            //MTC0
             let t = get_rt(op);
             let d = get_rd(op);
             if d == 12 || d == 13 || d == 14 {
@@ -280,7 +284,7 @@ impl DynaRec for Recompiler {
     let t = get_rt(op);
     self.reg(t).map(|rt| {
       let s = get_rs(op);
-      let imm16 = get_imm16(op);
+      let imm16 = get_imm16(op).half_sign_extended();
 
       let end = self.new_label();
       let console = self.new_u64();
@@ -309,7 +313,7 @@ impl DynaRec for Recompiler {
   fn emit_store(&mut self, op: u32, function_ptr: usize) {
     let s = get_rs(op);
     let t = get_rt(op);
-    let imm16 = get_imm16(op);
+    let imm16 = get_imm16(op).half_sign_extended();
     let cop0r12 = self.new_u32();
 
     let label = self.new_label();
