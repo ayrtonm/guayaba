@@ -114,6 +114,25 @@ impl DynaRec for Recompiler {
               }
             });
           },
+          0x23 => {
+            //SUBU
+            let s = get_rs(op);
+            let t = get_rt(op);
+            let d = get_rd(op);
+            self.reg(d).map(|rd| {
+              match self.reg(s) {
+                Some(rs) => {
+                  self.setv_u32(rd, rs);
+                },
+                None => {
+                  self.seti_u32(rd, 0);
+                },
+              }
+              self.reg(t).map(|rt| {
+                self.subv_u32(rd, rt);
+              });
+            });
+          },
           0x24 => {
             //AND
             let s = get_rs(op);
