@@ -11,8 +11,10 @@ pub trait DynaRec {
   fn emit_store(&mut self, op: u32, function_ptr: usize);
   fn emit_addi(&mut self, op: u32);
   fn emit_jump_imm26(&mut self, insn: &Insn, initial_pc: u32) -> bool;
+  fn emit_jump_reg(&mut self, insn: &Insn, initial_pc: u32) -> bool;
   fn emit_branch_equal(&mut self, insn: &Insn, initial_pc: u32, invert: bool) -> bool;
-  fn emit_branch_greater(&mut self, insn: &Insn, initial_pc: u32, invert: bool) -> bool;
+  fn emit_branch_gtz(&mut self, insn: &Insn, initial_pc: u32, invert: bool) -> bool;
+  fn emit_branch_gez(&mut self, insn: &Insn, initial_pc: u32, invert: bool) -> bool;
 }
 
 impl DynaRec for Recompiler {
@@ -55,19 +57,14 @@ impl DynaRec for Recompiler {
           },
           0x08 => {
             //JR
-            let jit_pc = self.reg(R3000::PC_IDX as u32).expect("");
-            let s = get_rs(op);
-            //FIXME: handle case where rs is misaligned
-            match self.reg(s) {
-              Some(rs) => {
-                self.setv_u32(jit_pc, rs);
-              },
-              None => {
-                self.seti_u32(jit_pc, 0);
-              },
-            }
-            self.set_carry();
-            return true
+            return self.emit_jump_reg(insn, initial_pc);
+          },
+          0x09 => {
+            //JALR
+            let ret = initial_pc.wrapping_add(offset).wrapping_add(4);
+            let ra = self.reg(R3000::RA_IDX as u32).expect("");
+            self.seti_u32(ra, ret);
+            return self.emit_jump_reg(insn, initial_pc);
           },
           0x20 => {
             //ADD
@@ -204,6 +201,33 @@ impl DynaRec for Recompiler {
           _ => todo!("secondary field {:#x}", get_secondary_field(op)),
         }
       },
+      0x01 => {
+        //BcondZ
+        match get_rt(op) {
+          0x00 => {
+            //BLTZ
+            self.emit_branch_gez(insn, initial_pc, true);
+          },
+          0x01 => {
+            //BGEZ
+            self.emit_branch_gez(insn, initial_pc, false);
+          },
+          //0x80 => {
+          //  //BLTZAL
+          //  log!("> BLTZAL");
+          //  call!(rs < 0)
+          //},
+          //0x81 => {
+          //  //BGEZAL
+          //  log!("> BGEZAL");
+          //  call!(rs >= 0)
+          //},
+          _ => {
+            //invalid opcode
+            unreachable!("BcondZ {:#x}", get_rt(op))
+          },
+        }
+      },
       0x02 => {
         //J
         return self.emit_jump_imm26(insn, initial_pc);
@@ -217,19 +241,19 @@ impl DynaRec for Recompiler {
       },
       0x04 => {
         //BEQ
-        return self.emit_branch_equal(&insn, initial_pc, false);
+        return self.emit_branch_equal(insn, initial_pc, false);
       },
       0x05 => {
         //BNE
-        return self.emit_branch_equal(&insn, initial_pc, true);
+        return self.emit_branch_equal(insn, initial_pc, true);
       },
       0x06 => {
         //BLEZ
-        return self.emit_branch_greater(&insn, initial_pc, true);
+        return self.emit_branch_gtz(insn, initial_pc, true);
       },
       0x07 => {
         //BGTZ
-        return self.emit_branch_greater(&insn, initial_pc, false);
+        return self.emit_branch_gtz(insn, initial_pc, false);
       },
       0x08 => {
         //ADDI
@@ -321,15 +345,23 @@ impl DynaRec for Recompiler {
       },
       0x20 => {
         //LB
-        self.emit_load(op, Block::READ_BYTE_POS);
+        self.emit_load(op, Block::READ_BYTE_SIGN_EXTENDED_POS);
       },
       0x21 => {
         //LH
-        self.emit_load(op, Block::READ_HALF_POS);
+        self.emit_load(op, Block::READ_HALF_SIGN_EXTENDED_POS);
       },
       0x23 => {
         //LW
         self.emit_load(op, Block::READ_WORD_POS);
+      },
+      0x24 => {
+        //LBU
+        self.emit_load(op, Block::READ_BYTE_POS);
+      },
+      0x25 => {
+        //LHU
+        self.emit_load(op, Block::READ_HALF_POS);
       },
       0x28 => {
         //SB
@@ -444,6 +476,22 @@ impl DynaRec for Recompiler {
     self.set_carry();
     true
   }
+  fn emit_jump_reg(&mut self, insn: &Insn, initial_pc: u32) -> bool {
+    let op = insn.op();
+    let jit_pc = self.reg(R3000::PC_IDX as u32).expect("");
+    let s = get_rs(op);
+    //FIXME: handle case where rs is misaligned
+    match self.reg(s) {
+      Some(rs) => {
+        self.setv_u32(jit_pc, rs);
+      },
+      None => {
+        self.seti_u32(jit_pc, 0);
+      },
+    }
+    self.set_carry();
+    true
+  }
   fn emit_branch_equal(&mut self, insn: &Insn, initial_pc: u32, invert: bool) -> bool {
     let op = insn.op();
     let offset = insn.offset();
@@ -477,7 +525,7 @@ impl DynaRec for Recompiler {
     self.define_label(next_op);
     true
   }
-  fn emit_branch_greater(&mut self, insn: &Insn, initial_pc: u32, invert: bool) -> bool {
+  fn emit_branch_gtz(&mut self, insn: &Insn, initial_pc: u32, invert: bool) -> bool {
     let op = insn.op();
     let offset = insn.offset();
     let imm16 = get_imm16(op);
@@ -502,6 +550,36 @@ impl DynaRec for Recompiler {
       self.jump_if_signed(skip_jump);
     }
     self.define_label(take_jump);
+    self.seti_u32(jit_pc, dest);
+    self.set_carry();
+    self.jump(next_op);
+
+    self.define_label(skip_jump);
+    self.clear_carry();
+
+    self.define_label(next_op);
+    true
+  }
+  fn emit_branch_gez(&mut self, insn: &Insn, initial_pc: u32, invert: bool) -> bool {
+    let op = insn.op();
+    let offset = insn.offset();
+    let imm16 = get_imm16(op);
+    let inc = ((imm16.half_sign_extended() as i32) << 2) as u32;
+    let pc = initial_pc.wrapping_add(offset);
+    let dest = pc.wrapping_add(inc);
+    let s = get_rs(op);
+    let skip_jump = self.new_label();
+    let next_op = self.new_label();
+    let jit_pc = self.reg(R3000::PC_IDX as u32).expect("");
+    match self.reg(s) {
+      None => self.clear_signed(),
+      Some(rs) => self.testv_u32(rs, rs),
+    }
+    if invert {
+      self.jump_if_not_signed(skip_jump);
+    } else {
+      self.jump_if_signed(skip_jump);
+    }
     self.seti_u32(jit_pc, dest);
     self.set_carry();
     self.jump(next_op);
