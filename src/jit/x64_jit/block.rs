@@ -73,6 +73,12 @@ impl Block {
     let end = rc.new_long_label();
     for insn in tagged_opcodes {
       let delay_slot = delay_slot_next;
+
+      let pcc = rc.new_u32();
+      rc.seti_u32(pcc, initial_pc.wrapping_add(insn.offset()).wrapping_sub(4));
+      rc.set_arg1(pcc);
+      rc.call_ptr(Block::DEBUG_POS);
+
       delay_slot_next = rc.emit_insn(insn, initial_pc);
       rc.process_delayed_write();
       if delay_slot_next {
@@ -89,7 +95,8 @@ impl Block {
     rc.prepare_for_exit();
     rc.define_label(end);
     let jitfn = rc.compile().unwrap();
-    //println!("recompiled {} instructions starting at {:#x} into {} bytes", tagged_opcodes.len(), initial_pc, jitfn.size());
+    /*println!("recompiled {} instructions starting at {:#x} into {} bytes",
+               tagged_opcodes.len(), initial_pc, jitfn.size());*/
     Ok(jitfn)
   }
 }

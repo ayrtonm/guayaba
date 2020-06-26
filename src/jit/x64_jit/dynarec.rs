@@ -68,6 +68,31 @@ impl DynaRec for Recompiler {
             self.set_carry();
             return true
           },
+          0x20 => {
+            //ADD
+            //FIXME: implement overflow trap
+            let s = get_rs(op);
+            let t = get_rt(op);
+            let d = get_rd(op);
+            self.reg(d).map(|rd| {
+              match (self.reg(s), self.reg(t)) {
+                (None, None) => {
+                  self.seti_u32(rd, 0);
+                },
+                (None, Some(rt)) => {
+                  self.setv_u32(rd, rt);
+                },
+                (Some(rs), None) => {
+                  self.setv_u32(rd, rs);
+                },
+                (Some(rs), Some(rt)) => {
+                  self.setv_u32(rd, rs);
+                  self.addv_u32(rd, rt);
+                },
+              }
+            });
+            //return true
+          },
           0x21 => {
             //ADDU
             let s = get_rs(op);
@@ -200,7 +225,7 @@ impl DynaRec for Recompiler {
       0x08 => {
         //ADDI
         self.emit_addi(op);
-        return true
+        //return true
       },
       0x09 => {
         //ADDIU
@@ -349,7 +374,7 @@ impl DynaRec for Recompiler {
     let imm16 = get_imm16(op).half_sign_extended();
     let cop0r12 = self.new_u32();
 
-    let label = self.new_label();
+    let end = self.new_label();
     let console = self.new_u64();
     let address = self.new_u32();
 
@@ -377,9 +402,9 @@ impl DynaRec for Recompiler {
     self.load_ptr(cop0r12, Block::COP0_REG_POS);
     self.deref_u32(cop0r12);
     self.bti_u32(cop0r12, 16);
-    self.jump_if_carry(label);
+    self.jump_if_carry(end);
     self.call_ptr(function_ptr);
-    self.define_label(label);
+    self.define_label(end);
   }
   fn emit_addi(&mut self, op: u32) {
     let s = get_rs(op);
@@ -421,9 +446,7 @@ impl DynaRec for Recompiler {
     let s = get_rs(op);
     let took_jump = self.new_label();
     let next_op = self.new_label();
-    //let debug_value = self.new_u32();
-    //self.seti_u32(debug_value, initial_pc.wrapping_add(offset));
-    //self.call_ptr(Block::DEBUG_POS);
+    let jit_pc = self.reg(R3000::PC_IDX as u32).expect("");
     match (self.reg(s), self.reg(t)) {
       (None, None) => self.set_zero(),
       (Some(rs), None) => self.testv_u32(rs, rs),
@@ -439,7 +462,6 @@ impl DynaRec for Recompiler {
     self.jump(next_op);
 
     self.define_label(took_jump);
-    let jit_pc = self.reg(R3000::PC_IDX as u32).expect("");
     self.seti_u32(jit_pc, dest);
     self.set_carry();
 

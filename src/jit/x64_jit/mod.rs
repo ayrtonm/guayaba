@@ -83,8 +83,6 @@ impl X64JIT {
     let initial_pc = address;
     let initial_phys_pc = Console::physical(initial_pc);
     let mut op = self.console.read_word(address);
-    //start with an offset of 4 since pc is incremented before the next instruction is executed
-    //this makes sure that pc has the correct value when a jump is taken in a branch delay slot
     let mut counter = 4;
     let mut insn = Insn::new(op, counter);
     let mut tagged_opcodes = Vec::new();

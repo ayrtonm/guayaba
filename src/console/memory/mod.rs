@@ -256,22 +256,22 @@ impl Memory {
     read_memory!(address, read_byte, self)
   }
   pub fn read_half(&self, address: u32) -> MemResponse {
-    assert_eq!(address & 0x0000_0001, 0);
+    assert_eq!(address & 0x0000_0001, 0, "attempted to read from unaligned address {:#x}", address);
     read_memory!(address, read_half, self)
   }
   pub fn read_word(&self, address: u32) -> MemResponse {
-    assert_eq!(address & 0x0000_0003, 0);
+    assert_eq!(address & 0x0000_0003, 0, "attempted to read from unaligned address {:#x}", address);
     read_memory!(address, read_word, self)
   }
   pub fn write_byte(&mut self, address: u32, value: u32) -> MemAction {
     write_memory!(address, value, write_byte, self)
   }
   pub fn write_half(&mut self, address: u32, value: u32) -> MemAction {
-    assert_eq!(address & 0x0000_0001, 0);
+    assert_eq!(address & 0x0000_0001, 0, "attempted to write to unaligned address {:#x}", address);
     write_memory!(address, value, write_half, self)
   }
   pub fn write_word(&mut self, address: u32, value: u32) -> MemAction  {
-    assert_eq!(address & 0x0000_0003, 0);
+    assert_eq!(address & 0x0000_0003, 0, "attempted to write to unaligned address {:#x}", address);
     write_memory!(address, value, write_word, self)
   }
 }
