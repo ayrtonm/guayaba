@@ -1,4 +1,5 @@
 use crate::common::*;
+use crate::console::r3000::R3000;
 
 //this tags each opcode with its input and output registers
 pub struct Insn {
@@ -33,7 +34,7 @@ impl Insn {
             },
             0x09 => {
               //JALR
-              (vec![get_rs(op)], None, Some(get_rd(op)))
+              (vec![get_rs(op)], Some(R3000::RA_IDX), Some(get_rd(op)))
             },
             0x0C => {
               //SYSCALL
@@ -74,7 +75,7 @@ impl Insn {
             },
             0x80 | 0x81 => {
               //BLTZAL, BGEZAL
-              (vec![get_rs(op)], None, Some(31))
+              (vec![get_rs(op)], Some(R3000::RA_IDX), None)
             },
             _ => {
               unreachable!("Invalid opcode {:#x}", op);
@@ -87,7 +88,7 @@ impl Insn {
         },
         0x03 => {
           //JAL
-          (vec![], None, Some(31))
+          (vec![], Some(R3000::RA_IDX), None)
         },
         0x04..=0x07 => {
           //BEQ, BNE, BLEZ, BGTZ
