@@ -12,6 +12,7 @@ pub trait DynaRec {
   fn emit_addi(&mut self, op: u32);
   fn emit_jump_imm26(&mut self, insn: &Insn, initial_pc: u32) -> bool;
   fn emit_branch_equal(&mut self, insn: &Insn, initial_pc: u32, invert: bool) -> bool;
+  fn emit_branch_greater(&mut self, insn: &Insn, initial_pc: u32, invert: bool) -> bool;
 }
 
 impl DynaRec for Recompiler {
@@ -221,6 +222,14 @@ impl DynaRec for Recompiler {
       0x05 => {
         //BNE
         return self.emit_branch_equal(&insn, initial_pc, true);
+      },
+      0x06 => {
+        //BLEZ
+        return self.emit_branch_greater(&insn, initial_pc, true);
+      },
+      0x07 => {
+        //BGTZ
+        return self.emit_branch_greater(&insn, initial_pc, false);
       },
       0x08 => {
         //ADDI
@@ -444,7 +453,7 @@ impl DynaRec for Recompiler {
     let dest = pc.wrapping_add(inc);
     let t = get_rt(op);
     let s = get_rs(op);
-    let took_jump = self.new_label();
+    let take_jump = self.new_label();
     let next_op = self.new_label();
     let jit_pc = self.reg(R3000::PC_IDX as u32).expect("");
     match (self.reg(s), self.reg(t)) {
@@ -454,16 +463,51 @@ impl DynaRec for Recompiler {
       (Some(rs), Some(rt)) => self.cmpv_u32(rs, rt),
     }
     if invert {
-      self.jump_if_not_zero(took_jump);
+      self.jump_if_not_zero(take_jump);
     } else {
-      self.jump_if_zero(took_jump);
+      self.jump_if_zero(take_jump);
     }
     self.clear_carry();
     self.jump(next_op);
 
-    self.define_label(took_jump);
+    self.define_label(take_jump);
     self.seti_u32(jit_pc, dest);
     self.set_carry();
+
+    self.define_label(next_op);
+    true
+  }
+  fn emit_branch_greater(&mut self, insn: &Insn, initial_pc: u32, invert: bool) -> bool {
+    let op = insn.op();
+    let offset = insn.offset();
+    let imm16 = get_imm16(op);
+    let inc = ((imm16.half_sign_extended() as i32) << 2) as u32;
+    let pc = initial_pc.wrapping_add(offset);
+    let dest = pc.wrapping_add(inc);
+    let s = get_rs(op);
+    let skip_jump = self.new_label();
+    let take_jump = self.new_label();
+    let next_op = self.new_label();
+    let jit_pc = self.reg(R3000::PC_IDX as u32).expect("");
+    match self.reg(s) {
+      None => self.clear_signed(),
+      Some(rs) => self.testv_u32(rs, rs),
+    }
+    if invert {
+      self.jump_if_zero(take_jump);
+      self.jump_if_signed(take_jump);
+      self.jump(skip_jump);
+    } else {
+      self.jump_if_zero(skip_jump);
+      self.jump_if_signed(skip_jump);
+    }
+    self.define_label(take_jump);
+    self.seti_u32(jit_pc, dest);
+    self.set_carry();
+    self.jump(next_op);
+
+    self.define_label(skip_jump);
+    self.clear_carry();
 
     self.define_label(next_op);
     true
