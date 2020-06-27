@@ -3,6 +3,7 @@ use std::collections::{VecDeque, HashSet};
 use crate::register::BitTwiddle;
 use r3000::R3000;
 use cop0::Cop0;
+use cop0::Cop0Exception;
 use memory::{Memory, MemAction, MemResponse};
 use cd::CD;
 use gpu::GPU;
@@ -214,6 +215,8 @@ impl Console {
     let idx = address.upper_bits(3) as usize;
     address & PHYS_MASK[idx]
   }
-
+  pub fn generate_exception(&mut self, kind: Cop0Exception, current_pc: u32) -> u32 {
+    self.cop0.generate_exception(kind, current_pc)
+  }
 }
 

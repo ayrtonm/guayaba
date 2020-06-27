@@ -31,8 +31,8 @@ impl R3000 {
   const ZERO: u32 = 0;
   pub const RA_IDX: u32 = 31;
   pub const PC_IDX: usize = 32;
-  const HI_IDX: usize = 33;
-  const LO_IDX: usize = 34;
+  pub const HI_IDX: u32 = 33;
+  pub const LO_IDX: u32 = 34;
   pub fn new() -> Self {
     let mut registers = [0; 35];
     registers[R3000::PC_IDX] = 0xbfc0_0000;
@@ -84,16 +84,16 @@ impl R3000 {
     &mut self.registers[R3000::PC_IDX]
   }
   pub fn lo(&self) -> u32 {
-    self.registers[R3000::LO_IDX]
+    self.registers[R3000::LO_IDX as usize]
   }
   pub fn lo_mut(&mut self) -> &mut u32 {
-    &mut self.registers[R3000::LO_IDX]
+    &mut self.registers[R3000::LO_IDX as usize]
   }
   pub fn hi(&self) -> u32 {
-    self.registers[R3000::HI_IDX]
+    self.registers[R3000::HI_IDX as usize]
   }
   pub fn hi_mut(&mut self) -> &mut u32 {
-    &mut self.registers[R3000::HI_IDX]
+    &mut self.registers[R3000::HI_IDX as usize]
   }
   pub fn flush_write_cache(&mut self, operations: &mut VecDeque<DelayedWrite>,
                            modified_register: &mut Option<Name>) {

@@ -3,6 +3,7 @@ use super::Name;
 use super::MaybeSet;
 
 #[derive(Debug)]
+#[repr(u32)]
 pub enum Cop0Exception {
   Interrupt,
   LoadAddress,

@@ -1,24 +1,26 @@
 use jam::recompiler::Recompiler;
 use crate::register::BitTwiddle;
 use crate::console::r3000::R3000;
+use crate::console::cop0::Cop0Exception;
 use crate::jit::insn::Insn;
 use crate::jit::x64_jit::Block;
+use crate::jit::x64_jit::block::NextOp;
 use crate::common::*;
 
 pub trait DynaRec {
-  fn emit_insn(&mut self, insn: &Insn, initial_pc: u32) -> bool;
+  fn emit_insn(&mut self, insn: &Insn, initial_pc: u32) -> NextOp;
   fn emit_load(&mut self, op: u32, function_ptr: usize);
   fn emit_store(&mut self, op: u32, function_ptr: usize);
   fn emit_addi(&mut self, op: u32);
-  fn emit_jump_imm26(&mut self, insn: &Insn, initial_pc: u32) -> bool;
-  fn emit_jump_reg(&mut self, insn: &Insn, initial_pc: u32) -> bool;
-  fn emit_branch_equal(&mut self, insn: &Insn, initial_pc: u32, invert: bool) -> bool;
-  fn emit_branch_gtz(&mut self, insn: &Insn, initial_pc: u32, invert: bool) -> bool;
-  fn emit_branch_gez(&mut self, insn: &Insn, initial_pc: u32, invert: bool) -> bool;
+  fn emit_jump_imm26(&mut self, insn: &Insn, initial_pc: u32) -> NextOp;
+  fn emit_jump_reg(&mut self, insn: &Insn, initial_pc: u32) -> NextOp;
+  fn emit_branch_equal(&mut self, insn: &Insn, initial_pc: u32, invert: bool) -> NextOp;
+  fn emit_branch_gtz(&mut self, insn: &Insn, initial_pc: u32, invert: bool) -> NextOp;
+  fn emit_branch_gez(&mut self, insn: &Insn, initial_pc: u32, invert: bool) -> NextOp;
 }
 
 impl DynaRec for Recompiler {
-  fn emit_insn(&mut self, insn: &Insn, initial_pc: u32) -> bool {
+  fn emit_insn(&mut self, insn: &Insn, initial_pc: u32) -> NextOp {
     let op = insn.op();
     let offset = insn.offset();
     match get_primary_field(op) {
@@ -35,6 +37,21 @@ impl DynaRec for Recompiler {
                 Some(rt) => {
                   self.setv_u32(rd, rt);
                   self.slli_u32(rd, imm5);
+                },
+                None => self.seti_u32(rd, 0),
+              }
+            });
+          },
+          0x02 => {
+            //SRL
+            let t = get_rt(op);
+            let d = get_rd(op);
+            let imm5 = get_imm5(op);
+            self.reg(d).map(|rd| {
+              match self.reg(t) {
+                Some(rt) => {
+                  self.setv_u32(rd, rt);
+                  self.srli_u32(rd, imm5);
                 },
                 None => self.seti_u32(rd, 0),
               }
@@ -65,6 +82,113 @@ impl DynaRec for Recompiler {
             let ra = self.reg(R3000::RA_IDX as u32).expect("");
             self.seti_u32(ra, ret);
             return self.emit_jump_reg(insn, initial_pc);
+          },
+          0x0C => {
+            //SYSCALL
+            let pc = self.reg(R3000::PC_IDX as u32).expect("");
+            let jit_pc = self.new_u32();
+            let exception = self.new_u32();
+            let console = self.new_u64();
+            self.load_ptr(console, Block::CONSOLE_POS);
+            self.seti_u32(jit_pc, initial_pc.wrapping_add(offset));
+            self.seti_u32(exception, Cop0Exception::Syscall as u32);
+
+            self.set_arg1(console);
+            self.set_arg2(exception);
+            self.set_arg3(jit_pc);
+            self.set_ret(pc);
+
+            self.call_ptr(Block::GEN_EXCEPTION);
+            return NextOp::Exit
+          },
+          0x0D => {
+            //BREAK
+            //TODO: I've never had to execute this in the BIOS
+            //so let's put trigger a SIGILL if we ever execute this
+            self.illegal_insn();
+          },
+          0x10 => {
+            //MFHI
+            let d = get_rd(op);
+            let hi = self.reg(R3000::HI_IDX as u32).expect("");
+            self.reg(d).map(|rd| {
+              self.setv_u32(rd, hi);
+            });
+          },
+          0x11 => {
+            //MTHI
+            let s = get_rs(op);
+            let hi = self.reg(R3000::HI_IDX as u32).expect("");
+            match self.reg(s) {
+              Some(rs) => self.setv_u32(hi, rs),
+              None => self.seti_u32(hi, 0),
+            }
+          },
+          0x12 => {
+            //MFLO
+            let d = get_rd(op);
+            let lo = self.reg(R3000::LO_IDX as u32).expect("");
+            self.reg(d).map(|rd| {
+              self.setv_u32(rd, lo);
+            });
+          },
+          0x13 => {
+            //MTLO
+            let s = get_rs(op);
+            let lo = self.reg(R3000::LO_IDX as u32).expect("");
+            match self.reg(s) {
+              Some(rs) => self.setv_u32(lo, rs),
+              None => self.seti_u32(lo, 0),
+            }
+          },
+          0x1A => {
+            //DIV
+            let s = get_rs(op);
+            let t = get_rt(op);
+            let hi = self.reg(R3000::HI_IDX as u32).expect("");
+            let lo = self.reg(R3000::LO_IDX as u32).expect("");
+            match (self.reg(s), self.reg(t)) {
+              (None, None) => {
+                self.seti_u32(hi, 0);
+                self.seti_u32(lo, (-1 as i32) as u32);
+              },
+              (None, Some(rt)) => {
+                self.seti_u32(hi, 0);
+                self.seti_u32(lo, 0);
+              },
+              (Some(rs), None) => {
+                self.setv_u32(hi, rs);
+                todo!("self.seti_u32(lo, 0);");
+              },
+              //FIXME: double check to see how x86 div handles -0x8000_0000 / -1
+              (Some(rs), Some(rt)) => {
+                self.divv_u32(rs, rt, lo, hi);
+              },
+            }
+          },
+          0x1B => {
+            //DIVU
+            let s = get_rs(op);
+            let t = get_rt(op);
+            let hi = self.reg(R3000::HI_IDX as u32).expect("");
+            let lo = self.reg(R3000::LO_IDX as u32).expect("");
+            match (self.reg(s), self.reg(t)) {
+              (None, None) => {
+                self.seti_u32(hi, 0);
+                self.seti_u32(lo, 0);
+              },
+              (None, Some(rt)) => {
+                self.seti_u32(hi, 0);
+                self.seti_u32(lo, 0);
+              },
+              (Some(rs), None) => {
+                self.setv_u32(hi, rs);
+                self.seti_u32(lo, 0);
+              },
+              (Some(rs), Some(rt)) => {
+                self.divuv_u32(rs, rt, lo, hi);
+              },
+            }
           },
           0x20 => {
             //ADD
@@ -179,6 +303,40 @@ impl DynaRec for Recompiler {
               }
             });
           },
+          0x2A => {
+            //SLT
+            let s = get_rs(op);
+            let t = get_rt(op);
+            let d = get_rd(op);
+            self.reg(d).map(|rd| {
+              let skip_set = self.new_label();
+              let end = self.new_label();
+              let zero = self.new_u32();
+              self.seti_u32(zero, 0);
+              match (self.reg(t), self.reg(s)) {
+                (None, None) => {
+                  self.jump(skip_set);
+                },
+                (Some(rt), None) => {
+                  self.cmpv_u32(rt, zero);
+                  self.jump_if_not_less(skip_set);
+                },
+                (None, Some(rs)) => {
+                  self.cmpv_u32(zero, rs);
+                  self.jump_if_not_less(skip_set);
+                },
+                (Some(rt), Some(rs)) => {
+                  self.cmpv_u32(rt, rs);
+                  self.jump_if_not_less(skip_set);
+                },
+              }
+              self.seti_u32(rd, 1);
+              self.jump(end);
+              self.define_label(skip_set);
+              self.seti_u32(rd, 0);
+              self.define_label(end);
+            });
+          },
           0x2B => {
             //SLTU
             let s = get_rs(op);
@@ -187,20 +345,24 @@ impl DynaRec for Recompiler {
             self.reg(d).map(|rd| {
               let skip_set = self.new_label();
               let end = self.new_label();
-              match self.reg(t) {
-                Some(rt) => {
-                  match self.reg(s) {
-                    Some(rs) => {
-                      self.cmpv_u32(rt, rs);
-                      self.jump_if_not_carry(skip_set);
-                    },
-                    None => {
-                      self.testv_u32(rt, rt);
-                      self.jump_if_zero(skip_set);
-                    },
-                  }
+              let zero = self.new_u32();
+              self.seti_u32(zero, 0);
+              match (self.reg(t), self.reg(s)) {
+                (None, None) => {
+                  self.jump(skip_set);
                 },
-                None => (),
+                (Some(rt), None) => {
+                  self.cmpv_u32(rt, zero);
+                  self.jump_if_not_carry(skip_set);
+                },
+                (None, Some(rs)) => {
+                  self.cmpv_u32(zero, rs);
+                  self.jump_if_not_carry(skip_set);
+                },
+                (Some(rt), Some(rs)) => {
+                  self.cmpv_u32(rt, rs);
+                  self.jump_if_not_carry(skip_set);
+                },
               }
               self.seti_u32(rd, 1);
               self.jump(end);
@@ -282,25 +444,53 @@ impl DynaRec for Recompiler {
         let imm16 = get_imm16(op).half_sign_extended();
         self.reg(t).map(|rt| {
           let skip_set = self.new_label();
-          self.seti_u32(rt, 0);
-          match (imm16, self.reg(s)) {
-            (0,_) => (),
-            (_, None) => {
-              let temp = self.new_u32();
-              self.seti_u32(temp, imm16);
-              self.testv_u32(temp, temp);
-              self.jump_if_zero(skip_set);
-              self.seti_u32(rt, 1);
-            },
-            (_, Some(rs)) => {
-              let temp = self.new_u32();
-              self.seti_u32(temp, imm16);
+          let end = self.new_label();
+          let zero = self.new_u32();
+          let temp = self.new_u32();
+          self.seti_u32(zero, 0);
+          self.seti_u32(temp, imm16);
+          match self.reg(s) {
+            Some(rs) => {
               self.cmpv_u32(temp, rs);
-              self.jump_if_not_carry(skip_set);
-              self.seti_u32(rt, 1);
+            },
+            None => {
+              self.cmpv_u32(temp, zero);
             },
           }
+          self.jump_if_not_less(skip_set);
+          self.seti_u32(rt, 1);
+          self.jump(end);
           self.define_label(skip_set);
+          self.seti_u32(rt, 0);
+          self.define_label(end);
+        });
+      },
+      0x0B => {
+        //SLTIU
+        let s = get_rs(op);
+        let t = get_rt(op);
+        let imm16 = get_imm16(op).half_sign_extended();
+        self.reg(t).map(|rt| {
+          let skip_set = self.new_label();
+          let end = self.new_label();
+          let zero = self.new_u32();
+          let temp = self.new_u32();
+          self.seti_u32(zero, 0);
+          self.seti_u32(temp, imm16);
+          match self.reg(s) {
+            Some(rs) => {
+              self.cmpv_u32(temp, rs);
+            },
+            None => {
+              self.cmpv_u32(temp, zero);
+            },
+          }
+          self.jump_if_not_carry(skip_set);
+          self.seti_u32(rt, 1);
+          self.jump(end);
+          self.define_label(skip_set);
+          self.seti_u32(rt, 0);
+          self.define_label(end);
         });
       },
       0x0C => {
@@ -416,7 +606,7 @@ impl DynaRec for Recompiler {
       },
       _ => todo!("primary field {:#x}", get_primary_field(op)),
     };
-    false
+    NextOp::Standard
   }
   fn emit_load(&mut self, op: u32, function_ptr: usize) {
     let t = get_rt(op);
@@ -502,7 +692,7 @@ impl DynaRec for Recompiler {
       }
     });
   }
-  fn emit_jump_imm26(&mut self, insn: &Insn, initial_pc: u32) -> bool {
+  fn emit_jump_imm26(&mut self, insn: &Insn, initial_pc: u32) -> NextOp {
     let op = insn.op();
     let offset = insn.offset();
     let imm26 = get_imm26(op);
@@ -513,9 +703,9 @@ impl DynaRec for Recompiler {
     let jit_pc = self.reg(R3000::PC_IDX as u32).expect("");
     self.seti_u32(jit_pc, dest);
     self.set_carry();
-    true
+    NextOp::DelaySlot
   }
-  fn emit_jump_reg(&mut self, insn: &Insn, initial_pc: u32) -> bool {
+  fn emit_jump_reg(&mut self, insn: &Insn, initial_pc: u32) -> NextOp {
     let op = insn.op();
     let jit_pc = self.reg(R3000::PC_IDX as u32).expect("");
     let s = get_rs(op);
@@ -529,9 +719,9 @@ impl DynaRec for Recompiler {
       },
     }
     self.set_carry();
-    true
+    NextOp::DelaySlot
   }
-  fn emit_branch_equal(&mut self, insn: &Insn, initial_pc: u32, invert: bool) -> bool {
+  fn emit_branch_equal(&mut self, insn: &Insn, initial_pc: u32, invert: bool) -> NextOp {
     let op = insn.op();
     let offset = insn.offset();
     let imm16 = get_imm16(op);
@@ -562,9 +752,9 @@ impl DynaRec for Recompiler {
     self.set_carry();
 
     self.define_label(next_op);
-    true
+    NextOp::DelaySlot
   }
-  fn emit_branch_gtz(&mut self, insn: &Insn, initial_pc: u32, invert: bool) -> bool {
+  fn emit_branch_gtz(&mut self, insn: &Insn, initial_pc: u32, invert: bool) -> NextOp {
     let op = insn.op();
     let offset = insn.offset();
     let imm16 = get_imm16(op);
@@ -597,9 +787,9 @@ impl DynaRec for Recompiler {
     self.clear_carry();
 
     self.define_label(next_op);
-    true
+    NextOp::DelaySlot
   }
-  fn emit_branch_gez(&mut self, insn: &Insn, initial_pc: u32, invert: bool) -> bool {
+  fn emit_branch_gez(&mut self, insn: &Insn, initial_pc: u32, invert: bool) -> NextOp {
     let op = insn.op();
     let offset = insn.offset();
     let imm16 = get_imm16(op);
@@ -614,6 +804,11 @@ impl DynaRec for Recompiler {
       None => self.clear_signed(),
       Some(rs) => self.testv_u32(rs, rs),
     }
+    //self.bind(jit_pc);
+    //if op == 0x4410005 {
+    //  self.set_arg1(jit_pc);
+    //  self.call_ptr(Block::DEBUG_POS);
+    //}
     if invert {
       self.jump_if_not_signed(skip_jump);
     } else {
@@ -627,6 +822,10 @@ impl DynaRec for Recompiler {
     self.clear_carry();
 
     self.define_label(next_op);
-    true
+    //if op == 0x4410005 {
+    //  self.set_arg1(jit_pc);
+    //  self.call_ptr(Block::DEBUG_POS);
+    //}
+    NextOp::DelaySlot
   }
 }

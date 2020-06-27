@@ -54,7 +54,7 @@ impl Insn {
             },
             0x18 | 0x19 | 0x1A | 0x1B => {
               //MULT, MULTU, DIV, DIVU
-              (vec![get_rs(op), get_rt(op)], None, None)
+              (vec![get_rs(op), get_rt(op), R3000::HI_IDX, R3000::LO_IDX], None, None)
             },
             0x20 | 0x21 | 0x22 | 0x23 | 0x24 |
             0x25 | 0x26 | 0x27 | 0x2A | 0x2B => {

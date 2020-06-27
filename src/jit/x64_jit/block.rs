@@ -7,6 +7,12 @@ use crate::console::Console;
 use crate::console::r3000::R3000;
 use crate::jit::x64_jit::dynarec::DynaRec;
 
+pub enum NextOp {
+  Standard,
+  DelaySlot,
+  Exit,
+}
+
 pub struct Block {
   pub function: JITFn,
   final_phys_pc: u32,
@@ -25,7 +31,8 @@ impl Block {
   pub const READ_BYTE_POS: usize = 8;
   pub const READ_HALF_SIGN_EXTENDED_POS: usize = 9;
   pub const READ_BYTE_SIGN_EXTENDED_POS: usize = 10;
-  pub const DEBUG_POS: usize = 11;
+  pub const GEN_EXCEPTION: usize = 11;
+  pub const DEBUG_POS: usize = 12;
   pub fn new(tagged_opcodes: &Vec<Insn>, console: &Console,
              initial_pc: u32, final_phys_pc: u32,
              nominal_len: u32, logging: bool) -> io::Result<Self> {
@@ -52,7 +59,7 @@ impl Block {
                      initial_pc: u32, logging: bool) -> io::Result<JITFn> {
     let mut inputs = tagged_opcodes.registers();
     inputs.push(R3000::PC_IDX as u32);
-    let mut ptrs = vec![0; 12];
+    let mut ptrs = vec![0; 13];
     ptrs[Block::R3000_REG_POS] = console.r3000.reg_ptr() as u64;
     ptrs[Block::COP0_REG_POS] = console.cop0.reg_ptr() as u64;
     ptrs[Block::CONSOLE_POS] = console as *const Console as u64;
@@ -64,28 +71,38 @@ impl Block {
     ptrs[Block::READ_BYTE_POS] = Console::read_byte as u64;
     ptrs[Block::READ_HALF_SIGN_EXTENDED_POS] = Console::read_half_sign_extended as u64;
     ptrs[Block::READ_BYTE_SIGN_EXTENDED_POS] = Console::read_byte_sign_extended as u64;
+    ptrs[Block::GEN_EXCEPTION] = Console::generate_exception as u64;
     ptrs[Block::DEBUG_POS] = Console::print_value as u64;
     let mut rc = Recompiler::new(&inputs, &ptrs);
-    let mut delay_slot_next = false;
+    let mut next_op = NextOp::Standard;
     let end = rc.new_long_label();
     for insn in tagged_opcodes {
-      let delay_slot = delay_slot_next;
+      let this_op = next_op;
 
       let pcc = rc.new_u32();
       rc.seti_u32(pcc, initial_pc.wrapping_add(insn.offset()).wrapping_sub(4));
+      //rc.seti_u32(pcc, insn.op());
       rc.set_arg1(pcc);
       rc.call_ptr(Block::DEBUG_POS);
 
-      delay_slot_next = rc.emit_insn(insn, initial_pc);
+      next_op = rc.emit_insn(insn, initial_pc);
       rc.process_delayed_write();
-      if delay_slot_next {
-        rc.save_flags();
-      };
-      if delay_slot {
-        rc.prepare_for_exit();
-        rc.load_flags();
-        rc.jump_if_carry(end);
-      };
+      match next_op {
+        NextOp::DelaySlot => rc.save_flags(),
+        NextOp::Exit => {
+          rc.prepare_for_exit();
+          rc.jump(end);
+        },
+        _ => (),
+      }
+      match this_op {
+        NextOp::DelaySlot => {
+          rc.prepare_for_exit();
+          rc.load_flags();
+          rc.jump_if_carry(end);
+        },
+        _ => (),
+      }
     }
     let jit_pc = rc.reg(R3000::PC_IDX as u32).unwrap();
     rc.seti_u32(jit_pc, initial_pc.wrapping_add(4 * tagged_opcodes.len() as u32));
