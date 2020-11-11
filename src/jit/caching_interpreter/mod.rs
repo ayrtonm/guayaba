@@ -34,6 +34,8 @@ impl CachingInterpreter {
       let maybe_block = self.blocks.get(&address);
       match maybe_block {
         Some(block) => {
+    //println!("ran block from {:#x}", address);
+    let init_pc = self.console.r3000.pc();
           let t0 = Instant::now();
           let stubs = block.stubs();
           //this is updated if we updated early
@@ -71,6 +73,8 @@ impl CachingInterpreter {
             }
             self.console.cd.exec_command();
           }
+    let final_pc = self.console.r3000.pc();
+    println!("ran block from {:#x} to {:#x}", init_pc, final_pc);
           refresh_timer -= steps_taken as i64;
           if refresh_timer < 0 {
             self.console.screen.refresh_window();

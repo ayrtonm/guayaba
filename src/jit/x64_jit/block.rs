@@ -13,8 +13,17 @@ pub enum NextOp {
   Exit,
 }
 
+macro_rules! debug {
+  ($self:expr, $op:expr, $op_value:expr, $reg:expr) => {
+    if $op == $op_value  {
+      $self.set_arg1($reg);
+      $self.call_ptr(Block::DEBUG_POS);
+    }
+  };
+}
+
 pub struct Block {
-  pub function: JITFn,
+  function: JITFn,
   final_phys_pc: u32,
   nominal_len: u32,
 }
@@ -43,6 +52,9 @@ impl Block {
       final_phys_pc,
       nominal_len,
     })
+  }
+  pub fn run(&self) {
+    self.function.run();
   }
   pub fn new_optimized(tagged_opcodes: &Vec<Insn>, console: &Console,
                        initial_pc: u32, final_phys_pc: u32,
@@ -76,25 +88,41 @@ impl Block {
     let mut rc = Recompiler::new(&inputs, &ptrs);
     let mut next_op = NextOp::Standard;
     let end = rc.new_long_label();
-    for insn in tagged_opcodes {
+    for (n, insn) in tagged_opcodes.iter().enumerate() {
       let this_op = next_op;
 
-      let pcc = rc.new_u32();
-      rc.seti_u32(pcc, initial_pc.wrapping_add(insn.offset()).wrapping_sub(4));
-      //rc.seti_u32(pcc, insn.op());
-      rc.set_arg1(pcc);
-      rc.call_ptr(Block::DEBUG_POS);
+      //let pcc = rc.new_u32();
+      //rc.seti_u32(pcc, initial_pc.wrapping_add(insn.offset()).wrapping_sub(4));
+      ////rc.seti_u32(pcc, insn.op());
+      //rc.set_arg1(pcc);
+      //rc.call_ptr(Block::DEBUG_POS);
 
+      //debug!(rc, insn.op(), 0x14200019, rc.reg(5).unwrap());
+      //debug!(rc, insn.op(), 0xa01821, rc.reg(5).unwrap());
+      //if insn.op() == 0xa01821 { print!("> pre-ADDU ");rc.debug(); }
+      //if insn.op() == 0xaf1021 { rc.set_arg1(rc.reg(5).unwrap()); rc.call_ptr(Block::DEBUG_POS); }
       next_op = rc.emit_insn(insn, initial_pc);
-      rc.process_delayed_write();
+      println!("read opcode {:#x} from [{:#x}]",
+               insn.op(),
+               initial_pc.wrapping_add(insn.offset())
+                         .wrapping_sub(4));
+      //if insn.op() == 0xaf1021 { rc.set_arg1(rc.reg(5).unwrap()); rc.call_ptr(Block::DEBUG_POS); }
+      //if insn.op() == 0xa01821 { print!("> post-ADDU ");rc.debug(); }
       match next_op {
-        NextOp::DelaySlot => rc.save_flags(),
+        NextOp::DelaySlot => {
+          rc.save_flags();
+          rc.process_delayed_write();
+        },
         NextOp::Exit => {
+          rc.process_delayed_write();
           rc.prepare_for_exit();
           rc.jump(end);
         },
-        _ => (),
+        _ => {
+          rc.process_delayed_write();
+        },
       }
+      //if insn.op() == 0xa01821 { print!("> post-save_flags ADDU ");rc.debug(); }
       match this_op {
         NextOp::DelaySlot => {
           rc.prepare_for_exit();
@@ -103,14 +131,15 @@ impl Block {
         },
         _ => (),
       }
+      //if insn.op() == 0xa01821 { print!("> post-exit ADDU ");rc.debug(); }
     }
     let jit_pc = rc.reg(R3000::PC_IDX as u32).unwrap();
     rc.seti_u32(jit_pc, initial_pc.wrapping_add(4 * tagged_opcodes.len() as u32));
     rc.prepare_for_exit();
     rc.define_label(end);
     let jitfn = rc.compile().unwrap();
-    /*println!("recompiled {} instructions starting at {:#x} into {} bytes",
-               tagged_opcodes.len(), initial_pc, jitfn.size());*/
+    //println!("recompiled {} instructions starting at {:#x} into {} bytes",
+    //           tagged_opcodes.len(), initial_pc, jitfn.size());
     Ok(jitfn)
   }
 }

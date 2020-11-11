@@ -36,7 +36,10 @@ impl X64JIT {
       match maybe_block {
         Some(block) => {
           let t0 = Instant::now();
-          block.function.run();
+          let init_pc = self.console.r3000.pc();
+          block.run();
+          let final_pc = self.console.r3000.pc();
+          //println!("ran block from {:#x} to {:#x}", init_pc, final_pc);
           match self.console.gpu.exec_next_gp0_command() {
             Some(object) => self.console.screen.draw(object),
             None => (),
@@ -50,7 +53,8 @@ impl X64JIT {
           self.console.i += block.nominal_len();
           n.map(|n| {
             if self.console.i >= n {
-              panic!("Executed {} steps with {:?} of compile time and {:?} of run time", self.console.i, compile_time, run_time);
+              panic!("Executed {} steps with {:?} of compile time and {:?} of run time",
+                     self.console.i, compile_time, run_time);
             };
           });
           let block_invalidated = self.console

@@ -19,6 +19,15 @@ pub trait DynaRec {
   fn emit_branch_gez(&mut self, insn: &Insn, initial_pc: u32, invert: bool) -> NextOp;
 }
 
+macro_rules! debug {
+  ($self:expr, $op:expr, $op_value:expr, $reg:expr) => {
+    if $op == $op_value  {
+      $self.set_arg1($reg);
+      $self.call_ptr(Block::DEBUG_POS);
+    }
+  };
+}
+
 impl DynaRec for Recompiler {
   fn emit_insn(&mut self, insn: &Insn, initial_pc: u32) -> NextOp {
     let op = insn.op();
@@ -213,7 +222,8 @@ impl DynaRec for Recompiler {
                 },
               }
             });
-            //return true
+            self.clear_carry();
+            return NextOp::DelaySlot;
           },
           0x21 => {
             //ADDU
@@ -409,6 +419,11 @@ impl DynaRec for Recompiler {
         //JAL
         let ret = initial_pc.wrapping_add(offset).wrapping_add(4);
         let ra = self.reg(R3000::RA_IDX as u32).expect("");
+            //if insn.op() == 0xc001ac8 {
+            //  println!("got here");
+            //  self.set_arg1(self.reg(R3000::PC_IDX as u32).unwrap());
+            //  self.call_ptr(Block::DEBUG_POS);
+            //}
         self.seti_u32(ra, ret);
         return self.emit_jump_imm26(insn, initial_pc);
       },
@@ -431,7 +446,8 @@ impl DynaRec for Recompiler {
       0x08 => {
         //ADDI
         self.emit_addi(op);
-        //return true
+        self.clear_carry();
+        return NextOp::DelaySlot;
       },
       0x09 => {
         //ADDIU
@@ -701,6 +717,7 @@ impl DynaRec for Recompiler {
     let pc_hi_bits = pc & 0xf000_0000;
     let dest = pc_hi_bits.wrapping_add(shifted_imm26);
     let jit_pc = self.reg(R3000::PC_IDX as u32).expect("");
+    println!("emitted jmp to {:#x}", dest);
     self.seti_u32(jit_pc, dest);
     self.set_carry();
     NextOp::DelaySlot
@@ -805,10 +822,6 @@ impl DynaRec for Recompiler {
       Some(rs) => self.testv_u32(rs, rs),
     }
     //self.bind(jit_pc);
-    //if op == 0x4410005 {
-    //  self.set_arg1(jit_pc);
-    //  self.call_ptr(Block::DEBUG_POS);
-    //}
     if invert {
       self.jump_if_not_signed(skip_jump);
     } else {
@@ -822,10 +835,6 @@ impl DynaRec for Recompiler {
     self.clear_carry();
 
     self.define_label(next_op);
-    //if op == 0x4410005 {
-    //  self.set_arg1(jit_pc);
-    //  self.call_ptr(Block::DEBUG_POS);
-    //}
     NextOp::DelaySlot
   }
 }
