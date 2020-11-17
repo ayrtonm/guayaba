@@ -24,8 +24,8 @@ fn check_flag(args: &Vec<String>, flags: &[&str]) -> bool {
       .any(|s| flags.iter().any(|t| *t == *s))
 }
 
-const DEFAULT_X: u32 = 640;
-const DEFAULT_Y: u32 = 480;
+const DEFAULT_X: u32 = 1024;
+const DEFAULT_Y: u32 = 512;
 const DEFAULT_RESOLUTION: [u32; 2] = [DEFAULT_X, DEFAULT_Y];
 //print help
 const HELP_FLAGS: [&str;2] = ["-h", "--help"];

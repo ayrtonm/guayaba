@@ -8,8 +8,8 @@ out VS_OUTPUT {
 } OUT;
 
 void main() {
-  float xpos = (float(vert_position.x) / 320) - 1.0;
-  float ypos = 1.0 - (float(vert_position.y) / 240);
+  float xpos = (float(vert_position.x) / 512) - 1.0;
+  float ypos = 1.0 - (float(vert_position.y) / 256);
   gl_Position = vec4(xpos, ypos, 0.0, 1.0);
   OUT.Color = vec3(float(vert_color.r) / 255,
                float(vert_color.g) / 255,
