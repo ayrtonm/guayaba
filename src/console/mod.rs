@@ -10,7 +10,10 @@ use screen::Screen;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use std::collections::{HashSet, VecDeque};
+use std::convert::TryInto;
+use std::fs::{metadata, File};
 use std::io;
+use std::io::Read;
 
 mod cd;
 pub mod cop0;
@@ -119,9 +122,42 @@ impl Console {
     pub fn new(
         bios_filename: &String, infile: Option<&String>, gpu_logging: bool, wx: u32, wy: u32,
     ) -> io::Result<Self> {
-        let r3000 = R3000::new();
+        let mut r3000 = R3000::new();
         let cop0: Cop0 = Default::default();
-        let memory = Memory::new(bios_filename)?;
+        let mut memory = Memory::new(bios_filename)?;
+
+        infile.map(|name| {
+            let mut file = File::open(name).expect("Unable to open input file");
+            let filesize = metadata(name)
+                .expect("Unable to get input file metadata")
+                .len();
+            if filesize % 0x800 != 0 {
+                println!("Warning: PSEXE has an invalid filesize");
+            }
+            let mut buf = Vec::new();
+            file.read_to_end(&mut buf).unwrap();
+            let words = buf
+                .chunks(4)
+                .map(|c| {
+                    u32::from_ne_bytes(c.try_into().expect("Couldn't turn 4-byte chunk into a u32"))
+                })
+                .collect::<Vec<u32>>();
+            *r3000.pc_mut() = words[0x10 * 4];
+            r3000.nth_reg_mut(28).maybe_set(words[0x14 * 4]);
+            r3000
+                .nth_reg_mut(29)
+                .maybe_set(words[0x30 * 4] + words[0x34 * 4]);
+            r3000
+                .nth_reg_mut(30)
+                .maybe_set(words[0x30 * 4] + words[0x34 * 4]);
+
+            let dest_addr = words[0x18 * 4];
+            let filesize = words[0x1C * 4] >> 2;
+            for (n, word) in words[0x800..].iter().enumerate() {
+                memory.write_word(dest_addr + (4 * n as u32), *word);
+            }
+        });
+
         let gpu = GPU::new(gpu_logging);
         let gte = Default::default();
         let cd = CD::new(infile);
