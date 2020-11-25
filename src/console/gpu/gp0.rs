@@ -144,6 +144,19 @@ impl GPU {
                         let mask = command.lowest_bits(2) << 11;
                         self.gpustat.as_mut().clear(11).clear(12).set_mask(mask);
                     },
+                    0x60 => {
+                        let xoffset = command.get_xpos_copy(1) as i16;
+                        let yoffset = command.get_ypos_copy(1) as i16;
+                        let width = command.get_xpos_copy(2) as i16;
+                        let height = command.get_ypos_copy(2) as i16;
+                        let xpos = vec![xoffset, xoffset, xoffset + width, xoffset + width];
+                        let ypos = vec![yoffset, yoffset + height, yoffset, yoffset + height];
+                        if GPU::object_within_limits(&xpos, &ypos) {
+                            let positions = self.zip_positions(xpos, ypos);
+                            let monochrome = command.get_monochrome();
+                            return Some(Drawable::new(positions, monochrome))
+                        }
+                    },
                     _ => {
                         todo!("implement this GP0 command {:#x}", command.id());
                     },
