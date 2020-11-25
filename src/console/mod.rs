@@ -142,18 +142,18 @@ impl Console {
                     u32::from_ne_bytes(c.try_into().expect("Couldn't turn 4-byte chunk into a u32"))
                 })
                 .collect::<Vec<u32>>();
-            *r3000.pc_mut() = words[0x10 * 4];
-            r3000.nth_reg_mut(28).maybe_set(words[0x14 * 4]);
+            *r3000.pc_mut() = words[0x10 / 4];
+            r3000.nth_reg_mut(28).maybe_set(words[0x14 / 4]);
             r3000
                 .nth_reg_mut(29)
-                .maybe_set(words[0x30 * 4] + words[0x34 * 4]);
+                .maybe_set(words[0x30 / 4] + words[0x34 / 4]);
             r3000
                 .nth_reg_mut(30)
-                .maybe_set(words[0x30 * 4] + words[0x34 * 4]);
+                .maybe_set(words[0x30 / 4] + words[0x34 / 4]);
 
-            let dest_addr = words[0x18 * 4];
-            let filesize = words[0x1C * 4] >> 2;
-            for (n, word) in words[0x800..].iter().enumerate() {
+            let dest_addr = words[0x18 / 4];
+            let filesize = words[0x1C / 4] >> 2;
+            for (n, word) in words[0x800 / 4..].iter().enumerate() {
                 memory.write_word(dest_addr + (4 * n as u32), *word);
             }
         });

@@ -267,13 +267,15 @@ impl Memory {
         bios_file.seek(SeekFrom::Start(0))?;
         bios_file.read_exact(&mut bios_contents)?;
         let bios = Box::new(bios_contents);
+        let mut main_ram = vec![0; 2 * MB].into_boxed_slice();
+        main_ram[0..0x1_0000].copy_from_slice(&bios[0x1_0000..0x2_0000]);
         //initialize I/O ports
         let mut io_ports = [0; 8 * KB];
         io_ports
             .as_mut()
             .write_word(Memory::DMA_CONTROL - Memory::IO_PORTS, 0x0765_4321);
         Ok(Memory {
-            main_ram: vec![0; 2 * MB].into_boxed_slice(),
+            main_ram,
             expansion_1: vec![0; 8 * MB].into_boxed_slice(),
             scratchpad: [0; KB],
             io_ports,
